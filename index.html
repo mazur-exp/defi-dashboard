@@ -278,7 +278,7 @@
   <div class="auth-box">
     <h2>🔒 DeFi CGS Dashboard</h2>
     <p>Введите пароль для доступа</p>
-    <form id="authForm" onsubmit="return tryAuth()" method="post" action="">
+    <form id="authForm" action="javascript:void(0)">
       <input type="text" id="authUser" name="username" value="defi-dashboard" autocomplete="username" style="position:absolute;opacity:0;height:0;pointer-events:none;" tabindex="-1" aria-hidden="true">
       <input type="password" id="authPassword" name="password" placeholder="Пароль" autocomplete="current-password" autofocus>
       <button type="submit" class="auth-btn">Войти</button>
@@ -508,14 +508,17 @@ async function tryAuth() {
     document.getElementById('mainApp').style.display = '';
     sessionStorage.setItem('defi_auth', '1');
     startApp();
-    return false; // prevent form submission
   } else {
     document.getElementById('authError').style.display = 'block';
     document.getElementById('authPassword').value = '';
     document.getElementById('authPassword').focus();
-    return false;
   }
 }
+
+document.getElementById('authForm').addEventListener('submit', function(e) {
+  e.preventDefault();
+  tryAuth();
+});
 
 // Check session
 if (sessionStorage.getItem('defi_auth') === '1') {
