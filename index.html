@@ -13,6 +13,19 @@
 <title>DeFi Portfolio — CGS Dashboard</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
 <style>
+  /* ===== Auth Screen ===== */
+  .auth-screen { position: fixed; inset: 0; background: #0d1117; z-index: 9999; display: flex; align-items: center; justify-content: center; }
+  .auth-screen.hidden { display: none; }
+  .auth-box { background: #161b22; border: 1px solid #30363d; border-radius: 16px; padding: 40px; width: 340px; text-align: center; }
+  .auth-box h2 { color: #e6edf3; font-size: 20px; margin-bottom: 8px; }
+  .auth-box p { color: #8b949e; font-size: 13px; margin-bottom: 24px; }
+  .auth-box input { width: 100%; padding: 10px 14px; background: #0d1117; border: 1px solid #30363d; border-radius: 8px; color: #e6edf3; font-size: 15px; outline: none; margin-bottom: 16px; }
+  .auth-box input:focus { border-color: #58a6ff; }
+  .auth-box .auth-btn { width: 100%; padding: 10px; background: #58a6ff; color: #fff; border: none; border-radius: 8px; font-size: 15px; font-weight: 600; cursor: pointer; }
+  .auth-box .auth-btn:hover { opacity: 0.85; }
+  .auth-box .auth-error { color: #f85149; font-size: 13px; margin-top: 8px; display: none; }
+</style>
+<style>
   :root {
     --bg: #0d1117; --card: #161b22; --border: #30363d;
     --text: #e6edf3; --dim: #8b949e; --accent: #58a6ff;
@@ -188,6 +201,20 @@
 </style>
 </head>
 <body>
+
+<!-- Auth Screen -->
+<div class="auth-screen" id="authScreen">
+  <div class="auth-box">
+    <h2>🔒 DeFi CGS Dashboard</h2>
+    <p>Введите пароль для доступа</p>
+    <input type="password" id="authPassword" placeholder="Пароль" autocomplete="off" autofocus>
+    <button class="auth-btn" onclick="tryAuth()">Войти</button>
+    <div class="auth-error" id="authError">Неверный пароль</div>
+  </div>
+</div>
+
+<!-- Main App (hidden until auth) -->
+<div id="mainApp" style="display:none;">
 
 <div class="header">
   <h1>🏦 DeFi Portfolio — <span>CGS Dashboard</span></h1>
@@ -386,6 +413,48 @@
 
   <div class="mvs-refresh-note" id="mvsRefreshNote">Данные ещё не загружены</div>
 </div><!-- /tab-mvs -->
+
+</div><!-- /mainApp -->
+
+<script>
+// ======= AUTH =======
+const AUTH_HASH = '757ab6f73171202a94e371d3ed88239660807c0b022adbf87d484a0b37f2df3a';
+
+async function sha256(text) {
+  const data = new TextEncoder().encode(text);
+  const hash = await crypto.subtle.digest('SHA-256', data);
+  return Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+async function tryAuth() {
+  const pwd = document.getElementById('authPassword').value;
+  const hash = await sha256(pwd);
+  if (hash === AUTH_HASH) {
+    document.getElementById('authScreen').classList.add('hidden');
+    document.getElementById('mainApp').style.display = '';
+    sessionStorage.setItem('defi_auth', '1');
+    startApp();
+  } else {
+    document.getElementById('authError').style.display = 'block';
+    document.getElementById('authPassword').value = '';
+    document.getElementById('authPassword').focus();
+  }
+}
+
+// Enter key
+document.getElementById('authPassword').addEventListener('keydown', e => {
+  if (e.key === 'Enter') tryAuth();
+});
+
+// Check session
+if (sessionStorage.getItem('defi_auth') === '1') {
+  document.getElementById('authScreen').classList.add('hidden');
+  document.getElementById('mainApp').style.display = '';
+  // defer startApp to after CONFIG is defined
+  window._autoStart = true;
+}
+
+</script>
 
 <script>
 // ======= CONFIGURATION =======
@@ -1770,10 +1839,15 @@ async function loadMVSData() {
 }
 
 // ======= INIT =======
-initProviders().then(() => {
-  refreshAll();
-  setInterval(refreshAll, CONFIG.refreshInterval);
-});
+function startApp() {
+  initProviders().then(() => {
+    refreshAll();
+    setInterval(refreshAll, CONFIG.refreshInterval);
+  });
+}
+
+// Auto-start if session already authenticated
+if (window._autoStart) startApp();
 
 // ======= PWA SERVICE WORKER =======
 if ('serviceWorker' in navigator) {
