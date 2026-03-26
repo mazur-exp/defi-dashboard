@@ -198,6 +198,67 @@
   .zone-badge.growth { background: rgba(88,166,255,0.12); color: var(--growth); }
   .zone-badge.yield { background: rgba(210,153,34,0.12); color: var(--yield); }
   .zone-badge.stability { background: rgba(63,185,80,0.12); color: var(--stability); }
+
+  /* ===== Table Scroll Wrapper ===== */
+  .table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; margin: 0 -8px; padding: 0 8px; }
+
+  /* ===== Mobile Responsive ===== */
+  @media (max-width: 480px) {
+    body { padding: 12px; }
+
+    /* Header: stack vertically */
+    .header { flex-direction: column; align-items: flex-start; gap: 8px; }
+    .header h1 { font-size: 18px; }
+    .header-prices { order: -1; width: 100%; justify-content: flex-start; }
+    .hp-price { font-size: 14px; }
+    .hp-change { font-size: 10px; }
+    .refresh-info { font-size: 12px; width: 100%; justify-content: flex-end; }
+
+    /* Tab bar: smaller */
+    .tab-bar { width: 100%; }
+    .tab-btn { padding: 8px 12px; font-size: 12px; flex: 1; text-align: center; }
+
+    /* Cards */
+    .grid { grid-template-columns: 1fr; gap: 12px; }
+    .card { padding: 14px; }
+    .card-title { font-size: 11px; }
+
+    /* Triggers: single column on very small screens */
+    #triggersGrid { grid-template-columns: 1fr !important; }
+
+    /* P&L table */
+    .pnl-table { font-size: 11px; min-width: 500px; }
+    .pnl-table th, .pnl-table td { padding: 5px 4px; }
+
+    /* History table */
+    .history-table { font-size: 11px; min-width: 580px; }
+    .history-table th, .history-table td { padding: 4px 4px; }
+
+    /* MVS tables */
+    .mvs-table { font-size: 11px; min-width: 480px; }
+    .mvs-table th, .mvs-table td { padding: 6px 6px; }
+    .mvs-zones { flex-wrap: wrap; }
+    .mvs-zone-btn { font-size: 12px; padding: 10px 8px; }
+
+    /* Zone details */
+    .zone-detail-row { font-size: 13px; }
+    .metric-label { font-size: 13px; }
+    .metric-value { font-size: 14px; }
+    .price-value { font-size: 20px; }
+
+    /* DCA progress */
+    .dca-progress { height: 20px; }
+
+    /* CGS params */
+    .cgs-param { flex-wrap: wrap; gap: 4px; }
+    .cgs-param-value { font-size: 12px; }
+  }
+
+  @media (max-width: 360px) {
+    .header h1 { font-size: 16px; }
+    .tab-btn { padding: 6px 8px; font-size: 11px; }
+    .pnl-table { min-width: 440px; }
+  }
 </style>
 </head>
 <body>
@@ -1292,7 +1353,7 @@ function renderPositionsPnL() {
   if (!p.ETH && !p.BTC) { container.innerHTML = '<span class="loading-text">Ожидание цен...</span>'; return; }
 
   const growthPositions = CONFIG.positions.filter(pos => pos.zone === 'growth');
-  let html = `<table class="pnl-table"><thead><tr>
+  let html = `<div class="table-scroll"><table class="pnl-table"><thead><tr>
     <th>Позиция</th><th>Кол-во</th><th>Вход $</th><th>Сейчас $</th><th>Стоимость</th><th>P&L $</th><th>P&L %</th><th>Дата входа</th>
   </tr></thead><tbody>`;
 
@@ -1329,7 +1390,7 @@ function renderPositionsPnL() {
     <td class="${cls}">${sign}${fmtUSD(totalPnL)}</td>
     <td class="${cls}">${sign}${fmt(totalPnLPct,1)}%</td>
     <td></td>
-  </tr></tbody></table>`;
+  </tr></tbody></table></div>`;
 
   // Weighted average entry
   const totalETH = growthPositions.filter(p => p.asset === 'ETH').reduce((s, p) => s + p.qty, 0);
@@ -1490,7 +1551,7 @@ function renderTxHistory() {
   if (!container) return;
 
   const history = CONFIG.history;
-  let html = `<table class="history-table"><thead><tr>
+  let html = `<div class="table-scroll"><table class="history-table"><thead><tr>
     <th>Дата</th><th>Тип</th><th>Актив</th><th>Кол-во</th><th>Цена</th><th>Сумма</th><th>Зона</th><th>Примечание</th>
   </tr></thead><tbody>`;
 
@@ -1514,7 +1575,7 @@ function renderTxHistory() {
     </tr>`;
   });
 
-  html += `</tbody></table>`;
+  html += `</tbody></table></div>`;
 
   // Summary
   const totalInvested = history.filter(tx => tx.type !== 'borrow').reduce((s, tx) => s + (tx.usd || 0), 0);
@@ -1654,7 +1715,7 @@ function renderMVSTable(pools, containerId, emptyMsg) {
   const el = document.getElementById(containerId);
   if (!pools.length) { el.innerHTML = `<div class="mvs-loading">${emptyMsg || 'Нет подходящих инструментов'}</div>`; return; }
 
-  let html = `<table class="mvs-table"><thead><tr>
+  let html = `<div class="table-scroll"><table class="mvs-table"><thead><tr>
     <th>Протокол</th><th>Пул</th><th>Сеть</th><th>APY</th><th>Base APY</th><th>Reward</th><th>TVL</th>
   </tr></thead><tbody>`;
   pools.forEach(p => {
@@ -1671,7 +1732,7 @@ function renderMVSTable(pools, containerId, emptyMsg) {
       <td class="mvs-tvl">${fmtShort(p.tvlUsd)}</td>
     </tr>`;
   });
-  html += '</tbody></table>';
+  html += '</tbody></table></div>';
   el.innerHTML = html;
 }
 
@@ -1684,7 +1745,7 @@ function renderPendleTable(markets, containerId, filter) {
   const filtered = markets.filter(filter).sort((a, b) => (b.impliedApy || 0) - (a.impliedApy || 0)).slice(0, 15);
   if (!filtered.length) { el.innerHTML = '<div class="mvs-loading">Нет активных PT рынков</div>'; return; }
 
-  let html = `<table class="mvs-table"><thead><tr>
+  let html = `<div class="table-scroll"><table class="mvs-table"><thead><tr>
     <th>Рынок</th><th>Сеть</th><th>Implied APY</th><th>Underlying APY</th><th>Ликвидность</th><th>Экспирация</th>
   </tr></thead><tbody>`;
   filtered.forEach(m => {
@@ -1707,7 +1768,7 @@ function renderPendleTable(markets, containerId, filter) {
       <td style="font-size:12px;color:var(--dim)">${expiry}</td>
     </tr>`;
   });
-  html += '</tbody></table>';
+  html += '</tbody></table></div>';
   el.innerHTML = html;
 }
 
