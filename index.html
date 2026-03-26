@@ -1,0 +1,1788 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="DeFi CGS">
+<meta name="theme-color" content="#0d1117">
+<meta name="description" content="DeFi Portfolio — Capital Growth Strategy Dashboard">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<title>DeFi Portfolio — CGS Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
+<style>
+  :root {
+    --bg: #0d1117; --card: #161b22; --border: #30363d;
+    --text: #e6edf3; --dim: #8b949e; --accent: #58a6ff;
+    --green: #3fb950; --red: #f85149; --yellow: #d29922; --purple: #bc8cff;
+    --growth: #58a6ff; --yield: #d29922; --stability: #3fb950;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); padding: 20px; min-height: 100vh; }
+  .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; padding-bottom: 16px; border-bottom: 1px solid var(--border); }
+  .header h1 { font-size: 22px; font-weight: 600; }
+  .header h1 span { color: var(--accent); }
+  .refresh-info { color: var(--dim); font-size: 13px; display: flex; align-items: center; gap: 8px; }
+  .refresh-info .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); display: inline-block; animation: pulse 2s infinite; }
+  .refresh-info.error .dot { background: var(--red); animation: none; }
+  .refresh-info.loading .dot { background: var(--yellow); }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 16px; margin-bottom: 16px; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 20px; }
+  .card-title { font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: var(--dim); margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
+  .card-title .icon { font-size: 16px; }
+
+  .price-row { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 10px; }
+  .price-label { color: var(--dim); font-size: 14px; }
+  .price-value { font-size: 24px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .price-value.btc { color: #f7931a; }
+  .price-value.eth { color: #627eea; }
+
+  .metric { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--border); }
+  .metric:last-child { border-bottom: none; }
+  .metric-label { color: var(--dim); font-size: 14px; }
+  .metric-value { font-size: 15px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .metric-value.safe { color: var(--green); }
+  .metric-value.warn { color: var(--yellow); }
+  .metric-value.danger { color: var(--red); }
+
+  .zone-bar { display: flex; height: 32px; border-radius: 8px; overflow: hidden; margin: 12px 0; }
+  .zone-bar div { display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600; color: #fff; min-width: 40px; transition: width 0.5s ease; }
+  .zone-bar .growth { background: var(--growth); }
+  .zone-bar .yield { background: var(--yield); }
+  .zone-bar .stability { background: var(--stability); }
+
+  .zone-legend { display: flex; gap: 16px; margin-top: 8px; flex-wrap: wrap; }
+  .zone-legend-item { display: flex; align-items: center; gap: 6px; font-size: 13px; }
+  .zone-dot { width: 10px; height: 10px; border-radius: 3px; }
+
+  .zone-detail { margin-top: 12px; }
+  .zone-detail-row { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; font-size: 14px; }
+  .zone-detail-row .label { color: var(--dim); }
+  .zone-detail-row .target { color: var(--dim); font-size: 12px; }
+
+  .trigger-item { padding: 8px 12px; border-radius: 8px; margin-bottom: 6px; display: flex; justify-content: space-between; align-items: center; font-size: 13px; }
+  .trigger-item.active { background: rgba(248,81,73,0.15); border: 1px solid rgba(248,81,73,0.3); }
+  .trigger-item.passed { background: rgba(63,185,80,0.1); border: 1px solid rgba(63,185,80,0.2); color: var(--dim); }
+  .trigger-item.pending { background: rgba(139,148,158,0.08); border: 1px solid var(--border); }
+  .trigger-price { font-weight: 600; font-variant-numeric: tabular-nums; }
+
+  .token-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--border); }
+  .token-row:last-child { border-bottom: none; }
+  .token-info { display: flex; align-items: center; gap: 10px; }
+  .token-icon { width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; }
+  .token-name { font-size: 14px; font-weight: 500; }
+  .token-chain { font-size: 11px; color: var(--dim); }
+  .token-balance { text-align: right; }
+  .token-amount { font-size: 14px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .token-usd { font-size: 12px; color: var(--dim); }
+
+  .wide { grid-column: 1 / -1; }
+  .loading-text { color: var(--dim); font-style: italic; font-size: 14px; }
+  .error-text { color: var(--red); font-size: 13px; }
+
+  .btn { background: var(--accent); color: #fff; border: none; padding: 8px 16px; border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 600; }
+  .btn:hover { opacity: 0.85; }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  /* ===== Tab Switcher ===== */
+  .tab-bar { display: flex; gap: 4px; background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 3px; margin-bottom: 20px; width: fit-content; }
+  .tab-btn { padding: 8px 20px; border: none; background: transparent; color: var(--dim); font-size: 14px; font-weight: 600; border-radius: 8px; cursor: pointer; transition: all 0.2s; }
+  .tab-btn.active { background: var(--accent); color: #fff; }
+  .tab-btn:hover:not(.active) { color: var(--text); background: rgba(255,255,255,0.05); }
+  .tab-content { display: none; }
+  .tab-content.active { display: block; }
+
+  /* ===== MVS Scanner ===== */
+  .mvs-zones { display: flex; gap: 4px; margin-bottom: 16px; }
+  .mvs-zone-btn { flex: 1; padding: 12px 16px; border: 1px solid var(--border); background: var(--card); color: var(--dim); font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.2s; text-align: center; border-radius: 10px; }
+  .mvs-zone-btn.active-growth { border-color: var(--growth); color: var(--growth); background: rgba(88,166,255,0.08); }
+  .mvs-zone-btn.active-yield { border-color: var(--yield); color: var(--yield); background: rgba(210,153,34,0.08); }
+  .mvs-zone-btn.active-stability { border-color: var(--stability); color: var(--stability); background: rgba(63,185,80,0.08); }
+  .mvs-zone-content { display: none; }
+  .mvs-zone-content.active { display: block; }
+
+  .mvs-section { margin-bottom: 20px; }
+  .mvs-section-title { font-size: 15px; font-weight: 700; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+  .mvs-section-desc { font-size: 13px; color: var(--dim); margin-bottom: 12px; line-height: 1.5; }
+
+  .mvs-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .mvs-table th { text-align: left; padding: 8px 12px; color: var(--dim); font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid var(--border); font-weight: 600; }
+  .mvs-table td { padding: 10px 12px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+  .mvs-table tr:last-child td { border-bottom: none; }
+  .mvs-table tr:hover td { background: rgba(255,255,255,0.02); }
+  .mvs-apy { font-weight: 700; font-variant-numeric: tabular-nums; }
+  .mvs-apy.high { color: var(--green); }
+  .mvs-apy.mid { color: var(--yellow); }
+  .mvs-apy.low { color: var(--dim); }
+  .mvs-tvl { color: var(--dim); font-variant-numeric: tabular-nums; }
+  .mvs-chain-badge { display: inline-block; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 600; background: rgba(255,255,255,0.06); color: var(--dim); }
+  .mvs-project-badge { display: inline-flex; align-items: center; gap: 4px; font-weight: 600; }
+  .mvs-refresh-note { font-size: 11px; color: var(--dim); margin-top: 8px; }
+  .mvs-loading { color: var(--dim); font-style: italic; padding: 20px; text-align: center; }
+  .mvs-error { color: var(--red); font-size: 13px; padding: 12px; background: rgba(248,81,73,0.08); border-radius: 8px; }
+
+  .aave-bar { height: 20px; background: var(--border); border-radius: 10px; overflow: hidden; margin: 8px 0; position: relative; }
+  .aave-bar-fill { height: 100%; border-radius: 10px; transition: width 0.5s ease; }
+  .aave-bar-label { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); font-size: 11px; font-weight: 600; }
+
+  /* ===== Header Prices ===== */
+  .header-prices { display: flex; gap: 20px; align-items: center; }
+  .hp-item { display: flex; align-items: center; gap: 8px; }
+  .hp-icon { font-size: 16px; }
+  .hp-price { font-size: 16px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .hp-price.btc { color: #f7931a; }
+  .hp-price.eth { color: #627eea; }
+  .hp-changes { display: flex; gap: 6px; }
+  .hp-change { font-size: 11px; font-weight: 600; font-variant-numeric: tabular-nums; padding: 1px 5px; border-radius: 3px; display: flex; align-items: center; gap: 2px; }
+  .hp-change.up { color: var(--green); background: rgba(63,185,80,0.12); }
+  .hp-change.down { color: var(--red); background: rgba(248,81,73,0.12); }
+  .hp-change .period { color: var(--dim); font-weight: 400; font-size: 9px; margin-right: 1px; }
+
+  /* Analytics Tab Styles */
+  .pnl-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .pnl-table th { text-align: left; padding: 6px 8px; color: var(--dim); font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid var(--border); }
+  .pnl-table td { padding: 7px 8px; border-bottom: 1px solid var(--border); font-variant-numeric: tabular-nums; }
+  .pnl-table tr:last-child td { border-bottom: none; }
+  .pnl-table .total-row td { font-weight: 700; border-top: 2px solid var(--border); padding-top: 10px; }
+  .pnl-up { color: var(--green); }
+  .pnl-down { color: var(--red); }
+
+  .yield-block { padding: 10px 0; border-bottom: 1px solid var(--border); }
+  .yield-block:last-child { border-bottom: none; }
+  .yield-label { color: var(--dim); font-size: 12px; margin-bottom: 4px; }
+  .yield-value { font-size: 18px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .yield-sub { font-size: 11px; color: var(--dim); margin-top: 2px; }
+
+  .dca-progress { width: 100%; height: 24px; background: rgba(255,255,255,0.05); border-radius: 12px; overflow: hidden; margin: 12px 0; position: relative; }
+  .dca-progress-fill { height: 100%; border-radius: 12px; transition: width 0.5s ease; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; color: #fff; min-width: 40px; }
+  .dca-progress-label { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); font-size: 10px; color: var(--dim); }
+
+  .cgs-param { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid var(--border); }
+  .cgs-param:last-child { border-bottom: none; }
+  .cgs-param-label { color: var(--dim); font-size: 13px; }
+  .cgs-param-value { font-size: 13px; font-weight: 600; }
+  .cgs-mode { display: inline-block; padding: 3px 10px; border-radius: 6px; font-size: 12px; font-weight: 700; }
+  .cgs-mode.recovery { background: rgba(210,153,34,0.15); color: var(--yellow); }
+  .cgs-mode.normal { background: rgba(63,185,80,0.15); color: var(--green); }
+  .cgs-mode.emergency { background: rgba(248,81,73,0.15); color: var(--red); }
+
+  .history-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .history-table th { text-align: left; padding: 6px 6px; color: var(--dim); font-weight: 600; font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid var(--border); }
+  .history-table td { padding: 5px 6px; border-bottom: 1px solid var(--border); font-variant-numeric: tabular-nums; }
+  .history-table tr:last-child td { border-bottom: none; }
+  .tx-type { display: inline-block; padding: 1px 6px; border-radius: 4px; font-size: 10px; font-weight: 600; text-transform: uppercase; }
+  .tx-type.buy { background: rgba(63,185,80,0.15); color: var(--green); }
+  .tx-type.deposit { background: rgba(88,166,255,0.15); color: var(--accent); }
+  .tx-type.borrow { background: rgba(248,81,73,0.15); color: var(--red); }
+  .tx-type.sell { background: rgba(248,81,73,0.15); color: var(--red); }
+  .tx-link { color: var(--accent); text-decoration: none; font-size: 11px; }
+  .tx-link:hover { text-decoration: underline; }
+  .zone-badge { display: inline-block; padding: 1px 6px; border-radius: 4px; font-size: 10px; font-weight: 600; }
+  .zone-badge.growth { background: rgba(88,166,255,0.12); color: var(--growth); }
+  .zone-badge.yield { background: rgba(210,153,34,0.12); color: var(--yield); }
+  .zone-badge.stability { background: rgba(63,185,80,0.12); color: var(--stability); }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>🏦 DeFi Portfolio — <span>CGS Dashboard</span></h1>
+  <div class="header-prices">
+    <div class="hp-item"><span class="hp-icon">🟠</span><span class="hp-price btc" id="tickerBTC">—</span><div class="hp-changes" id="tickerBTCChanges"></div></div>
+    <div class="hp-item"><span class="hp-icon">🔷</span><span class="hp-price eth" id="tickerETH">—</span><div class="hp-changes" id="tickerETHChanges"></div></div>
+  </div>
+  <div class="refresh-info" id="refreshInfo">
+    <span class="dot"></span>
+    <span id="refreshText">Загрузка...</span>
+    <button class="btn" onclick="refreshAll()" id="refreshBtn">⟳ Обновить</button>
+  </div>
+</div>
+
+<!-- Tab Switcher -->
+<div class="tab-bar">
+  <button class="tab-btn active" onclick="switchTab('portfolio')">📊 Портфель</button>
+  <button class="tab-btn" onclick="switchTab('analytics')">📈 Аналитика</button>
+  <button class="tab-btn" onclick="switchTab('mvs')">🔍 MVS Сканер</button>
+</div>
+
+<!-- Tab: Portfolio (existing dashboard) -->
+<div class="tab-content active" id="tab-portfolio">
+<div class="grid">
+  <!-- Portfolio Zones (first card) -->
+  <div class="card">
+    <div class="card-title"><span class="icon">🎯</span> Зоны портфеля (CGS)</div>
+    <div class="zone-bar" id="zoneBar">
+      <div class="growth" style="width:70%">Growth 70%</div>
+      <div class="stability" style="width:30%">Stability 30%</div>
+    </div>
+    <div class="zone-detail" id="zoneDetails"><span class="loading-text">Загрузка...</span></div>
+  </div>
+
+  <!-- Aave Position -->
+  <div class="card">
+    <div class="card-title"><span class="icon">🏛️</span> Aave v3 — Позиция</div>
+    <div class="metric"><span class="metric-label">Залог (Collateral)</span><span class="metric-value" id="aaveCollateral">—</span></div>
+    <div class="metric"><span class="metric-label">Долг (Debt)</span><span class="metric-value" id="aaveDebt">—</span></div>
+    <div class="metric"><span class="metric-label">Доступно к займу</span><span class="metric-value" id="aaveAvailable">—</span></div>
+    <div class="metric"><span class="metric-label">LTV</span><span class="metric-value" id="aaveLTV">—</span></div>
+    <div class="metric"><span class="metric-label">Health Factor</span><span class="metric-value" id="aaveHF">—</span></div>
+    <div class="metric"><span class="metric-label">⚠️ Ликвидация ETH при</span><span class="metric-value" id="aaveLiqPrice" style="color:var(--red)">—</span></div>
+    <div class="metric"><span class="metric-label">Supply APY (ETH)</span><span class="metric-value safe" id="aaveSupplyAPY">—</span></div>
+    <div class="metric"><span class="metric-label">Borrow APY (USDC)</span><span class="metric-value" style="color:var(--red)" id="aaveBorrowAPY">—</span></div>
+    <div class="aave-bar">
+      <div class="aave-bar-fill" id="aaveLTVBar" style="width:0%; background:var(--green);"></div>
+      <span class="aave-bar-label" id="aaveLTVBarLabel"></span>
+    </div>
+    <div style="font-size:11px; color:var(--dim); margin-top:4px;">Ликвидация при HF &lt; 1.0</div>
+  </div>
+
+  <!-- Wallet Balances -->
+  <div class="card">
+    <div class="card-title"><span class="icon">👛</span> <a href="https://debank.com/profile/0x50e779be63945354414162a05416e48dedb8376e" target="_blank" style="color:var(--dim);text-decoration:none;text-transform:uppercase;letter-spacing:1px;">Кошелёк (все сети) ↗</a></div>
+    <div id="walletBalances"><span class="loading-text">Загрузка...</span></div>
+  </div>
+
+  <!-- Aave Breakdown -->
+  <div class="card">
+    <div class="card-title"><span class="icon">📊</span> <a href="https://app.aave.com/dashboard/" target="_blank" style="color:var(--dim);text-decoration:none;text-transform:uppercase;letter-spacing:1px;">Aave — Детали позиций ↗</a></div>
+    <div id="aaveBreakdown"><span class="loading-text">Загрузка...</span></div>
+  </div>
+
+  <!-- GM Pools -->
+  <div class="card">
+    <div class="card-title"><span class="icon">🎰</span> <a href="https://app.gmx.io/#/pools" target="_blank" style="color:var(--dim);text-decoration:none;text-transform:uppercase;letter-spacing:1px;">GMX v2 — GM Пулы ↗</a></div>
+    <div id="gmPools"><span class="loading-text">Загрузка...</span></div>
+  </div>
+
+  <!-- Pendle PT Position -->
+  <div class="card">
+    <div class="card-title"><span class="icon">🟣</span> <a href="https://app.pendle.finance/trade/markets/0x6cb9a013604a567a5834fadd411165b1ca616783/swap?view=pt" target="_blank" style="color:var(--dim);text-decoration:none;text-transform:uppercase;letter-spacing:1px;">Pendle — PT-reUSDe ↗</a></div>
+    <div id="pendlePosition"><span class="loading-text">Загрузка...</span></div>
+  </div>
+
+  <!-- Triggers -->
+  <div class="card wide">
+    <div class="card-title"><span class="icon">⚡</span> Триггеры — Capital Growth Model</div>
+    <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 16px;" id="triggersGrid">
+      <div>
+        <div style="font-size:13px; color:var(--dim); margin-bottom:8px; font-weight:600;">📉 Триггеры падения (ETH)</div>
+        <div id="fallTriggers"><span class="loading-text">Загрузка...</span></div>
+      </div>
+      <div>
+        <div style="font-size:13px; color:var(--dim); margin-bottom:8px; font-weight:600;">📈 Триггеры роста (ETH)</div>
+        <div id="riseTriggers"><span class="loading-text">Загрузка...</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+</div><!-- /tab-portfolio -->
+
+<!-- Tab: Analytics -->
+<div class="tab-content" id="tab-analytics">
+<div class="grid">
+
+  <!-- P&L по позициям Growth -->
+  <div class="card wide">
+    <div class="card-title"><span class="icon">💰</span> P&L по позициям — Growth Zone</div>
+    <div id="positionsPnL"><span class="loading-text">Загрузка...</span></div>
+  </div>
+
+  <!-- Yield Tracker — GM + Pendle -->
+  <div class="card">
+    <div class="card-title"><span class="icon">📊</span> Доходность — Yield & Stability</div>
+    <div id="yieldTracker"><span class="loading-text">Загрузка...</span></div>
+  </div>
+
+  <!-- DCA Tracker -->
+  <div class="card">
+    <div class="card-title"><span class="icon">🎯</span> DCA-трекер — прогресс до цели</div>
+    <div id="dcaTracker"><span class="loading-text">Загрузка...</span></div>
+  </div>
+
+  <!-- CGS Model Status -->
+  <div class="card">
+    <div class="card-title"><span class="icon">⚙️</span> CGS Модель — статус</div>
+    <div id="cgsModelStatus"><span class="loading-text">Загрузка...</span></div>
+  </div>
+
+  <!-- Transaction History -->
+  <div class="card wide">
+    <div class="card-title"><span class="icon">📜</span> История операций</div>
+    <div id="txHistory"><span class="loading-text">Загрузка...</span></div>
+  </div>
+
+</div>
+</div><!-- /tab-analytics -->
+
+<!-- Tab: MVS Scanner -->
+<div class="tab-content" id="tab-mvs">
+
+  <div class="mvs-zones">
+    <button class="mvs-zone-btn active-growth" onclick="switchMVSZone('growth')">🔷 Growth Zone</button>
+    <button class="mvs-zone-btn" onclick="switchMVSZone('yield')">🟡 Yield Zone</button>
+    <button class="mvs-zone-btn" onclick="switchMVSZone('stability')">🟢 Stability Zone</button>
+  </div>
+
+  <!-- Growth Zone -->
+  <div class="mvs-zone-content active" id="mvs-growth">
+    <div class="card mvs-section">
+      <div class="mvs-section-title">🏛️ Lending — Supply крипто-активов (Tier S)</div>
+      <div class="mvs-section-desc">Aave, Fluid, Morpho, Compound, Euler — BTC/ETH/LST залог. Supply APY + возможность заимствования.</div>
+      <div id="mvs-growth-lending"><div class="mvs-loading">Загрузка данных DeFi Llama...</div></div>
+    </div>
+    <div class="card mvs-section">
+      <div class="mvs-section-title">🎰 Perpetual DEX — LP позиции (Tier 1–2)</div>
+      <div class="mvs-section-desc">GMX GM, Hyperliquid HLP, Jupiter JLP, Lighter, Aster — доход от комиссий и P&L трейдеров.</div>
+      <div id="mvs-growth-perp"><div class="mvs-loading">Загрузка данных DeFi Llama...</div></div>
+    </div>
+  </div>
+
+  <!-- Yield Zone -->
+  <div class="mvs-zone-content" id="mvs-yield">
+    <div class="card mvs-section">
+      <div class="mvs-section-title">🏛️ Фреймворк 1 — Lending Supply стейблов</div>
+      <div class="mvs-section-desc">Aave, Fluid, Morpho, Compound, Euler — supply USDC/USDT/USDe. Первый уровень MVS.</div>
+      <div id="mvs-yield-lending"><div class="mvs-loading">Загрузка данных DeFi Llama...</div></div>
+    </div>
+    <div class="card mvs-section">
+      <div class="mvs-section-title">💎 Фреймворк 2 — Доходные стейблкоины</div>
+      <div class="mvs-section-desc">sUSDe, wstUSR, sUSDS, syrupUSDT/USDC — «вшитая» доходность. Потенциал для лупинга.</div>
+      <div id="mvs-yield-ybstables"><div class="mvs-loading">Загрузка данных DeFi Llama...</div></div>
+    </div>
+    <div class="card mvs-section">
+      <div class="mvs-section-title">⏳ Фреймворк 3 — Pendle PT (Tier 1)</div>
+      <div class="mvs-section-desc">PT-USDe, PT-sUSDe, PT-USR, PT-syrupUSDC/USDT — фиксация yield. Проверяй Liquidity и price impact.</div>
+      <div id="mvs-yield-pendle"><div class="mvs-loading">Загрузка данных Pendle API...</div></div>
+    </div>
+    <div class="card mvs-section">
+      <div class="mvs-section-title">🔄 Фреймворк 4 — AMM v2 стейбл-пулы (Tier S–1)</div>
+      <div class="mvs-section-desc">Uniswap, Curve, Convex, Aerodrome, Balancer, PancakeSwap — full range, без диапазонов.</div>
+      <div id="mvs-yield-amm"><div class="mvs-loading">Загрузка данных DeFi Llama...</div></div>
+    </div>
+  </div>
+
+  <!-- Stability Zone -->
+  <div class="mvs-zone-content" id="mvs-stability">
+    <div class="card mvs-section">
+      <div class="mvs-section-title">🏛️ Lending — Supply стейблов (Tier S)</div>
+      <div class="mvs-section-desc">Aave, Fluid, Morpho, Compound, Euler — простой supply USDC/USDT. Максимальная ликвидность.</div>
+      <div id="mvs-stab-lending"><div class="mvs-loading">Загрузка данных DeFi Llama...</div></div>
+    </div>
+    <div class="card mvs-section">
+      <div class="mvs-section-title">⏳ Pendle PT — стейбл-фиксация (Tier 1)</div>
+      <div class="mvs-section-desc">PT на стейблкоинах — фиксированная доходность до экспирации. Для Stability Zone.</div>
+      <div id="mvs-stab-pendle"><div class="mvs-loading">Загрузка данных Pendle API...</div></div>
+    </div>
+    <div class="card mvs-section">
+      <div class="mvs-section-title">🔄 AMM v2 — стейбл-стейбл пулы (Tier S)</div>
+      <div class="mvs-section-desc">USDT/USDC и аналоги — Curve, Uniswap, Aerodrome, Balancer. Без IL, минимальный риск.</div>
+      <div id="mvs-stab-amm"><div class="mvs-loading">Загрузка данных DeFi Llama...</div></div>
+    </div>
+  </div>
+
+  <div class="mvs-refresh-note" id="mvsRefreshNote">Данные ещё не загружены</div>
+</div><!-- /tab-mvs -->
+
+<script>
+// ======= CONFIGURATION =======
+const CONFIG = {
+  wallet: '0x50E779Be63945354414162a05416E48DEDB8376E',
+  btcWallet: 'bc1qn576x99g0devh8cnf0d45kradm5t06j4x2g9cp',
+  rpc: 'https://arbitrum-one-rpc.publicnode.com',
+  rpcArbitrumFallback: 'https://arb1.arbitrum.io/rpc',
+  rpcEthMainnet: 'https://ethereum-rpc.publicnode.com',
+  rpcEthFallback: 'https://eth.llamarpc.com',
+  refreshInterval: 30000, // 30 sec
+  // Contract addresses (Arbitrum)
+  aavePool: '0x794a61358D6845594F94dc1DB02A252b5b4814aD',
+  aaveDataProvider: '0x69FA688f1Dc47d4B5d8029D5a35FB7a548310654',
+  chainlinkETH: '0x639Fe6ab55C921f74e7fac1ee960C0B6293ba612',
+  chainlinkBTC: '0x6ce185860a4963106506C203335A2910413708e9',
+  gmBTCUSD: '0x47c031236e19d024b42f8AE6780E44A573170703',
+  gmETHUSD: '0x70d95587d40A2caf56bd97485aB3Eec10Bee6336',
+  // GMX Reader + DataStore for GM token pricing
+  gmxReader: '0x23D4Da5C7C6902D4C86d551CaE60d5755820df9E',
+  gmxDataStore: '0xFD70de6b91282D8017aA4E741e9Ae325CAb992d8',
+  // GM market structures (indexToken, longToken, shortToken)
+  gmBTCMarket: {
+    marketToken: '0x47c031236e19d024b42f8AE6780E44A573170703',
+    indexToken: '0x47904963fc8b2340414262125aF798B9655E58Cd',
+    longToken: '0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f',
+    shortToken: '0xaf88d065e77c8cC2239327C5EDb3A432268e5831',
+  },
+  gmETHMarket: {
+    marketToken: '0x70d95587d40A2caf56bd97485aB3Eec10Bee6336',
+    indexToken: '0x82aF49447D8a07e3bd95BD0d56f35241523fBab1',
+    longToken: '0x82aF49447D8a07e3bd95BD0d56f35241523fBab1',
+    shortToken: '0xaf88d065e77c8cC2239327C5EDb3A432268e5831',
+  },
+  // Token addresses (Arbitrum)
+  WETH: '0x82aF49447D8a07e3bd95BD0d56f35241523fBab1',
+  WBTC: '0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f',
+  USDC: '0xaf88d065e77c8cC2239327C5EDb3A432268e5831',
+  USDCe: '0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8',
+  USDT: '0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9',
+  ARB: '0x912CE59144191C1204E64559FE8253a0e49E6548',
+  // GM pool entry costs (from History)
+  gmBTCEntryCost: 33732, // USD invested in GM BTC/USD
+  gmETHEntryCost: 21948, // USD invested in GM ETH/USD
+  gmEntryDate: '2026-03-20', // дата входа в GM пулы
+  // Entry prices for triggers (user-specific)
+  entryETH: 3906, // weighted average entry price across all ETH positions
+  // Pendle PT-reUSDe (Ethereum mainnet)
+  pendlePT_reUSDe: '0xdc9a5a2e3ce7ac881fc3b28c629c05d1617d1c56', // PT-reUSDe-25JUN2026
+  pendlePT_reUSDe_decimals: 18,
+  pendlePT_reUSDe_expiry: '2026-06-25',
+  pendlePT_reUSDe_costBasis: 15002, // USD invested (8001 + 7001 USDT 22 Mar)
+  // Pendle API for PT price
+  pendleMarketId: '0x6cb9a013604a567a5834fadd411165b1ca616783',
+  // Target allocation (own capital)
+  targetGrowth: 70,
+  targetStability: 30,
+
+  // ======= POSITIONS (source of truth — entry data) =======
+  positions: [
+    // Growth Zone — Aave Collateral
+    { id: 'eth-lp1', zone: 'growth', asset: 'ETH', label: 'ETH (LP1)', qty: 25.3217, entryPrice: 4838, entryDate: '2024-11-15', protocol: 'Aave v3', chain: 'Arbitrum', note: 'Первый залог на Aave' },
+    { id: 'eth-lp2', zone: 'growth', asset: 'ETH', label: 'ETH (LP2)', qty: 14.3214, entryPrice: 3875, entryDate: '2025-02-10', protocol: 'Aave v3', chain: 'Arbitrum', note: 'Второй транш ETH в залог' },
+    { id: 'eth-sep', zone: 'growth', asset: 'ETH', label: 'ETH (отдельный)', qty: 12.275, entryPrice: 2022, entryDate: '2025-08-20', protocol: 'Aave v3', chain: 'Arbitrum', note: 'Докупка ETH по $2,022' },
+    { id: 'btc-native', zone: 'growth', asset: 'BTC', label: 'BTC (SegWit)', qty: 0.0314, entryPrice: 70000, entryDate: '2024-10-01', protocol: 'Native SegWit', chain: 'Bitcoin', note: 'BTC на холодном кошельке' },
+    // Yield Zone — Borrowed stables → GM pools
+    { id: 'gm-btc', zone: 'yield', asset: 'GM-BTC/USD', label: 'GM BTC/USD', costBasis: 33732, entryDate: '2026-03-20', protocol: 'GMX v2', chain: 'Arbitrum', note: 'USDC из Aave → GM BTC/USD' },
+    { id: 'gm-eth', zone: 'yield', asset: 'GM-ETH/USD', label: 'GM ETH/USD', costBasis: 21948, entryDate: '2026-03-20', protocol: 'GMX v2', chain: 'Arbitrum', txHash: '0x99a6a1e398e24b3ef8d4a8056787625bfe84b7c7a98b60527196c352b73859e2', note: 'USDC из Aave → GM ETH/USD' },
+    // Stability Zone — Own stables
+    { id: 'pt-reusde-1', zone: 'stability', asset: 'PT-reUSDe', label: 'PT-reUSDe (вход 1)', costBasis: 8001, entryDate: '2026-03-21', protocol: 'Pendle', chain: 'Ethereum', txHash: '0xdcb8faa363c8ae563ed731d97b1ad80850fffc70f1ca67c7d2ad7a7f84d3325c', note: 'Первый вход PT-reUSDe' },
+    { id: 'pt-reusde-2', zone: 'stability', asset: 'PT-reUSDe', label: 'PT-reUSDe (DCA)', costBasis: 7001, entryDate: '2026-03-22', protocol: 'Pendle', chain: 'Ethereum', txHash: '0x9e01ea1c7f08dce15aefa4ccb1654260cb405c95307bacab34d0a991c72bb54f', note: 'DCA — второй вход PT-reUSDe' },
+  ],
+
+  // ======= TRANSACTION HISTORY =======
+  history: [
+    { date: '2024-10-01', type: 'buy', asset: 'BTC', amount: 0.0314, price: 70000, usd: 2198, zone: 'growth', note: 'Покупка BTC на холодный кошелёк' },
+    { date: '2024-11-15', type: 'deposit', asset: 'ETH', amount: 25.3217, price: 4838, usd: 122506, zone: 'growth', note: 'LP1 — первый залог ETH на Aave' },
+    { date: '2025-02-10', type: 'deposit', asset: 'ETH', amount: 14.3214, price: 3875, usd: 55495, zone: 'growth', note: 'LP2 — второй транш ETH в залог' },
+    { date: '2025-08-20', type: 'deposit', asset: 'ETH', amount: 12.275, price: 2022, usd: 24820, zone: 'growth', note: 'Докупка ETH по $2,022 в залог' },
+    { date: '2026-03-20', type: 'borrow', asset: 'USDC', amount: 55680, price: 1, usd: 55680, zone: 'yield', note: 'Заём USDC на Aave для GM пулов' },
+    { date: '2026-03-20', type: 'buy', asset: 'GM-BTC/USD', amount: null, price: null, usd: 33732, zone: 'yield', note: 'Депозит в GM BTC/USD пул' },
+    { date: '2026-03-20', type: 'buy', asset: 'GM-ETH/USD', amount: null, price: null, usd: 21948, zone: 'yield', txHash: '0x99a6a1e3...', note: 'Депозит в GM ETH/USD пул' },
+    { date: '2026-03-21', type: 'buy', asset: 'PT-reUSDe', amount: 8285.58, price: 0.966, usd: 8001, zone: 'stability', txHash: '0xdcb8faa3...', note: 'Первый вход PT-reUSDe на Pendle' },
+    { date: '2026-03-22', type: 'buy', asset: 'PT-reUSDe', amount: 7239.89, price: 0.967, usd: 7001, zone: 'stability', txHash: '0x9e01ea1c...', note: 'DCA — второй вход PT-reUSDe' },
+  ],
+
+  // ======= CGS MODEL PARAMETERS =======
+  cgsModel: {
+    name: 'Capital Growth',
+    mode: 'Recovery', // Normal | Recovery | Emergency
+    split: { growth: 70, stability: 30 },
+    targetLTV: 50,
+    criticalLTV: 60,
+    emergencyHF: 1.3,
+    recoveryThreshold: 3500, // ETH price to exit Recovery
+    dcaAmount: 10000,
+    dcaDay: 15,
+    dcaRule: 'Всё в Stability пока доля < 30%',
+    dcaRuleAfter: '$7,000 BTC + $3,000 ETH',
+    clmmBlocked: true, // blocked in Recovery mode
+    clmmBlockReason: 'Recovery Mode: ETH ниже $3,500 (средняя входа $3,906)',
+  },
+
+  // ======= DCA TRACKING =======
+  dcaHistory: [
+    { date: '2026-03-21', amount: 8001, target: 'PT-reUSDe', zone: 'stability' },
+    { date: '2026-03-22', amount: 7001, target: 'PT-reUSDe', zone: 'stability' },
+  ],
+  totalDCAInvested: 15002, // cumulative DCA into Stability
+};
+
+// ======= SAFE FETCH (auto-timeout for file:// CORS issues) =======
+const _origFetch = window.fetch;
+window.fetch = function(url, opts = {}) {
+  if (opts.signal) return _origFetch(url, opts); // already has signal
+  const ctrl = new AbortController();
+  const timeout = setTimeout(() => ctrl.abort(), 10000); // 10s max
+  return _origFetch(url, { ...opts, signal: ctrl.signal })
+    .finally(() => clearTimeout(timeout));
+};
+
+// ======= PROVIDERS (with fallback) =======
+let provider, providerETH;
+async function initProviders() {
+  // Test Arbitrum RPC
+  async function testRpc(url) {
+    try {
+      const p = new ethers.providers.JsonRpcProvider(url);
+      await p.getBlockNumber();
+      return p;
+    } catch(e) { return null; }
+  }
+  provider = await testRpc(CONFIG.rpc) || await testRpc(CONFIG.rpcArbitrumFallback);
+  if (!provider) provider = new ethers.providers.JsonRpcProvider(CONFIG.rpc); // last resort
+  providerETH = await testRpc(CONFIG.rpcEthMainnet) || await testRpc(CONFIG.rpcEthFallback);
+  if (!providerETH) providerETH = new ethers.providers.JsonRpcProvider(CONFIG.rpcEthMainnet);
+  console.log('RPC Arb:', provider.connection.url, '| ETH:', providerETH.connection.url);
+}
+// Init with defaults, will be replaced after test
+provider = new ethers.providers.JsonRpcProvider(CONFIG.rpc);
+providerETH = new ethers.providers.JsonRpcProvider(CONFIG.rpcEthMainnet);
+
+// ======= ABI FRAGMENTS =======
+const ERC20_ABI = ['function balanceOf(address) view returns (uint256)', 'function decimals() view returns (uint8)', 'function symbol() view returns (string)'];
+const AAVE_POOL_ABI = ['function getUserAccountData(address) view returns (uint256 totalCollateralBase, uint256 totalDebtBase, uint256 availableBorrowsBase, uint256 currentLiquidationThreshold, uint256 ltv, uint256 healthFactor)'];
+const AAVE_DATA_ABI = ['function getUserReserveData(address asset, address user) view returns (uint256 currentATokenBalance, uint256 currentStableDebtBalance, uint256 currentVariableDebtBalance, uint256 principalStableDebtBalance, uint256 scaledVariableDebtBalance, uint256 stableBorrowRate, uint256 liquidityRate, uint40 stableRateLastUpdated, bool usageAsCollateralEnabled)'];
+const CHAINLINK_ABI = ['function latestRoundData() view returns (uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound)'];
+const AAVE_RESERVE_DATA_ABI = ['function getReserveData(address asset) view returns (uint256 unbacked, uint256 accruedToTreasuryScaled, uint256 totalAToken, uint256 totalStableDebt, uint256 totalVariableDebt, uint256 liquidityRate, uint256 variableBorrowRate, uint256 stableBorrowRate, uint256 averageStableBorrowRate, uint256 liquidityIndex, uint256 variableBorrowIndex, uint40 lastUpdateTimestamp)'];
+const GMX_READER_ABI = ['function getMarketTokenPrice(address dataStore, tuple(address marketToken, address indexToken, address longToken, address shortToken) market, tuple(uint256 min, uint256 max) indexTokenPrice, tuple(uint256 min, uint256 max) longTokenPrice, tuple(uint256 min, uint256 max) shortTokenPrice, bytes32 pnlFactorType, bool maximize) view returns (int256, tuple(int256 poolValue, int256 longPnl, int256 shortPnl, int256 netPnl, uint256 longTokenAmount, uint256 shortTokenAmount, uint256 longTokenUsd, uint256 shortTokenUsd, uint256 totalBorrowingFees, uint256 borrowingFeePoolFactor, uint256 impactPoolAmount))'];
+
+// ======= STATE =======
+let state = { prices: {}, priceChanges: {}, aave: {}, aaveReserves: {}, gm: {}, gmPoolInfo: {}, wallet: {}, walletETHMain: {}, btcBalance: 0, pendle: { ptBalance: 0, ptPrice: null, ptValue: 0 }, lastUpdate: null, error: null };
+
+// ======= HELPERS =======
+const fmt = (n, d=2) => n != null ? Number(n).toLocaleString('en-US', {minimumFractionDigits:d, maximumFractionDigits:d}) : '—';
+const fmtUSD = (n) => n != null ? '$' + fmt(n) : '—';
+const fmtShort = (n) => {
+  if (n == null) return '—';
+  if (n >= 1e6) return '$' + fmt(n/1e6, 1) + 'M';
+  if (n >= 1e3) return '$' + fmt(n/1e3, 1) + 'K';
+  return fmtUSD(n);
+};
+
+// ======= DATA FETCHERS =======
+async function fetchPrices() {
+  const clETH = new ethers.Contract(CONFIG.chainlinkETH, CHAINLINK_ABI, provider);
+  const clBTC = new ethers.Contract(CONFIG.chainlinkBTC, CHAINLINK_ABI, provider);
+  const [ethData, btcData] = await Promise.all([clETH.latestRoundData(), clBTC.latestRoundData()]);
+  state.prices.ETH = Number(ethData.answer) / 1e8;
+  state.prices.BTC = Number(btcData.answer) / 1e8;
+
+  // Fetch 24h/1h price changes (best-effort, with 5s timeout)
+  const priceChangeCtrl = new AbortController();
+  const priceChangeTimeout = setTimeout(() => priceChangeCtrl.abort(), 5000);
+  try {
+    // Try CryptoCompare first (better CORS support for file:// origin)
+    const ccResp = await fetch('https://min-api.cryptocompare.com/data/pricemultifull?fsyms=BTC,ETH&tsyms=USD', { signal: priceChangeCtrl.signal });
+    if (ccResp.ok) {
+      const cc = await ccResp.json();
+      const btcRaw = cc.RAW?.BTC?.USD;
+      const ethRaw = cc.RAW?.ETH?.USD;
+      state.priceChanges = {
+        BTC: { h1: btcRaw?.CHANGEPCTHOUR ?? null, h24: btcRaw?.CHANGEPCT24HOUR ?? null },
+        ETH: { h1: ethRaw?.CHANGEPCTHOUR ?? null, h24: ethRaw?.CHANGEPCT24HOUR ?? null },
+      };
+    }
+  } catch(e) {
+    try {
+      const cgResp = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum&vs_currencies=usd&include_24hr_change=true&include_1h_change=true', { signal: priceChangeCtrl.signal });
+      if (cgResp.ok) {
+        const cg = await cgResp.json();
+        state.priceChanges = {
+          BTC: { h1: cg.bitcoin?.usd_1h_change ?? null, h24: cg.bitcoin?.usd_24h_change ?? null },
+          ETH: { h1: cg.ethereum?.usd_1h_change ?? null, h24: cg.ethereum?.usd_24h_change ?? null },
+        };
+      }
+    } catch(e2) { /* price changes optional */ }
+  } finally { clearTimeout(priceChangeTimeout); }
+}
+
+async function fetchAave() {
+  const pool = new ethers.Contract(CONFIG.aavePool, AAVE_POOL_ABI, provider);
+  const data = await pool.getUserAccountData(CONFIG.wallet);
+  state.aave = {
+    collateral: Number(data.totalCollateralBase) / 1e8,
+    debt: Number(data.totalDebtBase) / 1e8,
+    available: Number(data.availableBorrowsBase) / 1e8,
+    ltv: Number(data.ltv) / 100,
+    liqThreshold: Number(data.currentLiquidationThreshold) / 100,
+    hf: Number(data.healthFactor) / 1e18,
+  };
+}
+
+async function fetchAaveReserves() {
+  const dp = new ethers.Contract(CONFIG.aaveDataProvider, AAVE_DATA_ABI, provider);
+  const dpRates = new ethers.Contract(CONFIG.aaveDataProvider, AAVE_RESERVE_DATA_ABI, provider);
+  const assets = [
+    { key: 'WETH', addr: CONFIG.WETH, decimals: 18 },
+    { key: 'WBTC', addr: CONFIG.WBTC, decimals: 8 },
+    { key: 'USDC', addr: CONFIG.USDC, decimals: 6 },
+    { key: 'USDCe', addr: CONFIG.USDCe, decimals: 6 },
+    { key: 'USDT', addr: CONFIG.USDT, decimals: 6 },
+  ];
+  // Fetch user reserve data + reserve-level rate data in parallel
+  const [userResults, rateResults] = await Promise.all([
+    Promise.all(assets.map(a => dp.getUserReserveData(a.addr, CONFIG.wallet).catch(() => null))),
+    Promise.all(assets.map(a => dpRates.getReserveData(a.addr).catch(() => null))),
+  ]);
+  state.aaveReserves = {};
+  assets.forEach((a, i) => {
+    if (!userResults[i]) return;
+    const r = userResults[i];
+    const supplied = Number(r.currentATokenBalance) / Math.pow(10, a.decimals);
+    const stableDebt = Number(r.currentStableDebtBalance) / Math.pow(10, a.decimals);
+    const varDebt = Number(r.currentVariableDebtBalance) / Math.pow(10, a.decimals);
+    if (supplied > 0.0001 || stableDebt > 0.0001 || varDebt > 0.0001) {
+      // APY from reserve data (rates are in RAY = 1e27)
+      let supplyAPY = null, borrowAPY = null;
+      if (rateResults[i]) {
+        supplyAPY = Number(rateResults[i].liquidityRate) / 1e25; // /1e27 * 100 for %
+        borrowAPY = Number(rateResults[i].variableBorrowRate) / 1e25;
+      }
+      state.aaveReserves[a.key] = { supplied, stableDebt, varDebt, collateralEnabled: r.usageAsCollateralEnabled, supplyAPY, borrowAPY };
+    }
+  });
+}
+
+async function fetchGMTokens() {
+  const gmBTC = new ethers.Contract(CONFIG.gmBTCUSD, ERC20_ABI, provider);
+  const gmETH = new ethers.Contract(CONFIG.gmETHUSD, ERC20_ABI, provider);
+  const [balBTC, balETH] = await Promise.all([
+    gmBTC.balanceOf(CONFIG.wallet),
+    gmETH.balanceOf(CONFIG.wallet),
+  ]);
+  state.gm.btcBal = Number(ethers.utils.formatEther(balBTC));
+  state.gm.ethBal = Number(ethers.utils.formatEther(balETH));
+
+  // Get GM token prices: DeFi Llama pool TVL / on-chain totalSupply
+  // This matches GMX app.gmx.io values exactly (Reader contract overestimates by 0.5-3.7%)
+  try {
+    const SUPPLY_ABI = ['function totalSupply() view returns (uint256)'];
+    const gmBTCSupply = new ethers.Contract(CONFIG.gmBTCUSD, SUPPLY_ABI, provider);
+    const gmETHSupply = new ethers.Contract(CONFIG.gmETHUSD, SUPPLY_ABI, provider);
+
+    const [supBTC, supETH, llamaResp] = await Promise.all([
+      gmBTCSupply.totalSupply(),
+      gmETHSupply.totalSupply(),
+      fetch('https://yields.llama.fi/pools'),
+    ]);
+
+    const totalSupplyBTC = Number(ethers.utils.formatEther(supBTC));
+    const totalSupplyETH = Number(ethers.utils.formatEther(supETH));
+
+    if (llamaResp.ok) {
+      const llamaData = await llamaResp.json();
+      const gmxPools = llamaData.data.filter(p => p.project === 'gmx-v2-perps' && p.chain === 'Arbitrum');
+      // Main BTC/USDC pool (highest TVL WBTC.B-USDC)
+      const btcPool = gmxPools
+        .filter(p => p.symbol?.includes('WBTC') && p.symbol?.includes('USDC'))
+        .sort((a, b) => b.tvlUsd - a.tvlUsd)[0];
+      // Main ETH/USDC pool (highest TVL ETH-USDC)
+      const ethPool = gmxPools
+        .filter(p => p.symbol === 'ETH-USDC')
+        .sort((a, b) => b.tvlUsd - a.tvlUsd)[0];
+
+      if (btcPool && totalSupplyBTC > 0) {
+        state.gm.btcPrice = btcPool.tvlUsd / totalSupplyBTC;
+        state.gm.btcPoolTVL = btcPool.tvlUsd;
+        // APY from DeFi Llama (same data, no extra API call needed)
+        state.gm.btcFeeApr = btcPool.apy != null ? btcPool.apy / 100 : null;
+      }
+      if (ethPool && totalSupplyETH > 0) {
+        state.gm.ethPrice = ethPool.tvlUsd / totalSupplyETH;
+        state.gm.ethPoolTVL = ethPool.tvlUsd;
+        state.gm.ethFeeApr = ethPool.apy != null ? ethPool.apy / 100 : null;
+      }
+    }
+  } catch(e) {
+    console.warn('GM pricing error:', e.message);
+    state.gm.btcPrice = null;
+    state.gm.ethPrice = null;
+  }
+}
+
+async function fetchWalletBalances() {
+  // === ARBITRUM ===
+  const arbTokens = [
+    { key: 'ETH', addr: null, decimals: 18, chain: 'Arbitrum' },
+    { key: 'WETH', addr: CONFIG.WETH, decimals: 18, chain: 'Arbitrum' },
+    { key: 'WBTC', addr: CONFIG.WBTC, decimals: 8, chain: 'Arbitrum' },
+    { key: 'USDC', addr: CONFIG.USDC, decimals: 6, chain: 'Arbitrum' },
+    { key: 'USDC.e', addr: CONFIG.USDCe, decimals: 6, chain: 'Arbitrum' },
+    { key: 'USDT', addr: CONFIG.USDT, decimals: 6, chain: 'Arbitrum' },
+    { key: 'ARB', addr: CONFIG.ARB, decimals: 18, chain: 'Arbitrum' },
+  ];
+  state.wallet = {};
+  const arbPromises = arbTokens.map(async (t) => {
+    try {
+      if (!t.addr) {
+        const bal = await provider.getBalance(CONFIG.wallet);
+        state.wallet[t.key] = { amount: Number(ethers.utils.formatEther(bal)), chain: t.chain };
+      } else {
+        const c = new ethers.Contract(t.addr, ERC20_ABI, provider);
+        const bal = await c.balanceOf(CONFIG.wallet);
+        state.wallet[t.key] = { amount: Number(bal) / Math.pow(10, t.decimals), chain: t.chain };
+      }
+    } catch(e) { state.wallet[t.key] = { amount: 0, chain: t.chain }; }
+  });
+
+  // === ETHEREUM MAINNET ===
+  const ethMainPromises = [
+    (async () => {
+      try {
+        const bal = await providerETH.getBalance(CONFIG.wallet);
+        state.walletETHMain['ETH'] = { amount: Number(ethers.utils.formatEther(bal)), chain: 'Ethereum' };
+      } catch(e) { state.walletETHMain['ETH'] = { amount: 0, chain: 'Ethereum' }; }
+    })(),
+    ...[
+      { key: 'USDT', addr: '0xdAC17F958D2ee523a2206206994597C13D831ec7', decimals: 6 },
+      { key: 'USDC', addr: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48', decimals: 6 },
+      { key: 'WBTC', addr: '0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599', decimals: 8 },
+    ].map(async (t) => {
+      try {
+        const c = new ethers.Contract(t.addr, ERC20_ABI, providerETH);
+        const bal = await c.balanceOf(CONFIG.wallet);
+        state.walletETHMain[t.key] = { amount: Number(bal) / Math.pow(10, t.decimals), chain: 'Ethereum' };
+      } catch(e) { state.walletETHMain[t.key] = { amount: 0, chain: 'Ethereum' }; }
+    }),
+  ];
+
+  // === BITCOIN ===
+  const btcPromise = (async () => {
+    try {
+      const resp = await fetch('https://mempool.space/api/address/' + CONFIG.btcWallet);
+      const data = await resp.json();
+      const funded = data.chain_stats?.funded_txo_sum || 0;
+      const spent = data.chain_stats?.spent_txo_sum || 0;
+      state.btcBalance = (funded - spent) / 1e8;
+    } catch(e) { state.btcBalance = 0; }
+  })();
+
+  state.walletETHMain = {};
+  await Promise.all([...arbPromises, ...ethMainPromises, btcPromise]);
+}
+
+async function fetchPendlePT() {
+  // Fetch PT-reUSDe balance on Ethereum mainnet
+  try {
+    const ptContract = new ethers.Contract(CONFIG.pendlePT_reUSDe, ERC20_ABI, providerETH);
+    const bal = await ptContract.balanceOf(CONFIG.wallet);
+    state.pendle.ptBalance = Number(ethers.utils.formatUnits(bal, CONFIG.pendlePT_reUSDe_decimals));
+  } catch(e) {
+    console.warn('PT balance fetch error:', e.message);
+    state.pendle.ptBalance = 0;
+  }
+
+  // Fetch PT price from Pendle API
+  try {
+    const resp = await fetch('https://api-v2.pendle.finance/core/v1/1/markets/' + CONFIG.pendleMarketId);
+    if (resp.ok) {
+      const data = await resp.json();
+      state.pendle.ptPrice = data.pt?.price?.usd ?? null;
+      // Also grab implied APY
+      state.pendle.impliedApy = data.impliedApy ?? null;
+    }
+  } catch(e) {
+    console.warn('Pendle API error:', e.message);
+  }
+
+  // Calculate value
+  if (state.pendle.ptBalance > 0 && state.pendle.ptPrice) {
+    state.pendle.ptValue = state.pendle.ptBalance * state.pendle.ptPrice;
+  } else if (state.pendle.ptBalance > 0) {
+    // Fallback: PT ≈ $1 at maturity, currently ~$0.965
+    state.pendle.ptValue = state.pendle.ptBalance * 0.965;
+  } else {
+    state.pendle.ptValue = 0;
+  }
+}
+
+// ======= RENDER =======
+function renderPrices() {
+  // Render ticker bar
+  const btcP = state.prices.BTC ? fmtUSD(state.prices.BTC) : '—';
+  const ethP = state.prices.ETH ? fmtUSD(state.prices.ETH) : '—';
+  const bc = state.priceChanges.BTC || {};
+  const ec = state.priceChanges.ETH || {};
+
+  function changeHTML(h1, h24) {
+    let html = '';
+    if (h1 != null) {
+      const cls = h1 >= 0 ? 'up' : 'down';
+      const arrow = h1 >= 0 ? '▲' : '▼';
+      html += `<span class="hp-change ${cls}"><span class="period">1ч</span>${arrow} ${Math.abs(h1).toFixed(2)}%</span>`;
+    }
+    if (h24 != null) {
+      const cls = h24 >= 0 ? 'up' : 'down';
+      const arrow = h24 >= 0 ? '▲' : '▼';
+      html += `<span class="hp-change ${cls}"><span class="period">24ч</span>${arrow} ${Math.abs(h24).toFixed(2)}%</span>`;
+    }
+    return html;
+  }
+
+  document.getElementById('tickerBTC').textContent = btcP;
+  document.getElementById('tickerETH').textContent = ethP;
+  document.getElementById('tickerBTCChanges').innerHTML = changeHTML(bc.h1, bc.h24);
+  document.getElementById('tickerETHChanges').innerHTML = changeHTML(ec.h1, ec.h24);
+}
+
+function renderAave() {
+  const a = state.aave;
+  if (!a.collateral && a.collateral !== 0) return;
+
+  document.getElementById('aaveCollateral').textContent = fmtUSD(a.collateral);
+  document.getElementById('aaveDebt').textContent = fmtUSD(a.debt);
+  document.getElementById('aaveAvailable').textContent = fmtUSD(a.available);
+
+  const actualLTV = a.collateral > 0 ? (a.debt / a.collateral * 100) : 0;
+  const ltvEl = document.getElementById('aaveLTV');
+  ltvEl.textContent = fmt(actualLTV, 1) + '%';
+  ltvEl.className = 'metric-value ' + (actualLTV > 70 ? 'danger' : actualLTV > 55 ? 'warn' : 'safe');
+
+  const hfEl = document.getElementById('aaveHF');
+  hfEl.textContent = fmt(a.hf, 2);
+  hfEl.className = 'metric-value ' + (a.hf < 1.2 ? 'danger' : a.hf < 1.5 ? 'warn' : 'safe');
+
+  // Liquidation price calculation
+  const ethQty = state.aaveReserves['WETH'] ? state.aaveReserves['WETH'].supplied : 0;
+  const btcQty = state.aaveReserves['WBTC'] ? state.aaveReserves['WBTC'].supplied : 0;
+  const btcPrice = state.prices.BTC || 0;
+  const liqThreshETH = 0.86; // Aave v3 Arbitrum WETH
+  const liqThreshBTC = 0.78; // Aave v3 Arbitrum WBTC
+  const liqPriceEl = document.getElementById('aaveLiqPrice');
+  if (ethQty > 0 && a.debt > 0) {
+    const btcContrib = btcQty * btcPrice * liqThreshBTC;
+    const liqPrice = (a.debt - btcContrib) / (ethQty * liqThreshETH);
+    liqPriceEl.textContent = fmtUSD(Math.max(liqPrice, 0));
+    liqPriceEl.className = 'metric-value ' + (state.prices.ETH && state.prices.ETH < liqPrice * 1.5 ? 'danger' : 'warn');
+  }
+
+  // APY rates from reserve data
+  const wethReserve = state.aaveReserves['WETH'];
+  const usdcReserve = state.aaveReserves['USDC'] || state.aaveReserves['USDCe'];
+  document.getElementById('aaveSupplyAPY').textContent = wethReserve && wethReserve.supplyAPY != null ? fmt(wethReserve.supplyAPY, 2) + '%' : '—';
+  document.getElementById('aaveBorrowAPY').textContent = usdcReserve && usdcReserve.borrowAPY != null ? fmt(usdcReserve.borrowAPY, 2) + '%' : '—';
+
+  const bar = document.getElementById('aaveLTVBar');
+  const barPct = Math.min(actualLTV, 100);
+  bar.style.width = barPct + '%';
+  bar.style.background = actualLTV > 70 ? 'var(--red)' : actualLTV > 55 ? 'var(--yellow)' : 'var(--green)';
+  document.getElementById('aaveLTVBarLabel').textContent = fmt(actualLTV, 0) + '% / ' + fmt(a.liqThreshold, 0) + '%';
+}
+
+function renderAaveBreakdown() {
+  const container = document.getElementById('aaveBreakdown');
+  const reserves = state.aaveReserves;
+  if (!Object.keys(reserves).length) { container.innerHTML = '<span class="loading-text">Нет активных позиций</span>'; return; }
+
+  let html = '';
+  for (const [key, r] of Object.entries(reserves)) {
+    const price = key === 'WETH' ? state.prices.ETH : key === 'WBTC' ? state.prices.BTC : 1;
+    const icon = key === 'WETH' ? '🔷' : key === 'WBTC' ? '🟠' : '💵';
+
+    if (r.supplied > 0.0001) {
+      const usd = r.supplied * (price || 0);
+      const apyText = r.supplyAPY != null ? `APY ${fmt(r.supplyAPY, 2)}%` : '';
+      html += `<div class="token-row">
+        <div class="token-info"><span style="font-size:20px">${icon}</span>
+          <div><div class="token-name">${key} (Supply)</div><div class="token-chain">${r.collateralEnabled ? '✅ Collateral' : '⬜ Not collateral'}${apyText ? ' • <span style="color:var(--green)">' + apyText + '</span>' : ''}</div></div>
+        </div>
+        <div class="token-balance"><div class="token-amount">${fmt(r.supplied, key==='WBTC'?6:4)}</div><div class="token-usd">${fmtUSD(usd)}</div></div>
+      </div>`;
+    }
+    const totalDebt = r.stableDebt + r.varDebt;
+    if (totalDebt > 0.0001) {
+      const usd = totalDebt * (price || 0);
+      const borrowApyText = r.borrowAPY != null ? `APY ${fmt(r.borrowAPY, 2)}%` : '';
+      html += `<div class="token-row">
+        <div class="token-info"><span style="font-size:20px">🔴</span>
+          <div><div class="token-name">${key} (Borrow)</div><div class="token-chain">Variable debt${borrowApyText ? ' • <span style="color:var(--red)">' + borrowApyText + '</span>' : ''}</div></div>
+        </div>
+        <div class="token-balance"><div class="token-amount" style="color:var(--red)">${fmt(totalDebt, 2)}</div><div class="token-usd" style="color:var(--red)">-${fmtUSD(usd)}</div></div>
+      </div>`;
+    }
+  }
+  container.innerHTML = html || '<span class="loading-text">Нет данных</span>';
+}
+
+function renderGMFees() {
+  // Fee breakdown is now rendered inline per pool in renderGM()
+  return '';
+}
+
+function renderGM() {
+  const container = document.getElementById('gmPools');
+  const g = state.gm;
+  if (g.btcBal == null && g.ethBal == null) { container.innerHTML = '<span class="loading-text">Загрузка...</span>'; return; }
+
+  const btcUSD = g.btcPrice ? g.btcBal * g.btcPrice : null;
+  const ethUSD = g.ethPrice ? g.ethBal * g.ethPrice : null;
+  const btcPnL = btcUSD != null ? btcUSD - CONFIG.gmBTCEntryCost : null;
+  const ethPnL = ethUSD != null ? ethUSD - CONFIG.gmETHEntryCost : null;
+  const btcPnLPct = btcPnL != null ? (btcPnL / CONFIG.gmBTCEntryCost * 100) : null;
+  const ethPnLPct = ethPnL != null ? (ethPnL / CONFIG.gmETHEntryCost * 100) : null;
+
+  // Fee breakdown: estimate earned fees from APR × days held
+  const daysHeld = Math.max(0, (Date.now() - new Date(CONFIG.gmEntryDate).getTime()) / 86400000);
+  const btcEstFees = (g.btcFeeApr != null && daysHeld > 0) ? CONFIG.gmBTCEntryCost * g.btcFeeApr * (daysHeld / 365) : null;
+  const ethEstFees = (g.ethFeeApr != null && daysHeld > 0) ? CONFIG.gmETHEntryCost * g.ethFeeApr * (daysHeld / 365) : null;
+  const btcPriceImpact = (btcPnL != null && btcEstFees != null) ? btcPnL - btcEstFees : null;
+  const ethPriceImpact = (ethPnL != null && ethEstFees != null) ? ethPnL - ethEstFees : null;
+
+  function pnlColor(v) { return v >= 0 ? 'var(--green)' : 'var(--red)'; }
+  function pnlSign(v) { return v >= 0 ? '+' : ''; }
+
+  function feeBreakdown(feeApr, estFees, priceImpact) {
+    if (feeApr == null) return '';
+    return `<div style="margin-top:4px; font-size:10px; line-height:1.5; color:var(--dim);">
+      <span>APR <span style="color:var(--green)">${fmt(feeApr * 100, 1)}%</span></span>
+      ${estFees != null ? ` · Fees ≈ <span style="color:var(--green)">${pnlSign(estFees)}${fmtUSD(estFees)}</span>` : ''}
+      ${priceImpact != null ? ` · Price <span style="color:${pnlColor(priceImpact)}">${pnlSign(priceImpact)}${fmtUSD(priceImpact)}</span>` : ''}
+    </div>`;
+  }
+
+  container.innerHTML = `
+    <div class="token-row" style="flex-wrap:wrap;">
+      <div class="token-info"><span style="font-size:20px">🟠</span>
+        <div><div class="token-name">GM BTC/USD</div><div class="token-chain">GMX v2 • Arbitrum</div></div>
+      </div>
+      <div class="token-balance">
+        <div class="token-amount">${fmt(g.btcBal, 2)} GM</div>
+        <div class="token-usd">${btcUSD != null ? fmtUSD(btcUSD) : 'цена н/д'}</div>
+        ${btcPnL != null ? `<div style="font-size:11px;color:${pnlColor(btcPnL)}">${pnlSign(btcPnL)}${fmtUSD(btcPnL)} (${pnlSign(btcPnLPct)}${fmt(btcPnLPct,1)}%)</div>` : ''}
+        ${feeBreakdown(g.btcFeeApr, btcEstFees, btcPriceImpact)}
+      </div>
+    </div>
+    <div class="token-row" style="flex-wrap:wrap;">
+      <div class="token-info"><span style="font-size:20px">🔷</span>
+        <div><div class="token-name">GM ETH/USD</div><div class="token-chain">GMX v2 • Arbitrum</div></div>
+      </div>
+      <div class="token-balance">
+        <div class="token-amount">${fmt(g.ethBal, 2)} GM</div>
+        <div class="token-usd">${ethUSD != null ? fmtUSD(ethUSD) : 'цена н/д'}</div>
+        ${ethPnL != null ? `<div style="font-size:11px;color:${pnlColor(ethPnL)}">${pnlSign(ethPnL)}${fmtUSD(ethPnL)} (${pnlSign(ethPnLPct)}${fmt(ethPnLPct,1)}%)</div>` : ''}
+        ${feeBreakdown(g.ethFeeApr, ethEstFees, ethPriceImpact)}
+      </div>
+    </div>
+    ${btcUSD != null && ethUSD != null ? `<div style="margin-top:10px; padding-top:10px; border-top:1px solid var(--border);">
+      <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
+        <span style="color:var(--dim); font-size:13px;">Итого GM Пулы</span>
+        <span style="font-weight:700; font-size:15px;">${fmtUSD(btcUSD + ethUSD)}</span>
+      </div>
+      <div style="display:flex; justify-content:space-between; margin-bottom:2px;">
+        <span style="color:var(--dim); font-size:12px;">P&L (вложено ${fmtUSD(CONFIG.gmBTCEntryCost + CONFIG.gmETHEntryCost)})</span>
+        <span style="font-weight:600; font-size:13px; color:${pnlColor(btcPnL+ethPnL)}">${pnlSign(btcPnL+ethPnL)}${fmtUSD(btcPnL+ethPnL)} (${pnlSign((btcPnL+ethPnL)/(CONFIG.gmBTCEntryCost+CONFIG.gmETHEntryCost)*100)}${fmt((btcPnL+ethPnL)/(CONFIG.gmBTCEntryCost+CONFIG.gmETHEntryCost)*100,1)}%)</span>
+      </div>
+      ${(btcEstFees != null && ethEstFees != null) ? `
+      <div style="display:flex; justify-content:space-between; font-size:11px;">
+        <span style="color:var(--dim);">Комиссии пула (≈${fmt(daysHeld,0)}д)</span>
+        <span style="color:var(--green);">${pnlSign(btcEstFees+ethEstFees)}${fmtUSD(btcEstFees+ethEstFees)}</span>
+      </div>
+      <div style="display:flex; justify-content:space-between; font-size:11px;">
+        <span style="color:var(--dim);">Цена + трейдеры</span>
+        <span style="color:${pnlColor(btcPriceImpact+ethPriceImpact)};">${pnlSign(btcPriceImpact+ethPriceImpact)}${fmtUSD(btcPriceImpact+ethPriceImpact)}</span>
+      </div>` : ''}
+    </div>` : ''}
+    <div style="margin-top:6px; font-size:10px; color:var(--dim);">* Fees — оценка на основе 7d APR. Точные: app.gmx.io</div>
+  `;
+}
+
+function renderWallet() {
+  const container = document.getElementById('walletBalances');
+  const w = state.wallet;
+  const wm = state.walletETHMain;
+  const p = state.prices;
+  // wallet address hidden — link to DeBank in card title
+
+  let html = '';
+  let walletTotal = 0;
+  function addRow(icon, name, chain, amount, dec, price) {
+    if (amount == null || amount < 0.0001) return;
+    const usd = price ? amount * price : null;
+    if (usd) walletTotal += usd;
+    const chainColor = chain === 'Bitcoin' ? '#f7931a' : chain === 'Ethereum' ? '#627eea' : '#28a0f0';
+    html += `<div class="token-row">
+      <div class="token-info"><span style="font-size:20px">${icon}</span>
+        <div><div class="token-name">${name}</div><div class="token-chain" style="color:${chainColor}">${chain}</div></div>
+      </div>
+      <div class="token-balance">
+        <div class="token-amount">${fmt(amount, dec)}</div>
+        <div class="token-usd">${usd != null ? fmtUSD(usd) : ''}</div>
+      </div>
+    </div>`;
+  }
+
+  // BTC native
+  addRow('🟠', 'BTC', 'Bitcoin', state.btcBalance, 6, p.BTC);
+
+  // Arbitrum tokens
+  const arbTokens = [
+    { key: 'ETH', icon: '🔷', price: p.ETH, dec: 4 },
+    { key: 'WETH', icon: '🔷', price: p.ETH, dec: 4 },
+    { key: 'WBTC', icon: '🟠', price: p.BTC, dec: 6 },
+    { key: 'USDC', icon: '💵', price: 1, dec: 2 },
+    { key: 'USDC.e', icon: '💵', price: 1, dec: 2 },
+    { key: 'USDT', icon: '💵', price: 1, dec: 2 },
+    { key: 'ARB', icon: '🔵', price: null, dec: 2 },
+  ];
+  for (const t of arbTokens) {
+    const d = w[t.key];
+    if (d) addRow(t.icon, t.key, 'Arbitrum', d.amount, t.dec, t.price);
+  }
+
+  // Ethereum mainnet tokens
+  const ethMainTokens = [
+    { key: 'ETH', icon: '🔷', price: p.ETH, dec: 4 },
+    { key: 'USDT', icon: '💵', price: 1, dec: 2 },
+    { key: 'USDC', icon: '💵', price: 1, dec: 2 },
+    { key: 'WBTC', icon: '🟠', price: p.BTC, dec: 6 },
+  ];
+  for (const t of ethMainTokens) {
+    const d = wm[t.key];
+    if (d) addRow(t.icon, t.key, 'Ethereum', d.amount, t.dec, t.price);
+  }
+
+  if (html && walletTotal > 0) {
+    html += `<div style="margin-top:8px; padding-top:8px; border-top:1px solid var(--border); display:flex; justify-content:space-between; align-items:center;">
+      <span style="color:var(--dim); font-size:13px; font-weight:600;">Итого на кошельке</span>
+      <span style="font-size:15px; font-weight:700;">${fmtUSD(walletTotal)}</span>
+    </div>`;
+  }
+  container.innerHTML = html || '<span style="color:var(--dim)">Пустой кошелёк</span>';
+}
+
+function renderPendle() {
+  const container = document.getElementById('pendlePosition');
+  const pt = state.pendle;
+  if (!pt || pt.ptBalance < 0.01) {
+    container.innerHTML = '<span style="color:var(--dim)">Нет позиций Pendle</span>';
+    return;
+  }
+
+  const ptPrice = pt.ptPrice || 0.965;
+  const ptValue = pt.ptValue || pt.ptBalance * ptPrice;
+  const costBasis = CONFIG.pendlePT_reUSDe_costBasis;
+  const pnl = ptValue - costBasis;
+  const pnlPct = costBasis > 0 ? (pnl / costBasis * 100) : 0;
+  const pnlColor = pnl >= 0 ? 'var(--green)' : 'var(--red)';
+
+  // Days to maturity
+  const expiry = new Date(CONFIG.pendlePT_reUSDe_expiry);
+  const now = new Date();
+  const daysLeft = Math.max(0, Math.ceil((expiry - now) / (1000 * 60 * 60 * 24)));
+
+  // Value at maturity (1 PT = $1 of underlying at expiry)
+  const maturityValue = pt.ptBalance; // each PT redeems for ~$1
+  const maturityProfit = maturityValue - costBasis;
+  const maturityProfitPct = costBasis > 0 ? (maturityProfit / costBasis * 100) : 0;
+
+  let html = '';
+  html += `<div class="metric"><span class="metric-label">Токен</span><span class="metric-value" style="font-size:14px;">PT-reUSDe-25JUN2026</span></div>`;
+  html += `<div class="metric"><span class="metric-label">Количество PT</span><span class="metric-value">${fmt(pt.ptBalance, 2)}</span></div>`;
+  html += `<div class="metric"><span class="metric-label">Цена PT</span><span class="metric-value">$${fmt(ptPrice, 4)}</span></div>`;
+  html += `<div class="metric"><span class="metric-label">Текущая стоимость</span><span class="metric-value" style="color:var(--stability)">${fmtUSD(ptValue)}</span></div>`;
+  html += `<div class="metric"><span class="metric-label">Вложено</span><span class="metric-value">${fmtUSD(costBasis)}</span></div>`;
+  html += `<div class="metric"><span class="metric-label">P&L (текущий)</span><span class="metric-value" style="color:${pnlColor}">${pnl >= 0 ? '+' : ''}${fmtUSD(pnl)} (${pnl >= 0 ? '+' : ''}${fmt(pnlPct, 1)}%)</span></div>`;
+
+  html += `<div style="margin-top:10px; padding-top:10px; border-top:1px solid var(--border);">`;
+  html += `<div class="metric"><span class="metric-label">📅 До погашения</span><span class="metric-value">${daysLeft} дн.</span></div>`;
+  if (pt.impliedApy != null) {
+    html += `<div class="metric"><span class="metric-label">Fixed APY</span><span class="metric-value safe">${fmt(pt.impliedApy * 100, 2)}%</span></div>`;
+  }
+  html += `<div class="metric"><span class="metric-label">💰 При погашении (≈$1/PT)</span><span class="metric-value safe">~${fmtUSD(maturityValue)} (+${fmtUSD(maturityProfit)}, +${fmt(maturityProfitPct, 1)}%)</span></div>`;
+  html += `</div>`;
+
+  html += `<div style="margin-top:8px; font-size:11px; color:var(--dim);">Ethereum mainnet • Pendle Finance • Expiry: ${CONFIG.pendlePT_reUSDe_expiry}</div>`;
+
+  container.innerHTML = html;
+}
+
+function renderZones() {
+  // Growth = Aave collateral (own crypto)
+  // Yield = GM pools (funded by borrowed stables)
+  // Stability = own stablecoins (wallet + Aave supply stables - Aave debt stables... actually own stables only)
+  const a = state.aave;
+  const g = state.gm;
+  const w = state.wallet;
+  const p = state.prices;
+
+  // Growth: Aave collateral + ALL BTC + ALL ETH across ALL chains (wallet, not in Aave)
+  const btcNativeUSD = (state.btcBalance || 0) * (p.BTC || 0);
+  // Wallet ETH/WBTC on Arbitrum (not deposited on Aave — Aave collateral already counted separately)
+  const arbETHWallet = (w['ETH']?.amount || 0) * (p.ETH || 0);
+  const arbWETHWallet = (w['WETH']?.amount || 0) * (p.ETH || 0);
+  const arbWBTCWallet = (w['WBTC']?.amount || 0) * (p.BTC || 0);
+  // Wallet ETH/WBTC on Ethereum mainnet
+  const ethMainETHWallet = (state.walletETHMain['ETH']?.amount || 0) * (p.ETH || 0);
+  const ethMainWBTCWallet = (state.walletETHMain['WBTC']?.amount || 0) * (p.BTC || 0);
+  const growthValue = (a.collateral || 0) + btcNativeUSD + arbETHWallet + arbWETHWallet + arbWBTCWallet + ethMainETHWallet + ethMainWBTCWallet;
+
+  // Yield: GM pools total value
+  const gmBtcVal = g.btcPrice && g.btcBal ? g.btcBal * g.btcPrice : 0;
+  const gmEthVal = g.ethPrice && g.ethBal ? g.ethBal * g.ethPrice : 0;
+  const yieldValue = gmBtcVal + gmEthVal;
+
+  // Stability: ALL stablecoins across ALL chains + Pendle PT
+  const arbStables = (w['USDC']?.amount || 0) + (w['USDC.e']?.amount || 0) + (w['USDT']?.amount || 0);
+  const ethMainStables = (state.walletETHMain['USDT']?.amount || 0) + (state.walletETHMain['USDC']?.amount || 0);
+  const pendlePTValue = state.pendle?.ptValue || 0;
+  const stabilityValue = arbStables + ethMainStables + pendlePTValue;
+
+  const ownCapital = growthValue + stabilityValue; // 70/30 is about OWN capital only
+  const totalPortfolio = growthValue + yieldValue + stabilityValue;
+
+  const gPct = ownCapital > 0 ? (growthValue / ownCapital * 100) : 0;
+  const sPct = ownCapital > 0 ? (stabilityValue / ownCapital * 100) : 0;
+  // Yield is separate (borrowed capital)
+
+  // Zone bar — only Growth vs Stability (own capital, без заёмного)
+  const gBar = gPct;
+  const sBar = sPct;
+
+  document.getElementById('zoneBar').innerHTML = `
+    ${gBar > 2 ? `<div class="growth" style="width:${gBar}%">${fmt(gBar,0)}%</div>` : ''}
+    ${sBar > 2 ? `<div class="stability" style="width:${sBar}%">${fmt(sBar,0)}%</div>` : ''}
+  `;
+
+  document.getElementById('zoneDetails').innerHTML = `
+    <div class="zone-detail-row">
+      <span class="label">🔷 Growth Zone</span>
+      <span><strong>${fmtUSD(growthValue)}</strong> <span class="target">(факт ${fmt(gPct,0)}% / цель ${CONFIG.targetGrowth}%)</span></span>
+    </div>
+    <div class="zone-detail-row">
+      <span class="label">🟡 Yield Zone (заёмный)</span>
+      <span><strong>${fmtUSD(yieldValue)}</strong> <span class="target">(GM пулы)</span></span>
+    </div>
+    <div class="zone-detail-row">
+      <span class="label">🟢 Stability Zone</span>
+      <span><strong>${fmtUSD(stabilityValue)}</strong> <span class="target">(факт ${fmt(sPct,0)}% / цель ${CONFIG.targetStability}%)</span></span>
+    </div>
+    <div style="margin-top:10px; padding-top:10px; border-top:1px solid var(--border);">
+      <div class="zone-detail-row">
+        <span class="label" style="font-weight:600;">Собственный капитал</span>
+        <span style="font-weight:700;">${fmtUSD(ownCapital)}</span>
+      </div>
+      <div class="zone-detail-row">
+        <span class="label" style="font-weight:600;">Весь портфель (+ заёмный)</span>
+        <span style="font-weight:700;">${fmtUSD(totalPortfolio)}</span>
+      </div>
+      <div class="zone-detail-row">
+        <span class="label">Заёмный капитал (Aave debt)</span>
+        <span style="color:var(--red);">${fmtUSD(a.debt || 0)}</span>
+      </div>
+    </div>
+  `;
+}
+
+function renderTriggers() {
+  const ethPrice = state.prices.ETH;
+  if (!ethPrice) return;
+
+  const entry = CONFIG.entryETH;
+  const currentDrop = ((ethPrice - entry) / entry) * 100;
+
+  // Fall triggers based on CGS Capital Growth
+  const fallTriggers = [
+    { pct: -7, action: 'Мониторинг. Следи за HF. Не паникуй.' },
+    { pct: -15, action: 'Продать 70% GM-пулов. BTC в залог. USDC обратно в GM.' },
+    { pct: -30, action: 'Закрыть ВСЕ GM. Весь капитал в залог. Максимальная защита HF.' },
+    { pct: -50, action: 'Recovery Mode. Только GM-пулы + Lending. Без CLMM.' },
+    { pct: -70, action: 'Максимальная просадка. DCA only. Не продавай крипту.' },
+  ];
+
+  const riseTriggers = [
+    { price: 2500, action: 'Начало восстановления. Можно открывать GM-пулы заново.' },
+    { price: 3000, action: 'Рассмотри CLMM. Увеличь Yield Zone.' },
+    { price: 3500, action: 'Полная нагрузка Yield. Рассмотри Pendle PT.' },
+    { price: 4000, action: 'Начинай фиксировать прибыль по LTV. Снижай LTV.' },
+  ];
+
+  let fallHTML = '';
+  fallTriggers.forEach(t => {
+    const triggerPrice = entry * (1 + t.pct/100);
+    const status = currentDrop <= t.pct ? 'passed' : (currentDrop <= t.pct + 8 && currentDrop > t.pct) ? 'active' : 'pending';
+    fallHTML += `<div class="trigger-item ${status}">
+      <div>
+        <span class="trigger-price">${t.pct}% ($${fmt(triggerPrice,0)})</span>
+        <div style="font-size:11px; color:var(--dim); margin-top:2px;">${t.action}</div>
+      </div>
+      <span style="font-size:16px;">${status === 'passed' ? '✅' : status === 'active' ? '⚠️' : '⏳'}</span>
+    </div>`;
+  });
+  document.getElementById('fallTriggers').innerHTML = fallHTML;
+
+  let riseHTML = '';
+  riseTriggers.forEach(t => {
+    const status = ethPrice >= t.price ? 'passed' : (ethPrice >= t.price * 0.95) ? 'active' : 'pending';
+    riseHTML += `<div class="trigger-item ${status}">
+      <div>
+        <span class="trigger-price">$${fmt(t.price,0)}</span>
+        <div style="font-size:11px; color:var(--dim); margin-top:2px;">${t.action}</div>
+      </div>
+      <span style="font-size:16px;">${status === 'passed' ? '✅' : status === 'active' ? '🎯' : '⏳'}</span>
+    </div>`;
+  });
+  document.getElementById('riseTriggers').innerHTML = riseHTML;
+}
+
+// ======= ANALYTICS RENDERERS =======
+
+function renderPositionsPnL() {
+  const container = document.getElementById('positionsPnL');
+  if (!container) return;
+  const p = state.prices;
+  if (!p.ETH && !p.BTC) { container.innerHTML = '<span class="loading-text">Ожидание цен...</span>'; return; }
+
+  const growthPositions = CONFIG.positions.filter(pos => pos.zone === 'growth');
+  let html = `<table class="pnl-table"><thead><tr>
+    <th>Позиция</th><th>Кол-во</th><th>Вход $</th><th>Сейчас $</th><th>Стоимость</th><th>P&L $</th><th>P&L %</th><th>Дата входа</th>
+  </tr></thead><tbody>`;
+
+  let totalEntry = 0, totalCurrent = 0;
+  growthPositions.forEach(pos => {
+    const currentPrice = pos.asset === 'ETH' ? p.ETH : pos.asset === 'BTC' ? p.BTC : 0;
+    const entryUSD = pos.qty * pos.entryPrice;
+    const currentUSD = pos.qty * currentPrice;
+    const pnl = currentUSD - entryUSD;
+    const pnlPct = entryUSD > 0 ? (pnl / entryUSD * 100) : 0;
+    totalEntry += entryUSD;
+    totalCurrent += currentUSD;
+    const cls = pnl >= 0 ? 'pnl-up' : 'pnl-down';
+    const sign = pnl >= 0 ? '+' : '';
+    html += `<tr>
+      <td><strong>${pos.label}</strong><div style="font-size:10px;color:var(--dim)">${pos.protocol} • ${pos.chain}</div></td>
+      <td>${fmt(pos.qty, pos.asset === 'BTC' ? 4 : 4)}</td>
+      <td>${fmtUSD(pos.entryPrice)}</td>
+      <td>${fmtUSD(currentPrice)}</td>
+      <td>${fmtUSD(currentUSD)}</td>
+      <td class="${cls}">${sign}${fmtUSD(pnl)}</td>
+      <td class="${cls}">${sign}${fmt(pnlPct,1)}%</td>
+      <td style="font-size:11px;color:var(--dim)">${pos.entryDate}</td>
+    </tr>`;
+  });
+
+  const totalPnL = totalCurrent - totalEntry;
+  const totalPnLPct = totalEntry > 0 ? (totalPnL / totalEntry * 100) : 0;
+  const cls = totalPnL >= 0 ? 'pnl-up' : 'pnl-down';
+  const sign = totalPnL >= 0 ? '+' : '';
+  html += `<tr class="total-row">
+    <td colspan="4">ИТОГО Growth Zone</td>
+    <td>${fmtUSD(totalCurrent)}</td>
+    <td class="${cls}">${sign}${fmtUSD(totalPnL)}</td>
+    <td class="${cls}">${sign}${fmt(totalPnLPct,1)}%</td>
+    <td></td>
+  </tr></tbody></table>`;
+
+  // Weighted average entry
+  const totalETH = growthPositions.filter(p => p.asset === 'ETH').reduce((s, p) => s + p.qty, 0);
+  const totalETHEntry = growthPositions.filter(p => p.asset === 'ETH').reduce((s, p) => s + p.qty * p.entryPrice, 0);
+  const avgEntry = totalETH > 0 ? totalETHEntry / totalETH : 0;
+  html += `<div style="margin-top:10px; font-size:11px; color:var(--dim);">Средневзвешенная цена входа ETH: <strong style="color:var(--text)">$${fmt(avgEntry,0)}</strong> | Всего ETH: <strong style="color:var(--text)">${fmt(totalETH,4)}</strong></div>`;
+
+  container.innerHTML = html;
+}
+
+function renderYieldTracker() {
+  const container = document.getElementById('yieldTracker');
+  if (!container) return;
+  const g = state.gm;
+  const pt = state.pendle;
+
+  // GM Fees
+  const daysHeld = Math.max(0, (Date.now() - new Date(CONFIG.gmEntryDate).getTime()) / 86400000);
+  const btcFees = (g.btcFeeApr != null && daysHeld > 0) ? CONFIG.gmBTCEntryCost * g.btcFeeApr * (daysHeld / 365) : null;
+  const ethFees = (g.ethFeeApr != null && daysHeld > 0) ? CONFIG.gmETHEntryCost * g.ethFeeApr * (daysHeld / 365) : null;
+  const totalGMFees = (btcFees || 0) + (ethFees || 0);
+
+  // GM Price Impact (total PnL minus fees)
+  const btcUSD = g.btcPrice ? g.btcBal * g.btcPrice : 0;
+  const ethUSD = g.ethPrice ? g.ethBal * g.ethPrice : 0;
+  const gmTotalPnL = (btcUSD + ethUSD) - (CONFIG.gmBTCEntryCost + CONFIG.gmETHEntryCost);
+
+  // Pendle yield to maturity
+  const ptValue = pt.ptValue || pt.ptBalance * (pt.ptPrice || 0.965);
+  const maturityValue = pt.ptBalance; // 1 PT ≈ $1 at expiry
+  const pendleProfit = maturityValue - CONFIG.pendlePT_reUSDe_costBasis;
+  const expiry = new Date(CONFIG.pendlePT_reUSDe_expiry);
+  const daysToMaturity = Math.max(0, Math.ceil((expiry - new Date()) / 86400000));
+
+  // Total portfolio yield
+  const totalYield = totalGMFees + pendleProfit;
+  const totalInvested = CONFIG.gmBTCEntryCost + CONFIG.gmETHEntryCost + CONFIG.pendlePT_reUSDe_costBasis;
+  const annualizedROI = totalInvested > 0 && daysHeld > 0 ? (totalYield / totalInvested) * (365 / daysHeld) * 100 : 0;
+
+  let html = '';
+
+  // GM Fees block
+  html += `<div class="yield-block">
+    <div class="yield-label">🎰 GM Пулы — комиссии за ${fmt(daysHeld,0)} дн.</div>
+    <div class="yield-value pnl-up">+${fmtUSD(totalGMFees)}</div>
+    <div class="yield-sub">BTC пул: +${fmtUSD(btcFees)} (APR ${g.btcFeeApr != null ? fmt(g.btcFeeApr*100,1) : '—'}%) · ETH пул: +${fmtUSD(ethFees)} (APR ${g.ethFeeApr != null ? fmt(g.ethFeeApr*100,1) : '—'}%)</div>
+    <div class="yield-sub">Общий P&L GM (с ценой): <span class="${gmTotalPnL >= 0 ? 'pnl-up' : 'pnl-down'}">${gmTotalPnL >= 0 ? '+' : ''}${fmtUSD(gmTotalPnL)}</span></div>
+  </div>`;
+
+  // Pendle block
+  html += `<div class="yield-block">
+    <div class="yield-label">🟣 Pendle PT-reUSDe — фиксированная доходность</div>
+    <div class="yield-value pnl-up">+${fmtUSD(pendleProfit)} <span style="font-size:12px;color:var(--dim)">(при погашении)</span></div>
+    <div class="yield-sub">Вложено: ${fmtUSD(CONFIG.pendlePT_reUSDe_costBasis)} → при погашении ~${fmtUSD(maturityValue)} · До экспирации: ${daysToMaturity} дн.</div>
+    ${pt.impliedApy != null ? `<div class="yield-sub">Fixed APY: <span style="color:var(--green)">${fmt(pt.impliedApy * 100, 2)}%</span></div>` : ''}
+  </div>`;
+
+  // Total
+  html += `<div class="yield-block" style="padding-top:12px;">
+    <div class="yield-label">📊 Суммарный доход (комиссии + Pendle)</div>
+    <div class="yield-value pnl-up">+${fmtUSD(totalYield)}</div>
+    <div class="yield-sub">Вложено в Yield+Stability: ${fmtUSD(totalInvested)} · Аннуализированный ROI: <strong style="color:var(--green)">${fmt(annualizedROI,1)}%</strong></div>
+  </div>`;
+
+  container.innerHTML = html;
+}
+
+function renderDCATracker() {
+  const container = document.getElementById('dcaTracker');
+  if (!container) return;
+  const p = state.prices;
+
+  // Own capital = Growth + Stability (from live data)
+  const growthVal = state.aave?.collateral || 0;
+  const btcNative = (state.btcBalance || 0) * (p.BTC || 0);
+  const arbETH = (state.wallet['ETH']?.amount || 0) * (p.ETH || 0);
+  const ethMainETH = (state.walletETHMain?.['ETH']?.amount || 0) * (p.ETH || 0);
+  const totalGrowth = growthVal + btcNative + arbETH + ethMainETH;
+
+  const arbStables = (state.wallet['USDC']?.amount || 0) + (state.wallet['USDC.e']?.amount || 0) + (state.wallet['USDT']?.amount || 0);
+  const ethMainStables = (state.walletETHMain?.['USDT']?.amount || 0) + (state.walletETHMain?.['USDC']?.amount || 0);
+  const pendleVal = state.pendle?.ptValue || 0;
+  const totalStability = arbStables + ethMainStables + pendleVal;
+
+  const ownCapital = totalGrowth + totalStability;
+  const stabilityTarget = ownCapital * (CONFIG.targetStability / 100);
+  const stabilityPct = ownCapital > 0 ? (totalStability / ownCapital * 100) : 0;
+  const remaining = Math.max(0, stabilityTarget - totalStability);
+  const dcasNeeded = remaining > 0 ? Math.ceil(remaining / CONFIG.cgsModel.dcaAmount) : 0;
+  const progressPct = stabilityTarget > 0 ? Math.min(100, (totalStability / stabilityTarget * 100)) : 0;
+
+  let html = '';
+  html += `<div class="cgs-param"><span class="cgs-param-label">Собственный капитал</span><span class="cgs-param-value">${fmtUSD(ownCapital)}</span></div>`;
+  html += `<div class="cgs-param"><span class="cgs-param-label">Stability сейчас</span><span class="cgs-param-value" style="color:var(--stability)">${fmtUSD(totalStability)} (${fmt(stabilityPct,1)}%)</span></div>`;
+  html += `<div class="cgs-param"><span class="cgs-param-label">Цель Stability (${CONFIG.targetStability}%)</span><span class="cgs-param-value">${fmtUSD(stabilityTarget)}</span></div>`;
+
+  // Progress bar
+  const barColor = progressPct >= 100 ? 'var(--green)' : progressPct >= 50 ? 'var(--yellow)' : 'var(--red)';
+  html += `<div class="dca-progress">
+    <div class="dca-progress-fill" style="width:${progressPct}%; background:${barColor}">${fmt(progressPct,0)}%</div>
+    ${progressPct < 100 ? `<div class="dca-progress-label">осталось ${fmtUSD(remaining)}</div>` : ''}
+  </div>`;
+
+  html += `<div class="cgs-param"><span class="cgs-param-label">Уже внесено (DCA)</span><span class="cgs-param-value">${fmtUSD(CONFIG.totalDCAInvested)}</span></div>`;
+  html += `<div class="cgs-param"><span class="cgs-param-label">DCA в месяц</span><span class="cgs-param-value">${fmtUSD(CONFIG.cgsModel.dcaAmount)} (${CONFIG.cgsModel.dcaDay}-е число)</span></div>`;
+  html += `<div class="cgs-param"><span class="cgs-param-label">Правило</span><span class="cgs-param-value" style="font-size:11px;">${CONFIG.cgsModel.dcaRule}</span></div>`;
+  if (remaining > 0) {
+    html += `<div style="margin-top:10px; padding:8px; background:rgba(210,153,34,0.1); border-radius:8px; font-size:12px; color:var(--yellow);">
+      ⏳ До цели ещё ~${dcasNeeded} DCA (≈${dcasNeeded} мес.). Следующий DCA: <strong>${CONFIG.cgsModel.dcaDay} апреля</strong>
+    </div>`;
+  } else {
+    html += `<div style="margin-top:10px; padding:8px; background:rgba(63,185,80,0.1); border-radius:8px; font-size:12px; color:var(--green);">
+      ✅ Цель Stability достигнута! DCA переключается на: ${CONFIG.cgsModel.dcaRuleAfter}
+    </div>`;
+  }
+
+  container.innerHTML = html;
+}
+
+function renderCGSModel() {
+  const container = document.getElementById('cgsModelStatus');
+  if (!container) return;
+  const m = CONFIG.cgsModel;
+  const ethPrice = state.prices.ETH;
+  const hf = state.aave?.hf;
+
+  const modeClass = m.mode === 'Recovery' ? 'recovery' : m.mode === 'Emergency' ? 'emergency' : 'normal';
+
+  let html = '';
+  html += `<div style="text-align:center; margin-bottom:12px;"><span class="cgs-mode ${modeClass}">${m.mode} Mode</span></div>`;
+  html += `<div class="cgs-param"><span class="cgs-param-label">Модель</span><span class="cgs-param-value">${m.name}</span></div>`;
+  html += `<div class="cgs-param"><span class="cgs-param-label">Пропорция (своё)</span><span class="cgs-param-value">${m.split.growth}% Growth / ${m.split.stability}% Stability</span></div>`;
+  html += `<div class="cgs-param"><span class="cgs-param-label">Целевой LTV</span><span class="cgs-param-value">${m.targetLTV}%</span></div>`;
+  html += `<div class="cgs-param"><span class="cgs-param-label">Критический LTV</span><span class="cgs-param-value" style="color:var(--yellow)">${m.criticalLTV}% — начинаем снижать</span></div>`;
+  html += `<div class="cgs-param"><span class="cgs-param-label">Экстренный HF</span><span class="cgs-param-value" style="color:var(--red)">< ${m.emergencyHF} — продаём Yield</span></div>`;
+  html += `<div class="cgs-param"><span class="cgs-param-label">Выход из Recovery</span><span class="cgs-param-value">ETH ≥ $${fmt(m.recoveryThreshold, 0)}</span></div>`;
+
+  if (m.clmmBlocked) {
+    html += `<div style="margin-top:10px; padding:8px; background:rgba(248,81,73,0.1); border-radius:8px; font-size:12px; color:var(--red);">
+      🚫 CLMM заблокирован: ${m.clmmBlockReason}
+    </div>`;
+  }
+
+  // Live status
+  if (ethPrice && hf) {
+    const toRecoveryExit = ethPrice >= m.recoveryThreshold;
+    html += `<div style="margin-top:10px; padding:8px; background:rgba(88,166,255,0.1); border-radius:8px; font-size:12px;">
+      <div>ETH сейчас: <strong>$${fmt(ethPrice,0)}</strong> ${toRecoveryExit ? '✅ Выше порога Recovery' : `(до $${fmt(m.recoveryThreshold,0)} ещё $${fmt(m.recoveryThreshold - ethPrice, 0)}, ${fmt(((m.recoveryThreshold - ethPrice) / ethPrice) * 100, 0)}%)`}</div>
+      <div>HF: <strong style="color:${hf >= 1.5 ? 'var(--green)' : hf >= m.emergencyHF ? 'var(--yellow)' : 'var(--red)'}">${fmt(hf, 2)}</strong></div>
+    </div>`;
+  }
+
+  container.innerHTML = html;
+}
+
+function renderTxHistory() {
+  const container = document.getElementById('txHistory');
+  if (!container) return;
+
+  const history = CONFIG.history;
+  let html = `<table class="history-table"><thead><tr>
+    <th>Дата</th><th>Тип</th><th>Актив</th><th>Кол-во</th><th>Цена</th><th>Сумма</th><th>Зона</th><th>Примечание</th>
+  </tr></thead><tbody>`;
+
+  // Show in reverse chronological order
+  [...history].reverse().forEach(tx => {
+    const explorer = tx.txHash ? (tx.zone === 'stability' || tx.asset === 'PT-reUSDe'
+      ? `https://etherscan.io/tx/${tx.txHash}`
+      : `https://arbiscan.io/tx/${tx.txHash}`) : null;
+    const typeClass = tx.type === 'buy' ? 'buy' : tx.type === 'deposit' ? 'deposit' : tx.type === 'borrow' ? 'borrow' : 'sell';
+    const typeLabel = tx.type === 'buy' ? 'Buy' : tx.type === 'deposit' ? 'Deposit' : tx.type === 'borrow' ? 'Borrow' : tx.type;
+
+    html += `<tr>
+      <td style="white-space:nowrap">${tx.date}</td>
+      <td><span class="tx-type ${typeClass}">${typeLabel}</span></td>
+      <td><strong>${tx.asset}</strong></td>
+      <td>${tx.amount != null ? fmt(tx.amount, tx.amount < 1 ? 4 : 2) : '—'}</td>
+      <td>${tx.price != null ? fmtUSD(tx.price) : '—'}</td>
+      <td>${fmtUSD(tx.usd)}</td>
+      <td><span class="zone-badge ${tx.zone}">${tx.zone}</span></td>
+      <td style="font-size:11px; color:var(--dim);">${tx.note || ''}${explorer ? ` <a href="${explorer}" target="_blank" class="tx-link">tx ↗</a>` : ''}</td>
+    </tr>`;
+  });
+
+  html += `</tbody></table>`;
+
+  // Summary
+  const totalInvested = history.filter(tx => tx.type !== 'borrow').reduce((s, tx) => s + (tx.usd || 0), 0);
+  const totalBorrowed = history.filter(tx => tx.type === 'borrow').reduce((s, tx) => s + (tx.usd || 0), 0);
+  html += `<div style="margin-top:10px; font-size:11px; color:var(--dim);">
+    Всего вложено своих: <strong style="color:var(--text)">${fmtUSD(totalInvested)}</strong> · Заёмных: <strong style="color:var(--red)">${fmtUSD(totalBorrowed)}</strong> · Операций: ${history.length}
+  </div>`;
+
+  container.innerHTML = html;
+}
+
+function renderAnalytics() {
+  renderPositionsPnL();
+  renderYieldTracker();
+  renderDCATracker();
+  renderCGSModel();
+  renderTxHistory();
+}
+
+function renderAll() {
+  renderPrices();
+  renderAave();
+  renderAaveBreakdown();
+  renderGM();
+  renderPendle();
+  renderWallet();
+  renderZones();
+  renderTriggers();
+  renderAnalytics();
+}
+
+// ======= REFRESH LOGIC =======
+async function refreshAll() {
+  const info = document.getElementById('refreshInfo');
+  const text = document.getElementById('refreshText');
+  const btn = document.getElementById('refreshBtn');
+
+  info.className = 'refresh-info loading';
+  text.textContent = 'Обновление...';
+  btn.disabled = true;
+
+  // Helper: wrap fetch with timeout (default 15s) and render after each completes
+  function withTimeout(fn, ms = 15000) {
+    return Promise.race([
+      fn().then(r => { renderAll(); return r; }),
+      new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), ms))
+    ]).catch(e => console.warn(fn.name + ':', e.message));
+  }
+  try {
+    // Prices first (needed by others for display), then rest in parallel
+    await withTimeout(fetchPrices, 10000);
+    await Promise.allSettled([
+      withTimeout(fetchAave),
+      withTimeout(fetchAaveReserves),
+      withTimeout(fetchGMTokens),
+      withTimeout(fetchWalletBalances),
+      withTimeout(fetchPendlePT),
+    ]);
+    state.lastUpdate = new Date();
+    state.error = null;
+    renderAll();
+    info.className = 'refresh-info';
+    text.textContent = 'Обновлено: ' + state.lastUpdate.toLocaleTimeString('ru-RU');
+  } catch(e) {
+    state.error = e.message;
+    info.className = 'refresh-info error';
+    text.textContent = 'Ошибка: ' + e.message.slice(0, 60);
+    console.error('Refresh error:', e);
+    renderAll();
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+// ======= TAB SWITCHING =======
+function switchTab(tab) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+  document.getElementById('tab-' + tab).classList.add('active');
+  event.target.classList.add('active');
+  if (tab === 'mvs' && !mvsState.loaded) {
+    loadMVSData();
+  }
+}
+
+function switchMVSZone(zone) {
+  document.querySelectorAll('.mvs-zone-btn').forEach(b => {
+    b.classList.remove('active-growth', 'active-yield', 'active-stability');
+  });
+  document.querySelectorAll('.mvs-zone-content').forEach(c => c.classList.remove('active'));
+  document.getElementById('mvs-' + zone).classList.add('active');
+  const btns = document.querySelectorAll('.mvs-zone-btn');
+  const zoneMap = { growth: 0, yield: 1, stability: 2 };
+  btns[zoneMap[zone]].classList.add('active-' + zone);
+}
+
+// ======= MVS DATA =======
+const mvsState = { loaded: false, pools: [], pendleMarkets: [], error: null };
+
+// Approved projects/protocols from DeFi Arsenal (exact DeFi Llama project names)
+// Tier S: Aave, Fluid (lending only!), Morpho, Compound, Euler
+const APPROVED_LENDING = ['aave-v3', 'fluid-lending', 'morpho-v1', 'euler-v2', 'compound-v3', 'compound-v2'];
+// Tier S: Uniswap, PancakeSwap, Aerodrome, Curve; Tier 1: Balancer, Convex, Velodrome; + Fluid DEX
+const APPROVED_DEX = ['uniswap-v2', 'uniswap-v3', 'uniswap-v4', 'curve-dex', 'convex-finance', 'aerodrome-v1', 'aerodrome-slipstream', 'velodrome-v2', 'velodrome-v3', 'balancer-v2', 'balancer-v3', 'pancakeswap-amm-v3', 'pancakeswap-amm', 'fluid-dex'];
+// Tier 1: GMX; Tier 2: Hyperliquid, Jupiter Perps, Lighter, Aster
+const APPROVED_PERP = ['gmx-v2-perps', 'hyperliquid', 'jupiter-perps', 'lighter', 'aster'];
+const APPROVED_PENDLE = ['pendle'];
+// Match helper: exact project name match (not substring!)
+function isApproved(project, list) { return list.includes(project?.toLowerCase()); }
+// Сети из арсенала
+const APPROVED_CHAINS = ['Ethereum', 'Arbitrum', 'Base', 'Optimism', 'BSC', 'Avalanche', 'Polygon', 'Linea', 'Scroll', 'Mantle'];
+
+// BTC: cbBTC, WBTC, BTC.b, tBTC, kBTC | ETH LST: wstETH, cbETH, rETH, osETH, weETH, mETH, wrsETH
+const CRYPTO_SYMBOLS = ['ETH', 'WETH', 'WBTC', 'BTC', 'cbBTC', 'tBTC', 'kBTC', 'BTC.b', 'wstETH', 'cbETH', 'rETH', 'osETH', 'weETH', 'mETH', 'wrsETH'];
+// Стейблкоины из арсенала
+const STABLE_SYMBOLS = ['USDC', 'USDT', 'USDS', 'USDe', 'sUSDe', 'USR', 'wstUSR', 'GHO', 'RLUSD', 'USDG', 'PYUSD', 'USD1', 'EURC', 'frxUSD', 'reUSDe', 'sUSDS', 'DAI'];
+// Yield-bearing стейблкоины
+const YB_STABLES = ['sUSDe', 'wstUSR', 'sUSDS', 'syrupUSDT', 'syrupUSDC', 'USDG'];
+// Approved Pendle PT keywords from DeFi Arsenal
+const APPROVED_PT_KEYWORDS = ['USDe', 'sUSDe', 'USR', 'wstUSR', 'RLP', 'syrupUSDC', 'syrupUSDT', 'sBOLD', 'USDG', 'USD1', 'reUSDe', 'sUSDS', 'GHO'];
+
+function isStablePool(symbol) {
+  const parts = symbol.split('-').map(s => s.trim());
+  return parts.every(p => STABLE_SYMBOLS.some(st => p.toUpperCase().includes(st.toUpperCase())));
+}
+function isCryptoPool(symbol) {
+  const parts = symbol.split('-').map(s => s.trim());
+  return parts.some(p => CRYPTO_SYMBOLS.some(cr => p.toUpperCase().includes(cr.toUpperCase())));
+}
+function hasYBStable(symbol) {
+  return YB_STABLES.some(yb => symbol.toUpperCase().includes(yb.toUpperCase()));
+}
+
+function apyClass(apy) { return apy >= 8 ? 'high' : apy >= 4 ? 'mid' : 'low'; }
+
+function renderMVSTable(pools, containerId, emptyMsg) {
+  const el = document.getElementById(containerId);
+  if (!pools.length) { el.innerHTML = `<div class="mvs-loading">${emptyMsg || 'Нет подходящих инструментов'}</div>`; return; }
+
+  let html = `<table class="mvs-table"><thead><tr>
+    <th>Протокол</th><th>Пул</th><th>Сеть</th><th>APY</th><th>Base APY</th><th>Reward</th><th>TVL</th>
+  </tr></thead><tbody>`;
+  pools.forEach(p => {
+    const apy = p.apy || 0;
+    const apyBase = p.apyBase || 0;
+    const apyReward = p.apyReward || 0;
+    html += `<tr>
+      <td><span class="mvs-project-badge">${p.project}</span></td>
+      <td style="font-weight:500">${p.symbol}</td>
+      <td><span class="mvs-chain-badge">${p.chain}</span></td>
+      <td><span class="mvs-apy ${apyClass(apy)}">${fmt(apy, 2)}%</span></td>
+      <td><span class="mvs-apy ${apyClass(apyBase)}">${fmt(apyBase, 2)}%</span></td>
+      <td>${apyReward > 0.01 ? `<span class="mvs-apy mid">${fmt(apyReward, 2)}%</span>` : '<span style="color:var(--dim)">—</span>'}</td>
+      <td class="mvs-tvl">${fmtShort(p.tvlUsd)}</td>
+    </tr>`;
+  });
+  html += '</tbody></table>';
+  el.innerHTML = html;
+}
+
+function pendleDisplayName(m) {
+  return m.pt?.name || m.proName || m.name || m.symbol || '—';
+}
+
+function renderPendleTable(markets, containerId, filter) {
+  const el = document.getElementById(containerId);
+  const filtered = markets.filter(filter).sort((a, b) => (b.impliedApy || 0) - (a.impliedApy || 0)).slice(0, 15);
+  if (!filtered.length) { el.innerHTML = '<div class="mvs-loading">Нет активных PT рынков</div>'; return; }
+
+  let html = `<table class="mvs-table"><thead><tr>
+    <th>Рынок</th><th>Сеть</th><th>Implied APY</th><th>Underlying APY</th><th>Ликвидность</th><th>Экспирация</th>
+  </tr></thead><tbody>`;
+  filtered.forEach(m => {
+    const iApy = (m.impliedApy || 0) * 100;
+    const uApy = (m.underlyingApy || 0) * 100;
+    const liq = m.liquidity?.usd || (typeof m.liquidity === 'number' ? m.liquidity : 0);
+    // expiry can be ISO string or timestamp
+    let expiry = '—';
+    if (m.expiry) {
+      const d = typeof m.expiry === 'string' ? new Date(m.expiry) : new Date(m.expiry * 1000);
+      if (!isNaN(d)) expiry = d.toLocaleDateString('ru-RU');
+    }
+    const chainName = m.chainId === 42161 ? 'Arbitrum' : m.chainId === 1 ? 'Ethereum' : m.chainId === 8453 ? 'Base' : m.chainId === 56 ? 'BNB' : `Chain ${m.chainId}`;
+    html += `<tr>
+      <td style="font-weight:500">${pendleDisplayName(m)}</td>
+      <td><span class="mvs-chain-badge">${chainName}</span></td>
+      <td><span class="mvs-apy ${apyClass(iApy)}">${fmt(iApy, 2)}%</span></td>
+      <td><span class="mvs-apy ${apyClass(uApy)}">${fmt(uApy, 2)}%</span></td>
+      <td class="mvs-tvl">${fmtShort(liq)}</td>
+      <td style="font-size:12px;color:var(--dim)">${expiry}</td>
+    </tr>`;
+  });
+  html += '</tbody></table>';
+  el.innerHTML = html;
+}
+
+async function loadMVSData() {
+  const note = document.getElementById('mvsRefreshNote');
+  note.textContent = '⏳ Загрузка данных...';
+
+  try {
+    // Fetch DeFi Llama pools + Pendle markets in parallel
+    const [llamaResp, pendleEthResp, pendleArbResp] = await Promise.all([
+      fetch('https://yields.llama.fi/pools').then(r => r.json()),
+      fetch('https://api-v2.pendle.finance/core/v1/1/markets?is_expired=false&limit=100').then(r => r.json()).catch(() => ({ results: [] })),
+      fetch('https://api-v2.pendle.finance/core/v1/42161/markets?is_expired=false&limit=100').then(r => r.json()).catch(() => ({ results: [] })),
+    ]);
+
+    const allPools = llamaResp.data || [];
+    mvsState.pools = allPools;
+
+    // Pendle markets — handle different response structures
+    const pendleEth = pendleEthResp.results || pendleEthResp || [];
+    const pendleArb = pendleArbResp.results || pendleArbResp || [];
+    mvsState.pendleMarkets = [
+      ...(Array.isArray(pendleEth) ? pendleEth : []).map(m => ({...m, chainId: 1})),
+      ...(Array.isArray(pendleArb) ? pendleArb : []).map(m => ({...m, chainId: 42161})),
+    ];
+
+    // ---- GROWTH ZONE ----
+    // Lending for crypto (ETH, BTC, wstETH supply)
+    const growthLending = allPools.filter(p =>
+      isApproved(p.project, APPROVED_LENDING) &&
+      APPROVED_CHAINS.includes(p.chain) &&
+      isCryptoPool(p.symbol) &&
+      !isStablePool(p.symbol) &&
+      (p.tvlUsd || 0) > 500000 &&
+      (p.apy || 0) > 0.1
+    ).sort((a,b) => (b.apy||0) - (a.apy||0)).slice(0, 20);
+    renderMVSTable(growthLending, 'mvs-growth-lending', 'Нет подходящих лендинг-позиций');
+
+    // Perp DEX pools (GM, JLP, HLP)
+    const growthPerp = allPools.filter(p =>
+      isApproved(p.project, APPROVED_PERP) &&
+      APPROVED_CHAINS.includes(p.chain) &&
+      (p.tvlUsd || 0) > 500000 &&
+      (p.apy || 0) > 1
+    ).sort((a,b) => (b.apy||0) - (a.apy||0)).slice(0, 15);
+    renderMVSTable(growthPerp, 'mvs-growth-perp', 'Нет данных по Perpetual DEX');
+
+    // ---- YIELD ZONE ----
+    // Framework 1: Lending Supply (stables)
+    const yieldLending = allPools.filter(p =>
+      isApproved(p.project, APPROVED_LENDING) &&
+      APPROVED_CHAINS.includes(p.chain) &&
+      p.stablecoin === true &&
+      (p.tvlUsd || 0) > 500000 &&
+      (p.apy || 0) > 1
+    ).sort((a,b) => (b.apy||0) - (a.apy||0)).slice(0, 20);
+    renderMVSTable(yieldLending, 'mvs-yield-lending', 'Нет подходящих стейбл-лендингов');
+
+    // Framework 2: Yield-bearing stables (only on approved lending/DEX protocols)
+    const ALL_APPROVED = [...APPROVED_LENDING, ...APPROVED_DEX];
+    const yieldYB = allPools.filter(p =>
+      hasYBStable(p.symbol) &&
+      isApproved(p.project, ALL_APPROVED) &&
+      APPROVED_CHAINS.includes(p.chain) &&
+      (p.tvlUsd || 0) > 100000 &&
+      (p.apy || 0) > 1
+    ).sort((a,b) => (b.apy||0) - (a.apy||0)).slice(0, 20);
+    renderMVSTable(yieldYB, 'mvs-yield-ybstables', 'Нет данных по доходным стейблкоинам');
+
+    // Framework 3: Pendle PT (yield zone — approved PT from arsenal)
+    renderPendleTable(mvsState.pendleMarkets, 'mvs-yield-pendle', m => {
+      const name = (m.proName || m.pt?.name || m.pt?.symbol || '').toUpperCase();
+      const apy = (m.impliedApy || 0) * 100;
+      return apy > 1 && APPROVED_PT_KEYWORDS.some(kw => name.includes(kw.toUpperCase()));
+    });
+
+    // Framework 4: AMM v2 stable pools
+    const yieldAMM = allPools.filter(p =>
+      isApproved(p.project, APPROVED_DEX) &&
+      APPROVED_CHAINS.includes(p.chain) &&
+      p.stablecoin === true &&
+      (p.tvlUsd || 0) > 300000 &&
+      (p.apy || 0) > 2
+    ).sort((a,b) => (b.apy||0) - (a.apy||0)).slice(0, 20);
+    renderMVSTable(yieldAMM, 'mvs-yield-amm', 'Нет подходящих AMM v2 стейбл-пулов');
+
+    // ---- STABILITY ZONE ----
+    // Simple lending (stables, Tier S only)
+    const stabLending = allPools.filter(p =>
+      isApproved(p.project, APPROVED_LENDING) &&
+      APPROVED_CHAINS.includes(p.chain) &&
+      p.stablecoin === true &&
+      (p.tvlUsd || 0) > 1000000 &&
+      (p.apy || 0) > 0.5
+    ).sort((a,b) => (b.apy||0) - (a.apy||0)).slice(0, 15);
+    renderMVSTable(stabLending, 'mvs-stab-lending', 'Нет данных по стейбл-лендингам');
+
+    // Pendle PT — stables only (same approved PT keywords as yield zone)
+    renderPendleTable(mvsState.pendleMarkets, 'mvs-stab-pendle', m => {
+      const name = (m.proName || m.pt?.name || m.pt?.symbol || '').toUpperCase();
+      return APPROVED_PT_KEYWORDS.some(kw => name.includes(kw.toUpperCase())) && (m.impliedApy || 0) * 100 > 1;
+    });
+
+    // AMM v2 stables (USDT/USDC pairs, lowest risk)
+    const stabAMM = allPools.filter(p =>
+      isApproved(p.project, APPROVED_DEX) &&
+      APPROVED_CHAINS.includes(p.chain) &&
+      p.stablecoin === true &&
+      isStablePool(p.symbol) &&
+      (p.tvlUsd || 0) > 500000 &&
+      (p.apy || 0) > 1
+    ).sort((a,b) => (b.apy||0) - (a.apy||0)).slice(0, 15);
+    renderMVSTable(stabAMM, 'mvs-stab-amm', 'Нет подходящих стейбл AMM пулов');
+
+    mvsState.loaded = true;
+    mvsState.error = null;
+    note.textContent = '✅ Данные обновлены: ' + new Date().toLocaleTimeString('ru-RU') + ' • DeFi Llama + Pendle API';
+  } catch(e) {
+    mvsState.error = e.message;
+    note.textContent = '❌ Ошибка загрузки: ' + e.message;
+    console.error('MVS load error:', e);
+    // Show error in all containers
+    document.querySelectorAll('[id^="mvs-"]').forEach(el => {
+      if (el.classList.contains('mvs-loading') || el.querySelector('.mvs-loading')) {
+        el.innerHTML = `<div class="mvs-error">Ошибка загрузки данных: ${e.message}</div>`;
+      }
+    });
+  }
+}
+
+// ======= INIT =======
+initProviders().then(() => {
+  refreshAll();
+  setInterval(refreshAll, CONFIG.refreshInterval);
+});
+
+// ======= PWA SERVICE WORKER =======
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js').then(reg => {
+    console.log('SW registered:', reg.scope);
+  }).catch(err => {
+    console.log('SW registration skipped:', err.message);
+  });
+}
+</script>
+</body>
+</html>
