@@ -204,14 +204,19 @@
 
   /* ===== Mobile Responsive ===== */
   @media (max-width: 480px) {
-    body { padding: 12px; }
+    body { padding: 12px; overflow-x: hidden; }
+    html { overflow-x: hidden; }
 
     /* Header: stack vertically */
     .header { flex-direction: column; align-items: flex-start; gap: 8px; }
-    .header h1 { font-size: 18px; }
-    .header-prices { order: -1; width: 100%; justify-content: flex-start; }
-    .hp-price { font-size: 14px; }
-    .hp-change { font-size: 10px; }
+    .header h1 { font-size: 17px; }
+    .header-prices { order: -1; width: 100%; justify-content: flex-start; flex-wrap: wrap; gap: 6px 16px; }
+    .hp-item { gap: 5px; }
+    .hp-icon { font-size: 14px; }
+    .hp-price { font-size: 13px; }
+    .hp-changes { gap: 3px; }
+    .hp-change { font-size: 9px; padding: 1px 3px; }
+    .hp-change .period { font-size: 8px; }
     .refresh-info { font-size: 12px; width: 100%; justify-content: flex-end; }
 
     /* Tab bar: smaller */
@@ -220,8 +225,13 @@
 
     /* Cards */
     .grid { grid-template-columns: 1fr; gap: 12px; }
-    .card { padding: 14px; }
+    .card { padding: 14px; overflow: hidden; max-width: 100%; }
     .card-title { font-size: 11px; }
+
+    /* Zone details - prevent overflow */
+    .zone-detail-row { flex-wrap: wrap; font-size: 12px; gap: 2px; }
+    .zone-legend { gap: 8px; }
+    .zone-legend-item { font-size: 11px; }
 
     /* Triggers: single column on very small screens */
     #triggersGrid { grid-template-columns: 1fr !important; }
