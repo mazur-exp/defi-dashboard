@@ -200,12 +200,13 @@
   .zone-badge.stability { background: rgba(63,185,80,0.12); color: var(--stability); }
 
   /* ===== Table Scroll Wrapper ===== */
-  .table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; margin: 0 -8px; padding: 0 8px; }
+  .table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; max-width: 100%; }
 
   /* ===== Mobile Responsive ===== */
   @media (max-width: 480px) {
-    body { padding: 12px; overflow-x: hidden; }
-    html { overflow-x: hidden; }
+    body { padding: 12px; overflow-x: hidden; max-width: 100vw; }
+    html { overflow-x: hidden; max-width: 100vw; }
+    .tab-content, .grid, .card, .wide { max-width: 100%; overflow-x: hidden; }
 
     /* Header: stack vertically */
     .header { flex-direction: column; align-items: flex-start; gap: 8px; }
