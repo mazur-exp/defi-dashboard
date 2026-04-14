@@ -795,10 +795,11 @@ async function fetchGMTokens() {
   // This accounts for trader unrealized PnL (DeFi Llama TVL method overestimated by 2-7%)
   try {
     const READER_ABI = [
-      'function getMarketTokenPrice(address dataStore, tuple(address marketToken, address indexToken, address longToken, address shortToken) market, tuple(uint256 min, uint256 max) indexTokenPrice, tuple(uint256 min, uint256 max) longTokenPrice, tuple(uint256 min, uint256 max) shortTokenPrice, bytes32 pnlFactorType, bool maximize) view returns (int256, tuple(int256 poolValue, int256 longPnl, int256 shortPnl, int256 netPnl, uint256 longTokenAmount, uint256 shortTokenAmount, uint256 longTokenUsd, uint256 shortTokenUsd, int256 totalBorrowingFees, uint256 borrowingFeePoolFactor, uint256 impactPoolAmount))'
+      'function getMarketTokenPrice(address dataStore, tuple(address marketToken, address indexToken, address longToken, address shortToken) market, tuple(uint256 min, uint256 max) indexTokenPrice, tuple(uint256 min, uint256 max) longTokenPrice, tuple(uint256 min, uint256 max) shortTokenPrice, bytes32 pnlFactorType, bool maximize) view returns (int256, tuple(int256 poolValue, int256 longPnl, int256 shortPnl, int256 netPnl, uint256 longTokenAmount, uint256 shortTokenAmount, uint256 longTokenUsd, uint256 shortTokenUsd, int256 totalBorrowingFees, uint256 borrowingFeePoolFactor, uint256 impactPoolAmount))',
+      'function getNetPnl(address dataStore, tuple(address marketToken, address indexToken, address longToken, address shortToken) market, tuple(uint256 min, uint256 max) indexTokenPrice, bool maximize) view returns (int256)'
     ];
+    const SUPPLY_ABI = ['function totalSupply() view returns (uint256)'];
     const reader = new ethers.Contract(CONFIG.gmxReader, READER_ABI, provider);
-    // keccak256(abi.encode(keccak256("MAX_PNL_FACTOR"), keccak256("MAX_PNL_FACTOR_FOR_TRADERS")))
     const PNL_FACTOR_TRADERS = ethers.utils.keccak256(
       ethers.utils.defaultAbiCoder.encode(['bytes32', 'bytes32'], [
         ethers.utils.keccak256(ethers.utils.toUtf8Bytes('MAX_PNL_FACTOR')),
@@ -820,21 +821,37 @@ async function fetchGMTokens() {
     const pUSDC = bySym('USDC');
     const ps = (p) => ({ min: p.minPrice, max: p.maxPrice });
 
-    // BTC pool: indexToken=BTC(synthetic), longToken=WBTC.b, shortToken=USDC
-    // ETH pool: indexToken=WETH,           longToken=WETH,    shortToken=USDC
-    const [btcRes, ethRes] = await Promise.all([
+    const gmBTCSupplyC = new ethers.Contract(CONFIG.gmBTCUSD, SUPPLY_ABI, provider);
+    const gmETHSupplyC = new ethers.Contract(CONFIG.gmETHUSD, SUPPLY_ABI, provider);
+
+    // Parallel calls: pool price (Reader), raw net PnL (uncapped), totalSupply
+    // GMX UI formula: realPrice = (poolValue - max(0, netPnl_traders)) / totalSupply
+    // When traders are in profit, LP pays them at withdrawal → price drops.
+    // Reader.getMarketTokenPrice caps PnL via MAX_PNL_FACTOR to protect LP, but UI shows uncapped.
+    const [btcRes, ethRes, btcNetPnl, ethNetPnl, btcSupRaw, ethSupRaw] = await Promise.all([
       reader.getMarketTokenPrice(CONFIG.gmxDataStore, CONFIG.gmBTCMarket, ps(pBTC), ps(pWBTC), ps(pUSDC), PNL_FACTOR_TRADERS, false).catch(() => null),
       reader.getMarketTokenPrice(CONFIG.gmxDataStore, CONFIG.gmETHMarket, ps(pETH), ps(pWETH), ps(pUSDC), PNL_FACTOR_TRADERS, false).catch(() => null),
+      reader.getNetPnl(CONFIG.gmxDataStore, CONFIG.gmBTCMarket, ps(pBTC), false).catch(() => ethers.BigNumber.from(0)),
+      reader.getNetPnl(CONFIG.gmxDataStore, CONFIG.gmETHMarket, ps(pETH), false).catch(() => ethers.BigNumber.from(0)),
+      gmBTCSupplyC.totalSupply(),
+      gmETHSupplyC.totalSupply(),
     ]);
 
-    if (btcRes) {
-      state.gm.btcPrice = Number(ethers.utils.formatUnits(btcRes[0], 30));
-      state.gm.btcPoolTVL = Number(ethers.utils.formatUnits(btcRes[1].poolValue, 30));
-    }
-    if (ethRes) {
-      state.gm.ethPrice = Number(ethers.utils.formatUnits(ethRes[0], 30));
-      state.gm.ethPoolTVL = Number(ethers.utils.formatUnits(ethRes[1].poolValue, 30));
-    }
+    const adjust = (res, netPnl, supply) => {
+      if (!res) return { price: null, tvl: null };
+      const poolValue = res[1].poolValue;
+      const positivePnl = netPnl.gt(0) ? netPnl : ethers.BigNumber.from(0);
+      const adjustedPool = poolValue.sub(positivePnl);
+      const supplyNum = Number(ethers.utils.formatEther(supply));
+      if (supplyNum <= 0) return { price: null, tvl: null };
+      const tvl = Number(ethers.utils.formatUnits(adjustedPool, 30));
+      return { price: tvl / supplyNum, tvl };
+    };
+
+    const btcAdj = adjust(btcRes, btcNetPnl, btcSupRaw);
+    const ethAdj = adjust(ethRes, ethNetPnl, ethSupRaw);
+    if (btcAdj.price != null) { state.gm.btcPrice = btcAdj.price; state.gm.btcPoolTVL = btcAdj.tvl; }
+    if (ethAdj.price != null) { state.gm.ethPrice = ethAdj.price; state.gm.ethPoolTVL = ethAdj.tvl; }
 
     // APR from DeFi Llama (kept as reference — 7d fee APR)
     if (llamaResp.ok) {
