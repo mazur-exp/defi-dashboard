@@ -1,4 +1,4 @@
-const CACHE_NAME = 'defi-cgs-v1';
+const CACHE_NAME = 'defi-cgs-v2';
 const SHELL_FILES = [
   './',
   './index.html',
@@ -37,7 +37,8 @@ self.addEventListener('fetch', event => {
       url.hostname.includes('pendle.finance') ||
       url.hostname.includes('coingecko.com') ||
       url.hostname.includes('blockchain.info') ||
-      url.hostname.includes('gmx.io')) {
+      url.hostname.includes('gmx.io') ||
+      url.hostname.includes('gmxinfra.io')) {
     event.respondWith(fetch(event.request));
     return;
   }

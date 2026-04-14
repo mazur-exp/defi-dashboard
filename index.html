@@ -790,48 +790,63 @@ async function fetchGMTokens() {
   state.gm.btcBal = Number(ethers.utils.formatEther(balBTC));
   state.gm.ethBal = Number(ethers.utils.formatEther(balETH));
 
-  // Get GM token prices: DeFi Llama pool TVL / on-chain totalSupply
-  // This matches GMX app.gmx.io values exactly (Reader contract overestimates by 0.5-3.7%)
+  // Get GM token prices via GMX Reader contract (exact match with app.gmx.io)
+  // Formula: Reader.getMarketTokenPrice(pnlFactorType=MAX_PNL_FACTOR_FOR_TRADERS, maximize=false)
+  // This accounts for trader unrealized PnL (DeFi Llama TVL method overestimated by 2-7%)
   try {
-    const SUPPLY_ABI = ['function totalSupply() view returns (uint256)'];
-    const gmBTCSupply = new ethers.Contract(CONFIG.gmBTCUSD, SUPPLY_ABI, provider);
-    const gmETHSupply = new ethers.Contract(CONFIG.gmETHUSD, SUPPLY_ABI, provider);
+    const READER_ABI = [
+      'function getMarketTokenPrice(address dataStore, tuple(address marketToken, address indexToken, address longToken, address shortToken) market, tuple(uint256 min, uint256 max) indexTokenPrice, tuple(uint256 min, uint256 max) longTokenPrice, tuple(uint256 min, uint256 max) shortTokenPrice, bytes32 pnlFactorType, bool maximize) view returns (int256, tuple(int256 poolValue, int256 longPnl, int256 shortPnl, int256 netPnl, uint256 longTokenAmount, uint256 shortTokenAmount, uint256 longTokenUsd, uint256 shortTokenUsd, int256 totalBorrowingFees, uint256 borrowingFeePoolFactor, uint256 impactPoolAmount))'
+    ];
+    const reader = new ethers.Contract(CONFIG.gmxReader, READER_ABI, provider);
+    // keccak256(abi.encode(keccak256("MAX_PNL_FACTOR"), keccak256("MAX_PNL_FACTOR_FOR_TRADERS")))
+    const PNL_FACTOR_TRADERS = ethers.utils.keccak256(
+      ethers.utils.defaultAbiCoder.encode(['bytes32', 'bytes32'], [
+        ethers.utils.keccak256(ethers.utils.toUtf8Bytes('MAX_PNL_FACTOR')),
+        ethers.utils.keccak256(ethers.utils.toUtf8Bytes('MAX_PNL_FACTOR_FOR_TRADERS'))
+      ])
+    );
 
-    const [supBTC, supETH, llamaResp] = await Promise.all([
-      gmBTCSupply.totalSupply(),
-      gmETHSupply.totalSupply(),
+    // Fetch live oracle prices + DeFi Llama (for APR / fee tracking)
+    const [pricesResp, llamaResp] = await Promise.all([
+      fetch('https://arbitrum-api.gmxinfra.io/prices/tickers'),
       fetch('https://yields.llama.fi/pools'),
     ]);
+    const prices = await pricesResp.json();
+    const bySym = (s) => prices.find(t => t.tokenSymbol === s);
+    const pBTC = bySym('BTC');
+    const pWBTC = bySym('WBTC.b') || pBTC;
+    const pETH = bySym('ETH');
+    const pWETH = bySym('WETH') || pETH;
+    const pUSDC = bySym('USDC');
+    const ps = (p) => ({ min: p.minPrice, max: p.maxPrice });
 
-    const totalSupplyBTC = Number(ethers.utils.formatEther(supBTC));
-    const totalSupplyETH = Number(ethers.utils.formatEther(supETH));
+    // BTC pool: indexToken=BTC(synthetic), longToken=WBTC.b, shortToken=USDC
+    // ETH pool: indexToken=WETH,           longToken=WETH,    shortToken=USDC
+    const [btcRes, ethRes] = await Promise.all([
+      reader.getMarketTokenPrice(CONFIG.gmxDataStore, CONFIG.gmBTCMarket, ps(pBTC), ps(pWBTC), ps(pUSDC), PNL_FACTOR_TRADERS, false).catch(() => null),
+      reader.getMarketTokenPrice(CONFIG.gmxDataStore, CONFIG.gmETHMarket, ps(pETH), ps(pWETH), ps(pUSDC), PNL_FACTOR_TRADERS, false).catch(() => null),
+    ]);
 
+    if (btcRes) {
+      state.gm.btcPrice = Number(ethers.utils.formatUnits(btcRes[0], 30));
+      state.gm.btcPoolTVL = Number(ethers.utils.formatUnits(btcRes[1].poolValue, 30));
+    }
+    if (ethRes) {
+      state.gm.ethPrice = Number(ethers.utils.formatUnits(ethRes[0], 30));
+      state.gm.ethPoolTVL = Number(ethers.utils.formatUnits(ethRes[1].poolValue, 30));
+    }
+
+    // APR from DeFi Llama (kept as reference — 7d fee APR)
     if (llamaResp.ok) {
       const llamaData = await llamaResp.json();
       const gmxPools = llamaData.data.filter(p => p.project === 'gmx-v2-perps' && p.chain === 'Arbitrum');
-      // Main BTC/USDC pool (highest TVL WBTC.B-USDC)
-      const btcPool = gmxPools
-        .filter(p => p.symbol?.includes('WBTC') && p.symbol?.includes('USDC'))
-        .sort((a, b) => b.tvlUsd - a.tvlUsd)[0];
-      // Main ETH/USDC pool (highest TVL ETH-USDC)
-      const ethPool = gmxPools
-        .filter(p => p.symbol === 'ETH-USDC')
-        .sort((a, b) => b.tvlUsd - a.tvlUsd)[0];
-
-      if (btcPool && totalSupplyBTC > 0) {
-        state.gm.btcPrice = btcPool.tvlUsd / totalSupplyBTC;
-        state.gm.btcPoolTVL = btcPool.tvlUsd;
-        // APY from DeFi Llama (same data, no extra API call needed)
-        state.gm.btcFeeApr = btcPool.apy != null ? btcPool.apy / 100 : null;
-      }
-      if (ethPool && totalSupplyETH > 0) {
-        state.gm.ethPrice = ethPool.tvlUsd / totalSupplyETH;
-        state.gm.ethPoolTVL = ethPool.tvlUsd;
-        state.gm.ethFeeApr = ethPool.apy != null ? ethPool.apy / 100 : null;
-      }
+      const btcPool = gmxPools.filter(p => p.symbol?.includes('WBTC') && p.symbol?.includes('USDC')).sort((a, b) => b.tvlUsd - a.tvlUsd)[0];
+      const ethPool = gmxPools.filter(p => p.symbol === 'ETH-USDC').sort((a, b) => b.tvlUsd - a.tvlUsd)[0];
+      if (btcPool) state.gm.btcFeeApr = btcPool.apy != null ? btcPool.apy / 100 : null;
+      if (ethPool) state.gm.ethFeeApr = ethPool.apy != null ? ethPool.apy / 100 : null;
     }
   } catch(e) {
-    console.warn('GM pricing error:', e.message);
+    console.warn('GM Reader pricing error:', e.message);
     state.gm.btcPrice = null;
     state.gm.ethPrice = null;
   }
