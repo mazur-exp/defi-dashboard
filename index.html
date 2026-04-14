@@ -581,7 +581,7 @@ const CONFIG = {
   pendlePT_reUSDe: '0xdc9a5a2e3ce7ac881fc3b28c629c05d1617d1c56', // PT-reUSDe-25JUN2026
   pendlePT_reUSDe_decimals: 18,
   pendlePT_reUSDe_expiry: '2026-06-25',
-  pendlePT_reUSDe_costBasis: 15002, // USD invested (8001 + 7001 USDT 22 Mar)
+  pendlePT_reUSDe_costBasis: 25002, // USD invested (8001 + 7001 + 10000 USDT — 22 Mar, 14 Apr)
   // Pendle API for PT price
   pendleMarketId: '0x6cb9a013604a567a5834fadd411165b1ca616783',
   // Target allocation (own capital)
@@ -601,6 +601,7 @@ const CONFIG = {
     // Stability Zone — Own stables
     { id: 'pt-reusde-1', zone: 'stability', asset: 'PT-reUSDe', label: 'PT-reUSDe (вход 1)', costBasis: 8001, entryDate: '2026-03-21', protocol: 'Pendle', chain: 'Ethereum', txHash: '0xdcb8faa363c8ae563ed731d97b1ad80850fffc70f1ca67c7d2ad7a7f84d3325c', note: 'Первый вход PT-reUSDe' },
     { id: 'pt-reusde-2', zone: 'stability', asset: 'PT-reUSDe', label: 'PT-reUSDe (DCA)', costBasis: 7001, entryDate: '2026-03-22', protocol: 'Pendle', chain: 'Ethereum', txHash: '0x9e01ea1c7f08dce15aefa4ccb1654260cb405c95307bacab34d0a991c72bb54f', note: 'DCA — второй вход PT-reUSDe' },
+    { id: 'pt-reusde-3', zone: 'stability', asset: 'PT-reUSDe', label: 'PT-reUSDe (DCA Apr)', costBasis: 10000, entryDate: '2026-04-14', protocol: 'Pendle', chain: 'Ethereum', txHash: '0x19aa4b0e80b390d6989696aca3c224a850dd582265d9eda97d89ed42df6ee278', note: 'DCA апрель — третий вход PT-reUSDe, 10,258.84 PT' },
   ],
 
   // ======= TRANSACTION HISTORY =======
@@ -614,6 +615,7 @@ const CONFIG = {
     { date: '2026-03-20', type: 'buy', asset: 'GM-ETH/USD', amount: null, price: null, usd: 21948, zone: 'yield', txHash: '0x99a6a1e3...', note: 'Депозит в GM ETH/USD пул' },
     { date: '2026-03-21', type: 'buy', asset: 'PT-reUSDe', amount: 8285.58, price: 0.966, usd: 8001, zone: 'stability', txHash: '0xdcb8faa3...', note: 'Первый вход PT-reUSDe на Pendle' },
     { date: '2026-03-22', type: 'buy', asset: 'PT-reUSDe', amount: 7239.89, price: 0.967, usd: 7001, zone: 'stability', txHash: '0x9e01ea1c...', note: 'DCA — второй вход PT-reUSDe' },
+    { date: '2026-04-14', type: 'buy', asset: 'PT-reUSDe', amount: 10258.84, price: 0.9748, usd: 10000, zone: 'stability', txHash: '0x19aa4b0e...', note: 'DCA апрель — третий вход PT-reUSDe (Pendle Router V4)' },
   ],
 
   // ======= CGS MODEL PARAMETERS =======
@@ -637,8 +639,9 @@ const CONFIG = {
   dcaHistory: [
     { date: '2026-03-21', amount: 8001, target: 'PT-reUSDe', zone: 'stability' },
     { date: '2026-03-22', amount: 7001, target: 'PT-reUSDe', zone: 'stability' },
+    { date: '2026-04-14', amount: 10000, target: 'PT-reUSDe', zone: 'stability' },
   ],
-  totalDCAInvested: 15002, // cumulative DCA into Stability
+  totalDCAInvested: 25002, // cumulative DCA into Stability
 };
 
 // ======= SAFE FETCH (auto-timeout for file:// CORS issues) =======
