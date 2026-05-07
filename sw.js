@@ -1,4 +1,4 @@
-const CACHE_NAME = 'defi-cgs-v2';
+const CACHE_NAME = 'defi-cgs-v3';
 const SHELL_FILES = [
   './',
   './index.html',
@@ -24,11 +24,15 @@ self.addEventListener('activate', event => {
   );
 });
 
-// Fetch — network-first for API calls, cache-first for shell
+// Fetch strategy:
+//   - API calls (RPC, DeFi Llama, Pendle, CoinGecko, etc.) → network-only
+//   - HTML/index/root navigation → network-first (always try fresh, fall back to cache offline)
+//   - Other shell assets (manifest, icons, ethers.js) → stale-while-revalidate (instant, refresh in bg)
 self.addEventListener('fetch', event => {
-  const url = new URL(event.request.url);
+  const req = event.request;
+  const url = new URL(req.url);
 
-  // API calls (RPC, DeFi Llama, Pendle, CoinGecko) — always network
+  // 1) API calls — always network, no cache fallback
   if (url.hostname.includes('publicnode.com') ||
       url.hostname.includes('arbitrum.io') ||
       url.hostname.includes('llamarpc.com') ||
@@ -36,25 +40,47 @@ self.addEventListener('fetch', event => {
       url.hostname.includes('defillama.com') ||
       url.hostname.includes('pendle.finance') ||
       url.hostname.includes('coingecko.com') ||
+      url.hostname.includes('cryptocompare.com') ||
+      url.hostname.includes('mempool.space') ||
       url.hostname.includes('blockchain.info') ||
       url.hostname.includes('gmx.io') ||
-      url.hostname.includes('gmxinfra.io')) {
-    event.respondWith(fetch(event.request));
+      url.hostname.includes('gmxinfra.io') ||
+      url.hostname.includes('drpc.org') ||
+      url.hostname.includes('1rpc.io')) {
+    event.respondWith(fetch(req));
     return;
   }
 
-  // App shell — cache-first, fallback to network
-  event.respondWith(
-    caches.match(event.request).then(cached => {
-      if (cached) return cached;
-      return fetch(event.request).then(response => {
-        // Cache successful responses
-        if (response.status === 200) {
+  // 2) HTML / navigation — network-first (so dashboard updates always reach the client)
+  const isHtml = req.mode === 'navigate' ||
+                 req.destination === 'document' ||
+                 url.pathname.endsWith('/') ||
+                 url.pathname.endsWith('.html');
+
+  if (isHtml) {
+    event.respondWith(
+      fetch(req).then(response => {
+        if (response && response.status === 200) {
           const clone = response.clone();
-          caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
+          caches.open(CACHE_NAME).then(cache => cache.put(req, clone));
         }
         return response;
-      });
+      }).catch(() => caches.match(req).then(c => c || caches.match('./index.html')))
+    );
+    return;
+  }
+
+  // 3) Other shell assets — stale-while-revalidate
+  event.respondWith(
+    caches.match(req).then(cached => {
+      const fetchPromise = fetch(req).then(response => {
+        if (response && response.status === 200) {
+          const clone = response.clone();
+          caches.open(CACHE_NAME).then(cache => cache.put(req, clone));
+        }
+        return response;
+      }).catch(() => cached);
+      return cached || fetchPromise;
     })
   );
 });
