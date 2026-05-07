@@ -581,7 +581,7 @@ const CONFIG = {
   pendlePT_reUSDe: '0xdc9a5a2e3ce7ac881fc3b28c629c05d1617d1c56', // PT-reUSDe-25JUN2026
   pendlePT_reUSDe_decimals: 18,
   pendlePT_reUSDe_expiry: '2026-06-25',
-  pendlePT_reUSDe_costBasis: 35004, // USD invested (8001 + 7001 + 10000 + 10002 — 21/22 Mar, 14 Apr, 7 May)
+  pendlePT_reUSDe_costBasis: 35127.24, // Pendle UI Position Cost = sum of value-at-execution (8006.83 + 6997.61 + 10013.80 + 10109.00). DCA-USDC отправлено отдельно: 35,004 (см. totalDCAInvested)
   // Pendle API for PT price
   pendleMarketId: '0x6cb9a013604a567a5834fadd411165b1ca616783',
   // Target allocation (own capital)
@@ -599,10 +599,10 @@ const CONFIG = {
     { id: 'gm-btc', zone: 'yield', asset: 'GM-BTC/USD', label: 'GM BTC/USD', costBasis: 33732, entryDate: '2026-03-20', protocol: 'GMX v2', chain: 'Arbitrum', note: 'USDC из Aave → GM BTC/USD' },
     { id: 'gm-eth', zone: 'yield', asset: 'GM-ETH/USD', label: 'GM ETH/USD', costBasis: 21948, entryDate: '2026-03-20', protocol: 'GMX v2', chain: 'Arbitrum', txHash: '0x99a6a1e398e24b3ef8d4a8056787625bfe84b7c7a98b60527196c352b73859e2', note: 'USDC из Aave → GM ETH/USD' },
     // Stability Zone — Own stables
-    { id: 'pt-reusde-1', zone: 'stability', asset: 'PT-reUSDe', label: 'PT-reUSDe (вход 1)', costBasis: 8001, entryDate: '2026-03-21', protocol: 'Pendle', chain: 'Ethereum', txHash: '0xdcb8faa363c8ae563ed731d97b1ad80850fffc70f1ca67c7d2ad7a7f84d3325c', note: 'Первый вход PT-reUSDe, 8,202.8372 PT по $0.9754' },
-    { id: 'pt-reusde-2', zone: 'stability', asset: 'PT-reUSDe', label: 'PT-reUSDe (DCA)', costBasis: 7001, entryDate: '2026-03-22', protocol: 'Pendle', chain: 'Ethereum', txHash: '0x9e01ea1c7f08dce15aefa4ccb1654260cb405c95307bacab34d0a991c72bb54f', note: 'DCA — второй вход PT-reUSDe, 7,167.8117 PT по $0.9767' },
-    { id: 'pt-reusde-3', zone: 'stability', asset: 'PT-reUSDe', label: 'PT-reUSDe (DCA Apr)', costBasis: 10000, entryDate: '2026-04-14', protocol: 'Pendle', chain: 'Ethereum', txHash: '0x19aa4b0e80b390d6989696aca3c224a850dd582265d9eda97d89ed42df6ee278', note: 'DCA апрель — третий вход PT-reUSDe, 10,258.84 PT' },
-    { id: 'pt-reusde-4', zone: 'stability', asset: 'PT-reUSDe', label: 'PT-reUSDe (DCA May)', costBasis: 10002, entryDate: '2026-05-07', protocol: 'Pendle', chain: 'Ethereum', txHash: '0x753da4d5cc22e1664b9b84eee0a22c1728b5096e84aaba9f6baba88f7997f850', note: 'DCA май — четвёртый вход PT-reUSDe, 10,317.4759 PT по $0.9694, fixed APY 16.48%' },
+    { id: 'pt-reusde-1', zone: 'stability', asset: 'PT-reUSDe', label: 'PT-reUSDe (вход 1)', costBasis: 8006.83, entryDate: '2026-03-21', protocol: 'Pendle', chain: 'Ethereum', txHash: '0xdcb8faa363c8ae563ed731d97b1ad80850fffc70f1ca67c7d2ad7a7f84d3325c', note: 'Первый вход PT-reUSDe, +8,285.58 PT (Pendle UI)' },
+    { id: 'pt-reusde-2', zone: 'stability', asset: 'PT-reUSDe', label: 'PT-reUSDe (DCA)', costBasis: 6997.61, entryDate: '2026-03-22', protocol: 'Pendle', chain: 'Ethereum', txHash: '0x9e01ea1c7f08dce15aefa4ccb1654260cb405c95307bacab34d0a991c72bb54f', note: 'DCA — второй вход PT-reUSDe, +7,239.92 PT (Pendle UI)' },
+    { id: 'pt-reusde-3', zone: 'stability', asset: 'PT-reUSDe', label: 'PT-reUSDe (DCA Apr)', costBasis: 10013.80, entryDate: '2026-04-14', protocol: 'Pendle', chain: 'Ethereum', txHash: '0x19aa4b0e80b390d6989696aca3c224a850dd582265d9eda97d89ed42df6ee278', note: 'DCA апрель — третий вход PT-reUSDe, +10,269.00 PT (Pendle UI)' },
+    { id: 'pt-reusde-4', zone: 'stability', asset: 'PT-reUSDe', label: 'PT-reUSDe (DCA May)', costBasis: 10109.00, entryDate: '2026-05-07', protocol: 'Pendle', chain: 'Ethereum', txHash: '0x753da4d5cc22e1664b9b84eee0a22c1728b5096e84aaba9f6baba88f7997f850', note: 'DCA май — четвёртый вход PT-reUSDe, +10,317.40 PT (Pendle UI), fixed APY 16.48%' },
   ],
 
   // ======= TRANSACTION HISTORY =======
@@ -614,10 +614,10 @@ const CONFIG = {
     { date: '2026-03-20', type: 'borrow', asset: 'USDC', amount: 55680, price: 1, usd: 55680, zone: 'yield', note: 'Заём USDC на Aave для GM пулов' },
     { date: '2026-03-20', type: 'buy', asset: 'GM-BTC/USD', amount: null, price: null, usd: 33732, zone: 'yield', note: 'Депозит в GM BTC/USD пул' },
     { date: '2026-03-20', type: 'buy', asset: 'GM-ETH/USD', amount: null, price: null, usd: 21948, zone: 'yield', txHash: '0x99a6a1e398e24b3ef8d4a8056787625bfe84b7c7a98b60527196c352b73859e2', note: 'Депозит в GM ETH/USD пул' },
-    { date: '2026-03-21', type: 'buy', asset: 'PT-reUSDe', amount: 8202.8372, price: 0.9754, usd: 8001, zone: 'stability', txHash: '0xdcb8faa363c8ae563ed731d97b1ad80850fffc70f1ca67c7d2ad7a7f84d3325c', note: 'Первый вход PT-reUSDe на Pendle (on-chain точно)' },
-    { date: '2026-03-22', type: 'buy', asset: 'PT-reUSDe', amount: 7167.8117, price: 0.9767, usd: 7001, zone: 'stability', txHash: '0x9e01ea1c7f08dce15aefa4ccb1654260cb405c95307bacab34d0a991c72bb54f', note: 'DCA — второй вход PT-reUSDe (on-chain точно)' },
-    { date: '2026-04-14', type: 'buy', asset: 'PT-reUSDe', amount: 10258.8424, price: 0.9748, usd: 10000, zone: 'stability', txHash: '0x19aa4b0e80b390d6989696aca3c224a850dd582265d9eda97d89ed42df6ee278', note: 'DCA апрель — третий вход PT-reUSDe (Pendle Router V4, on-chain точно)' },
-    { date: '2026-05-07', type: 'buy', asset: 'PT-reUSDe', amount: 10317.4759, price: 0.9694, usd: 10002, zone: 'stability', txHash: '0x753da4d5cc22e1664b9b84eee0a22c1728b5096e84aaba9f6baba88f7997f850', note: 'DCA май — четвёртый вход PT-reUSDe-25JUN2026, fixed APY 16.48%, price impact 0.05%' },
+    { date: '2026-03-21', type: 'buy', asset: 'PT-reUSDe', amount: 8285.58, price: 0.9663, usd: 8006.83, zone: 'stability', txHash: '0xdcb8faa363c8ae563ed731d97b1ad80850fffc70f1ca67c7d2ad7a7f84d3325c', note: 'Первый вход PT-reUSDe (Pendle UI: cum 8,285.58 PT, value $8,006.83, implied yield 13.97%)' },
+    { date: '2026-03-22', type: 'buy', asset: 'PT-reUSDe', amount: 7239.92, price: 0.9665, usd: 6997.61, zone: 'stability', txHash: '0x9e01ea1c7f08dce15aefa4ccb1654260cb405c95307bacab34d0a991c72bb54f', note: 'DCA — второй вход PT-reUSDe (Pendle UI: +7,239.92 PT, value $6,997.61, implied yield 14.0%)' },
+    { date: '2026-04-14', type: 'buy', asset: 'PT-reUSDe', amount: 10269.00, price: 0.9752, usd: 10013.80, zone: 'stability', txHash: '0x19aa4b0e80b390d6989696aca3c224a850dd582265d9eda97d89ed42df6ee278', note: 'DCA апрель — третий вход PT-reUSDe (Pendle UI: +10,269.00 PT, value $10,013.80, implied yield 13.67%)' },
+    { date: '2026-05-07', type: 'buy', asset: 'PT-reUSDe', amount: 10317.40, price: 0.9799, usd: 10109.00, zone: 'stability', txHash: '0x753da4d5cc22e1664b9b84eee0a22c1728b5096e84aaba9f6baba88f7997f850', note: 'DCA май — четвёртый вход PT-reUSDe-25JUN2026 (Pendle UI: +10,317.40 PT, value $10,109.00, implied yield 16.48%)' },
   ],
 
   // ======= CGS MODEL PARAMETERS =======
