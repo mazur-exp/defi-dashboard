@@ -599,8 +599,8 @@ const CONFIG = {
     { id: 'gm-btc', zone: 'yield', asset: 'GM-BTC/USD', label: 'GM BTC/USD', costBasis: 33732, entryDate: '2026-03-20', protocol: 'GMX v2', chain: 'Arbitrum', note: 'USDC из Aave → GM BTC/USD' },
     { id: 'gm-eth', zone: 'yield', asset: 'GM-ETH/USD', label: 'GM ETH/USD', costBasis: 21948, entryDate: '2026-03-20', protocol: 'GMX v2', chain: 'Arbitrum', txHash: '0x99a6a1e398e24b3ef8d4a8056787625bfe84b7c7a98b60527196c352b73859e2', note: 'USDC из Aave → GM ETH/USD' },
     // Stability Zone — Own stables
-    { id: 'pt-reusde-1', zone: 'stability', asset: 'PT-reUSDe', label: 'PT-reUSDe (вход 1)', costBasis: 8001, entryDate: '2026-03-21', protocol: 'Pendle', chain: 'Ethereum', txHash: '0xdcb8faa363c8ae563ed731d97b1ad80850fffc70f1ca67c7d2ad7a7f84d3325c', note: 'Первый вход PT-reUSDe' },
-    { id: 'pt-reusde-2', zone: 'stability', asset: 'PT-reUSDe', label: 'PT-reUSDe (DCA)', costBasis: 7001, entryDate: '2026-03-22', protocol: 'Pendle', chain: 'Ethereum', txHash: '0x9e01ea1c7f08dce15aefa4ccb1654260cb405c95307bacab34d0a991c72bb54f', note: 'DCA — второй вход PT-reUSDe' },
+    { id: 'pt-reusde-1', zone: 'stability', asset: 'PT-reUSDe', label: 'PT-reUSDe (вход 1)', costBasis: 8001, entryDate: '2026-03-21', protocol: 'Pendle', chain: 'Ethereum', txHash: '0xdcb8faa363c8ae563ed731d97b1ad80850fffc70f1ca67c7d2ad7a7f84d3325c', note: 'Первый вход PT-reUSDe, 8,202.8372 PT по $0.9754' },
+    { id: 'pt-reusde-2', zone: 'stability', asset: 'PT-reUSDe', label: 'PT-reUSDe (DCA)', costBasis: 7001, entryDate: '2026-03-22', protocol: 'Pendle', chain: 'Ethereum', txHash: '0x9e01ea1c7f08dce15aefa4ccb1654260cb405c95307bacab34d0a991c72bb54f', note: 'DCA — второй вход PT-reUSDe, 7,167.8117 PT по $0.9767' },
     { id: 'pt-reusde-3', zone: 'stability', asset: 'PT-reUSDe', label: 'PT-reUSDe (DCA Apr)', costBasis: 10000, entryDate: '2026-04-14', protocol: 'Pendle', chain: 'Ethereum', txHash: '0x19aa4b0e80b390d6989696aca3c224a850dd582265d9eda97d89ed42df6ee278', note: 'DCA апрель — третий вход PT-reUSDe, 10,258.84 PT' },
     { id: 'pt-reusde-4', zone: 'stability', asset: 'PT-reUSDe', label: 'PT-reUSDe (DCA May)', costBasis: 10002, entryDate: '2026-05-07', protocol: 'Pendle', chain: 'Ethereum', txHash: '0x753da4d5cc22e1664b9b84eee0a22c1728b5096e84aaba9f6baba88f7997f850', note: 'DCA май — четвёртый вход PT-reUSDe, 10,317.4759 PT по $0.9694, fixed APY 16.48%' },
   ],
@@ -613,10 +613,10 @@ const CONFIG = {
     { date: '2025-08-20', type: 'deposit', asset: 'ETH', amount: 12.275, price: 2022, usd: 24820, zone: 'growth', note: 'Докупка ETH по $2,022 в залог' },
     { date: '2026-03-20', type: 'borrow', asset: 'USDC', amount: 55680, price: 1, usd: 55680, zone: 'yield', note: 'Заём USDC на Aave для GM пулов' },
     { date: '2026-03-20', type: 'buy', asset: 'GM-BTC/USD', amount: null, price: null, usd: 33732, zone: 'yield', note: 'Депозит в GM BTC/USD пул' },
-    { date: '2026-03-20', type: 'buy', asset: 'GM-ETH/USD', amount: null, price: null, usd: 21948, zone: 'yield', txHash: '0x99a6a1e3...', note: 'Депозит в GM ETH/USD пул' },
-    { date: '2026-03-21', type: 'buy', asset: 'PT-reUSDe', amount: 8285.58, price: 0.966, usd: 8001, zone: 'stability', txHash: '0xdcb8faa3...', note: 'Первый вход PT-reUSDe на Pendle' },
-    { date: '2026-03-22', type: 'buy', asset: 'PT-reUSDe', amount: 7239.89, price: 0.967, usd: 7001, zone: 'stability', txHash: '0x9e01ea1c...', note: 'DCA — второй вход PT-reUSDe' },
-    { date: '2026-04-14', type: 'buy', asset: 'PT-reUSDe', amount: 10258.84, price: 0.9748, usd: 10000, zone: 'stability', txHash: '0x19aa4b0e...', note: 'DCA апрель — третий вход PT-reUSDe (Pendle Router V4)' },
+    { date: '2026-03-20', type: 'buy', asset: 'GM-ETH/USD', amount: null, price: null, usd: 21948, zone: 'yield', txHash: '0x99a6a1e398e24b3ef8d4a8056787625bfe84b7c7a98b60527196c352b73859e2', note: 'Депозит в GM ETH/USD пул' },
+    { date: '2026-03-21', type: 'buy', asset: 'PT-reUSDe', amount: 8202.8372, price: 0.9754, usd: 8001, zone: 'stability', txHash: '0xdcb8faa363c8ae563ed731d97b1ad80850fffc70f1ca67c7d2ad7a7f84d3325c', note: 'Первый вход PT-reUSDe на Pendle (on-chain точно)' },
+    { date: '2026-03-22', type: 'buy', asset: 'PT-reUSDe', amount: 7167.8117, price: 0.9767, usd: 7001, zone: 'stability', txHash: '0x9e01ea1c7f08dce15aefa4ccb1654260cb405c95307bacab34d0a991c72bb54f', note: 'DCA — второй вход PT-reUSDe (on-chain точно)' },
+    { date: '2026-04-14', type: 'buy', asset: 'PT-reUSDe', amount: 10258.8424, price: 0.9748, usd: 10000, zone: 'stability', txHash: '0x19aa4b0e80b390d6989696aca3c224a850dd582265d9eda97d89ed42df6ee278', note: 'DCA апрель — третий вход PT-reUSDe (Pendle Router V4, on-chain точно)' },
     { date: '2026-05-07', type: 'buy', asset: 'PT-reUSDe', amount: 10317.4759, price: 0.9694, usd: 10002, zone: 'stability', txHash: '0x753da4d5cc22e1664b9b84eee0a22c1728b5096e84aaba9f6baba88f7997f850', note: 'DCA май — четвёртый вход PT-reUSDe-25JUN2026, fixed APY 16.48%, price impact 0.05%' },
   ],
 
@@ -1531,7 +1531,7 @@ function renderDCATracker() {
   const stabilityTarget = ownCapital * (CONFIG.targetStability / 100);
   const stabilityPct = ownCapital > 0 ? (totalStability / ownCapital * 100) : 0;
   const remaining = Math.max(0, stabilityTarget - totalStability);
-  const dcasNeeded = remaining > 0 ? Math.ceil(remaining / CONFIG.cgsModel.dcaAmount) : 0;
+  const dcasNeeded = remaining > 0 ? +(remaining / CONFIG.cgsModel.dcaAmount).toFixed(1) : 0;
   const progressPct = stabilityTarget > 0 ? Math.min(100, (totalStability / stabilityTarget * 100)) : 0;
 
   let html = '';
@@ -1551,7 +1551,7 @@ function renderDCATracker() {
   html += `<div class="cgs-param"><span class="cgs-param-label">Правило</span><span class="cgs-param-value" style="font-size:11px;">${CONFIG.cgsModel.dcaRule}</span></div>`;
   if (remaining > 0) {
     html += `<div style="margin-top:10px; padding:8px; background:rgba(210,153,34,0.1); border-radius:8px; font-size:12px; color:var(--yellow);">
-      ⏳ До цели ещё ~${dcasNeeded} DCA (≈${dcasNeeded} мес.). Следующий DCA: <strong>${CONFIG.cgsModel.dcaDay} апреля</strong>
+      ⏳ До цели ещё ~${dcasNeeded} DCA (≈${dcasNeeded} мес.). Следующий DCA: <strong>15 июня 2026</strong>
     </div>`;
   } else {
     html += `<div style="margin-top:10px; padding:8px; background:rgba(63,185,80,0.1); border-radius:8px; font-size:12px; color:var(--green);">
@@ -1629,11 +1629,16 @@ function renderTxHistory() {
 
   html += `</tbody></table></div>`;
 
-  // Summary
-  const totalInvested = history.filter(tx => tx.type !== 'borrow').reduce((s, tx) => s + (tx.usd || 0), 0);
+  // Summary — exclude GM purchases (bought with borrowed USDC, double-counting)
+  const ownInvested = history
+    .filter(tx => tx.type !== 'borrow' && !(tx.asset || '').startsWith('GM-'))
+    .reduce((s, tx) => s + (tx.usd || 0), 0);
+  const yieldDeployed = history
+    .filter(tx => (tx.asset || '').startsWith('GM-'))
+    .reduce((s, tx) => s + (tx.usd || 0), 0);
   const totalBorrowed = history.filter(tx => tx.type === 'borrow').reduce((s, tx) => s + (tx.usd || 0), 0);
   html += `<div style="margin-top:10px; font-size:11px; color:var(--dim);">
-    Всего вложено своих: <strong style="color:var(--text)">${fmtUSD(totalInvested)}</strong> · Заёмных: <strong style="color:var(--red)">${fmtUSD(totalBorrowed)}</strong> · Операций: ${history.length}
+    Всего вложено своих: <strong style="color:var(--text)">${fmtUSD(ownInvested)}</strong> · Заёмных в Yield (GM): <strong style="color:var(--red)">${fmtUSD(yieldDeployed)}</strong> из заёма <strong>${fmtUSD(totalBorrowed)}</strong> · Операций: ${history.length}
   </div>`;
 
   container.innerHTML = html;
