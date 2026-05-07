@@ -602,6 +602,7 @@ const CONFIG = {
     { id: 'pt-reusde-1', zone: 'stability', asset: 'PT-reUSDe', label: 'PT-reUSDe (вход 1)', costBasis: 8001, entryDate: '2026-03-21', protocol: 'Pendle', chain: 'Ethereum', txHash: '0xdcb8faa363c8ae563ed731d97b1ad80850fffc70f1ca67c7d2ad7a7f84d3325c', note: 'Первый вход PT-reUSDe' },
     { id: 'pt-reusde-2', zone: 'stability', asset: 'PT-reUSDe', label: 'PT-reUSDe (DCA)', costBasis: 7001, entryDate: '2026-03-22', protocol: 'Pendle', chain: 'Ethereum', txHash: '0x9e01ea1c7f08dce15aefa4ccb1654260cb405c95307bacab34d0a991c72bb54f', note: 'DCA — второй вход PT-reUSDe' },
     { id: 'pt-reusde-3', zone: 'stability', asset: 'PT-reUSDe', label: 'PT-reUSDe (DCA Apr)', costBasis: 10000, entryDate: '2026-04-14', protocol: 'Pendle', chain: 'Ethereum', txHash: '0x19aa4b0e80b390d6989696aca3c224a850dd582265d9eda97d89ed42df6ee278', note: 'DCA апрель — третий вход PT-reUSDe, 10,258.84 PT' },
+    { id: 'pt-reusde-4', zone: 'stability', asset: 'PT-reUSDe', label: 'PT-reUSDe (DCA May)', costBasis: 10002, entryDate: '2026-05-07', protocol: 'Pendle', chain: 'Ethereum', txHash: '0x753da4d5cc22e1664b9b84eee0a22c1728b5096e84aaba9f6baba88f7997f850', note: 'DCA май — четвёртый вход PT-reUSDe, 10,317.4759 PT по $0.9694, fixed APY 16.48%' },
   ],
 
   // ======= TRANSACTION HISTORY =======
@@ -616,6 +617,7 @@ const CONFIG = {
     { date: '2026-03-21', type: 'buy', asset: 'PT-reUSDe', amount: 8285.58, price: 0.966, usd: 8001, zone: 'stability', txHash: '0xdcb8faa3...', note: 'Первый вход PT-reUSDe на Pendle' },
     { date: '2026-03-22', type: 'buy', asset: 'PT-reUSDe', amount: 7239.89, price: 0.967, usd: 7001, zone: 'stability', txHash: '0x9e01ea1c...', note: 'DCA — второй вход PT-reUSDe' },
     { date: '2026-04-14', type: 'buy', asset: 'PT-reUSDe', amount: 10258.84, price: 0.9748, usd: 10000, zone: 'stability', txHash: '0x19aa4b0e...', note: 'DCA апрель — третий вход PT-reUSDe (Pendle Router V4)' },
+    { date: '2026-05-07', type: 'buy', asset: 'PT-reUSDe', amount: 10317.4759, price: 0.9694, usd: 10002, zone: 'stability', txHash: '0x753da4d5cc22e1664b9b84eee0a22c1728b5096e84aaba9f6baba88f7997f850', note: 'DCA май — четвёртый вход PT-reUSDe-25JUN2026, fixed APY 16.48%, price impact 0.05%' },
   ],
 
   // ======= CGS MODEL PARAMETERS =======
@@ -640,8 +642,9 @@ const CONFIG = {
     { date: '2026-03-21', amount: 8001, target: 'PT-reUSDe', zone: 'stability' },
     { date: '2026-03-22', amount: 7001, target: 'PT-reUSDe', zone: 'stability' },
     { date: '2026-04-14', amount: 10000, target: 'PT-reUSDe', zone: 'stability' },
+    { date: '2026-05-07', amount: 10002, target: 'PT-reUSDe', zone: 'stability' },
   ],
-  totalDCAInvested: 25002, // cumulative DCA into Stability
+  totalDCAInvested: 35004, // cumulative DCA into Stability
 };
 
 // ======= SAFE FETCH (auto-timeout for file:// CORS issues) =======
