@@ -575,8 +575,17 @@ const CONFIG = {
   gmBTCEntryCost: 33732, // USD invested in GM BTC/USD
   gmETHEntryCost: 21948, // USD invested in GM ETH/USD
   gmEntryDate: '2026-03-20', // дата входа в GM пулы
-  // Entry prices for triggers (user-specific)
-  entryETH: 3906, // weighted average entry price across all ETH positions
+  gmEntryTimestamp: 1773997321, // UNIX timestamp первого GM tx (2026-03-20T09:02:01Z)
+  gmEntryTxHash: '0x99a6a1e398e24b3ef8d4a8056787625bfe84b7c7a98b60527196c352b73859e2',
+  // Entry prices for TRIGGERS (по букве курса Web3 Academy CGS):
+  //   точка сборки портфеля = цена ETH/BTC на момент покупки первого GM-пула.
+  //   ON-CHAIN истина (Chainlink исторически на блоке 443722505):
+  entryETH: 2137.45, // ETH price at GM entry (НЕ путать с weighted avg по P&L!)
+  entryBTC: 69871.45, // BTC price at GM entry — для триггеров BTC
+  // Точка БЕЗУБЫТОЧНОСТИ Growth Zone (для P&L, НЕ для триггеров):
+  //   средневзвешенная по всем покупкам ETH в Growth (LP1+LP2+ETH-sep)
+  weightedAvgETH: 3906, // (122506 + 55495 + 24820) / (25.32+14.32+12.28) ETH
+  weightedAvgETHCostBasis: 202821, // USD cost basis для P&L Growth Zone ETH
   // Pendle PT-reUSDe (Ethereum mainnet)
   pendlePT_reUSDe: '0xdc9a5a2e3ce7ac881fc3b28c629c05d1617d1c56', // PT-reUSDe-25JUN2026
   pendlePT_reUSDe_decimals: 18,
@@ -594,7 +603,9 @@ const CONFIG = {
     { id: 'eth-lp1', zone: 'growth', asset: 'ETH', label: 'ETH (LP1)', qty: 25.3217, entryPrice: 4838, entryDate: '2024-11-15', protocol: 'Aave v3', chain: 'Arbitrum', note: 'Первый залог на Aave' },
     { id: 'eth-lp2', zone: 'growth', asset: 'ETH', label: 'ETH (LP2)', qty: 14.3214, entryPrice: 3875, entryDate: '2025-02-10', protocol: 'Aave v3', chain: 'Arbitrum', note: 'Второй транш ETH в залог' },
     { id: 'eth-sep', zone: 'growth', asset: 'ETH', label: 'ETH (отдельный)', qty: 12.275, entryPrice: 2022, entryDate: '2025-08-20', protocol: 'Aave v3', chain: 'Arbitrum', note: 'Докупка ETH по $2,022' },
-    { id: 'btc-native', zone: 'growth', asset: 'BTC', label: 'BTC (SegWit)', qty: 0.0314, entryPrice: 70000, entryDate: '2024-10-01', protocol: 'Native SegWit', chain: 'Bitcoin', note: 'BTC на холодном кошельке' },
+    { id: 'btc-native-1', zone: 'growth', asset: 'BTC', label: 'BTC (слой 1, 18.12.2025)', qty: 0.02361933, entryPrice: 86064.95, entryDate: '2025-12-18', protocol: 'Native SegWit', chain: 'Bitcoin', txHash: 'd071ca740319d8202adb8c940d17505458f79b0ad9ea61a66cf1c5b22bc31795', note: 'Первый слой BTC на холодный кошелёк' },
+    { id: 'btc-native-2', zone: 'growth', asset: 'BTC', label: 'BTC (слой 2, 20.03.2026)', qty: 0.00773753, entryPrice: 69871.45, entryDate: '2026-03-20', protocol: 'Native SegWit', chain: 'Bitcoin', txHash: '77eaa827a091f8a9c623401bacd3bbd3621f22c15d316fb53b6915ced350aeb7', note: 'Второй слой BTC — за час до запуска CGS-цикла' },
+    { id: 'btc-native-3', zone: 'growth', asset: 'BTC', label: 'BTC (слой 3, 19.05.2026)', qty: 0.00802941, entryPrice: 76952.21, entryDate: '2026-05-19', protocol: 'Native SegWit', chain: 'Bitcoin', txHash: '091bff4b9a93613c4c3003ba18e235b006676342e7b71bd7e98288e1d5a58bc9', note: 'Третий слой BTC' },
     // Yield Zone — Borrowed stables → GM pools
     { id: 'gm-btc', zone: 'yield', asset: 'GM-BTC/USD', label: 'GM BTC/USD', costBasis: 33732, entryDate: '2026-03-20', protocol: 'GMX v2', chain: 'Arbitrum', note: 'USDC из Aave → GM BTC/USD' },
     { id: 'gm-eth', zone: 'yield', asset: 'GM-ETH/USD', label: 'GM ETH/USD', costBasis: 21948, entryDate: '2026-03-20', protocol: 'GMX v2', chain: 'Arbitrum', txHash: '0x99a6a1e398e24b3ef8d4a8056787625bfe84b7c7a98b60527196c352b73859e2', note: 'USDC из Aave → GM ETH/USD' },
@@ -607,10 +618,11 @@ const CONFIG = {
 
   // ======= TRANSACTION HISTORY =======
   history: [
-    { date: '2024-10-01', type: 'buy', asset: 'BTC', amount: 0.0314, price: 70000, usd: 2198, zone: 'growth', note: 'Покупка BTC на холодный кошелёк' },
     { date: '2024-11-15', type: 'deposit', asset: 'ETH', amount: 25.3217, price: 4838, usd: 122506, zone: 'growth', note: 'LP1 — первый залог ETH на Aave' },
     { date: '2025-02-10', type: 'deposit', asset: 'ETH', amount: 14.3214, price: 3875, usd: 55495, zone: 'growth', note: 'LP2 — второй транш ETH в залог' },
     { date: '2025-08-20', type: 'deposit', asset: 'ETH', amount: 12.275, price: 2022, usd: 24820, zone: 'growth', note: 'Докупка ETH по $2,022 в залог' },
+    { date: '2025-12-18', type: 'buy', asset: 'BTC', amount: 0.02361933, price: 86064.95, usd: 2032.80, zone: 'growth', txHash: 'd071ca740319d8202adb8c940d17505458f79b0ad9ea61a66cf1c5b22bc31795', note: 'BTC слой 1 → холодный кошелёк bc1qn576...' },
+    { date: '2026-03-20', type: 'buy', asset: 'BTC', amount: 0.00773753, price: 69871.45, usd: 540.63, zone: 'growth', txHash: '77eaa827a091f8a9c623401bacd3bbd3621f22c15d316fb53b6915ced350aeb7', note: 'BTC слой 2 → холодный кошелёк (07:46 UTC, за час до GM)' },
     { date: '2026-03-20', type: 'borrow', asset: 'USDC', amount: 55680, price: 1, usd: 55680, zone: 'yield', note: 'Заём USDC на Aave для GM пулов' },
     { date: '2026-03-20', type: 'buy', asset: 'GM-BTC/USD', amount: null, price: null, usd: 33732, zone: 'yield', note: 'Депозит в GM BTC/USD пул' },
     { date: '2026-03-20', type: 'buy', asset: 'GM-ETH/USD', amount: null, price: null, usd: 21948, zone: 'yield', txHash: '0x99a6a1e398e24b3ef8d4a8056787625bfe84b7c7a98b60527196c352b73859e2', note: 'Депозит в GM ETH/USD пул' },
@@ -618,23 +630,33 @@ const CONFIG = {
     { date: '2026-03-22', type: 'buy', asset: 'PT-reUSDe', amount: 7239.92, price: 0.9665, usd: 6997.61, zone: 'stability', txHash: '0x9e01ea1c7f08dce15aefa4ccb1654260cb405c95307bacab34d0a991c72bb54f', note: 'DCA — второй вход PT-reUSDe (Pendle UI: +7,239.92 PT, value $6,997.61, implied yield 14.0%)' },
     { date: '2026-04-14', type: 'buy', asset: 'PT-reUSDe', amount: 10269.00, price: 0.9752, usd: 10013.80, zone: 'stability', txHash: '0x19aa4b0e80b390d6989696aca3c224a850dd582265d9eda97d89ed42df6ee278', note: 'DCA апрель — третий вход PT-reUSDe (Pendle UI: +10,269.00 PT, value $10,013.80, implied yield 13.67%)' },
     { date: '2026-05-07', type: 'buy', asset: 'PT-reUSDe', amount: 10317.40, price: 0.9799, usd: 10109.00, zone: 'stability', txHash: '0x753da4d5cc22e1664b9b84eee0a22c1728b5096e84aaba9f6baba88f7997f850', note: 'DCA май — четвёртый вход PT-reUSDe-25JUN2026 (Pendle UI: +10,317.40 PT, value $10,109.00, implied yield 16.48%)' },
+    { date: '2026-05-19', type: 'buy', asset: 'BTC', amount: 0.00802941, price: 76952.21, usd: 617.88, zone: 'growth', txHash: '091bff4b9a93613c4c3003ba18e235b006676342e7b71bd7e98288e1d5a58bc9', note: 'BTC слой 3 → холодный кошелёк' },
   ],
 
   // ======= CGS MODEL PARAMETERS =======
+  // По букве курса Web3 Academy (Урок 4, 5, 11):
+  //   - Падение считаем от entryETH (точка сборки = момент покупки GM)
+  //   - Recovery Mode = просадка >30% от entryETH (т.е. ETH < entryETH × 0.7)
+  //   - CLMM работает в Normal; останавливается ТОЛЬКО при просадке >30%
+  //   - DCA: падение → Growth (BTC/ETH); закрепление роста (48-72ч) → Stability до 70/30
   cgsModel: {
     name: 'Capital Growth',
-    mode: 'Recovery', // Normal | Recovery | Emergency
+    mode: 'Normal', // Normal | Recovery | Emergency — рассчитывается динамически по entryETH
     split: { growth: 70, stability: 30 },
     targetLTV: 50,
     criticalLTV: 60,
     emergencyHF: 1.3,
-    recoveryThreshold: 3500, // ETH price to exit Recovery
+    // Recovery exit = возврат к точке сборки. Recovery enter = просадка >30%.
+    recoveryEnterPrice: 1496, // 2137.45 × 0.7 — ниже этого порога считаем Recovery
+    recoveryExitPrice: 2137,  // возврат к точке сборки = выход из Recovery
     dcaAmount: 10000,
     dcaDay: 15,
-    dcaRule: 'Всё в Stability пока доля < 30%',
-    dcaRuleAfter: '$7,000 BTC + $3,000 ETH',
-    clmmBlocked: true, // blocked in Recovery mode
-    clmmBlockReason: 'Recovery Mode: ETH ниже $3,500 (средняя входа $3,906)',
+    // DCA-правило по букве курса (Урок 11):
+    dcaRule: 'Падение → DCA в Growth (BTC/ETH дёшево). Закрепление роста (48-72ч, не выходные) → DCA в Stability до возврата 70/30.',
+    dcaRuleGrowthSplit: '$7,000 BTC + $3,000 ETH (70/30 BTC/ETH когда DCA идёт в Growth)',
+    clmmBlocked: false, // по курсу: CLMM блокируется ТОЛЬКО при просадке >30% от точки сборки
+    clmmBlockThreshold: 1496, // CLMM stop при ETH < этой цены
+    yieldZoneSplit: { gm: 40, clmm: 30, stableReserve: 30 }, // базовый сплит Yield в Normal
   },
 
   // ======= DCA TRACKING =======
@@ -1352,20 +1374,23 @@ function renderTriggers() {
   const entry = CONFIG.entryETH;
   const currentDrop = ((ethPrice - entry) / entry) * 100;
 
-  // Fall triggers based on CGS Capital Growth
+  // Fall triggers — по букве курса Web3 Academy CGS (Урок 4)
+  // Точка отсчёта: цена ETH на момент покупки первого GM-пула (CONFIG.entryETH = $2,137.45)
   const fallTriggers = [
-    { pct: -7, action: 'Мониторинг. Следи за HF. Не паникуй.' },
-    { pct: -15, action: 'Продать 70% GM-пулов. BTC в залог. USDC обратно в GM.' },
-    { pct: -30, action: 'Закрыть ВСЕ GM. Весь капитал в залог. Максимальная защита HF.' },
-    { pct: -50, action: 'Recovery Mode. Только GM-пулы + Lending. Без CLMM.' },
-    { pct: -70, action: 'Максимальная просадка. DCA only. Не продавай крипту.' },
+    { pct: -7, action: 'Продать 30% GM. BTC → в залог. USDC → обратно в GM.' },
+    { pct: -15, action: 'Продать оставшиеся 70% GM. BTC → в залог. USDC → обратно в GM. CLMM: если вне диапазона — ждать 48ч.' },
+    { pct: -30, action: 'Каскад GM (всё). + 30% Stability → GM BTC/USDC. CLMM работу ОСТАНАВЛИВАЕМ. Recovery Mode активен.' },
+    { pct: -50, action: 'Каскад GM + 40% Stability → GM BTC/USDC (от объёма Stability, не от остатка).' },
+    { pct: -70, action: 'Каскад GM + оставшиеся 30% Stability → GM BTC/USDC. DCA only.' },
   ];
 
+  // Rise triggers — мягкие ориентиры (в курсе строго: «при подтверждении 48-72ч добор LTV до 50%»)
+  const entryPrice = CONFIG.entryETH;
   const riseTriggers = [
-    { price: 2500, action: 'Начало восстановления. Можно открывать GM-пулы заново.' },
-    { price: 3000, action: 'Рассмотри CLMM. Увеличь Yield Zone.' },
-    { price: 3500, action: 'Полная нагрузка Yield. Рассмотри Pendle PT.' },
-    { price: 4000, action: 'Начинай фиксировать прибыль по LTV. Снижай LTV.' },
+    { price: Math.round(entryPrice * 1.0), action: 'Возврат к точке сборки. Выход из Recovery (если был).' },
+    { price: Math.round(entryPrice * 1.15), action: 'Закрепление роста: добор LTV до 50%, новые стейблы в Yield.' },
+    { price: Math.round(entryPrice * 1.4), action: 'Yield Zone к сплиту 40/30/30 (GM/CLMM/резерв). DCA в Stability.' },
+    { price: Math.round(entryPrice * 1.85), action: 'Возврат к weighted avg ($' + CONFIG.weightedAvgETH + '). Фиксация TP по GM.' },
   ];
 
   let fallHTML = '';
@@ -1555,7 +1580,7 @@ function renderDCATracker() {
     </div>`;
   } else {
     html += `<div style="margin-top:10px; padding:8px; background:rgba(63,185,80,0.1); border-radius:8px; font-size:12px; color:var(--green);">
-      ✅ Цель Stability достигнута! DCA переключается на: ${CONFIG.cgsModel.dcaRuleAfter}
+      ✅ Цель Stability достигнута! DCA в Growth по правилу: ${CONFIG.cgsModel.dcaRuleGrowthSplit}
     </div>`;
   }
 
@@ -1569,28 +1594,46 @@ function renderCGSModel() {
   const ethPrice = state.prices.ETH;
   const hf = state.aave?.hf;
 
-  const modeClass = m.mode === 'Recovery' ? 'recovery' : m.mode === 'Emergency' ? 'emergency' : 'normal';
+  // Динамический расчёт mode по букве курса (Урок 4):
+  //   Recovery = просадка >30% от entryETH (точки сборки)
+  //   Emergency = HF < emergencyHF
+  let liveMode = 'Normal';
+  if (hf && hf < m.emergencyHF) liveMode = 'Emergency';
+  else if (ethPrice && ethPrice < m.recoveryEnterPrice) liveMode = 'Recovery';
+
+  const clmmActive = !ethPrice || ethPrice >= m.clmmBlockThreshold;
+
+  const modeClass = liveMode === 'Recovery' ? 'recovery' : liveMode === 'Emergency' ? 'emergency' : 'normal';
 
   let html = '';
-  html += `<div style="text-align:center; margin-bottom:12px;"><span class="cgs-mode ${modeClass}">${m.mode} Mode</span></div>`;
+  html += `<div style="text-align:center; margin-bottom:12px;"><span class="cgs-mode ${modeClass}">${liveMode} Mode</span></div>`;
   html += `<div class="cgs-param"><span class="cgs-param-label">Модель</span><span class="cgs-param-value">${m.name}</span></div>`;
   html += `<div class="cgs-param"><span class="cgs-param-label">Пропорция (своё)</span><span class="cgs-param-value">${m.split.growth}% Growth / ${m.split.stability}% Stability</span></div>`;
   html += `<div class="cgs-param"><span class="cgs-param-label">Целевой LTV</span><span class="cgs-param-value">${m.targetLTV}%</span></div>`;
   html += `<div class="cgs-param"><span class="cgs-param-label">Критический LTV</span><span class="cgs-param-value" style="color:var(--yellow)">${m.criticalLTV}% — начинаем снижать</span></div>`;
   html += `<div class="cgs-param"><span class="cgs-param-label">Экстренный HF</span><span class="cgs-param-value" style="color:var(--red)">< ${m.emergencyHF} — продаём Yield</span></div>`;
-  html += `<div class="cgs-param"><span class="cgs-param-label">Выход из Recovery</span><span class="cgs-param-value">ETH ≥ $${fmt(m.recoveryThreshold, 0)}</span></div>`;
+  html += `<div class="cgs-param"><span class="cgs-param-label">Точка сборки (entryETH)</span><span class="cgs-param-value">$${fmt(CONFIG.entryETH, 0)} (${CONFIG.gmEntryDate})</span></div>`;
+  html += `<div class="cgs-param"><span class="cgs-param-label">Recovery enter (−30%)</span><span class="cgs-param-value">ETH < $${fmt(m.recoveryEnterPrice, 0)}</span></div>`;
+  html += `<div class="cgs-param"><span class="cgs-param-label">Weighted avg (P&L)</span><span class="cgs-param-value">$${fmt(CONFIG.weightedAvgETH, 0)} — точка безубыточности Growth</span></div>`;
 
-  if (m.clmmBlocked) {
+  if (!clmmActive) {
     html += `<div style="margin-top:10px; padding:8px; background:rgba(248,81,73,0.1); border-radius:8px; font-size:12px; color:var(--red);">
-      🚫 CLMM заблокирован: ${m.clmmBlockReason}
+      🚫 CLMM остановлен: просадка >30% от точки сборки (ETH < $${fmt(m.clmmBlockThreshold,0)})
+    </div>`;
+  } else if (liveMode === 'Normal') {
+    html += `<div style="margin-top:10px; padding:8px; background:rgba(63,185,80,0.1); border-radius:8px; font-size:12px; color:var(--green);">
+      ✅ Normal Mode — CLMM разрешён, Yield Zone по сплиту 40/30/30 (GM/CLMM/резерв)
     </div>`;
   }
 
   // Live status
-  if (ethPrice && hf) {
-    const toRecoveryExit = ethPrice >= m.recoveryThreshold;
+  if (ethPrice && hf != null) {
+    const dropFromEntry = ((ethPrice - CONFIG.entryETH) / CONFIG.entryETH) * 100;
+    const dropFromWavg = ((ethPrice - CONFIG.weightedAvgETH) / CONFIG.weightedAvgETH) * 100;
     html += `<div style="margin-top:10px; padding:8px; background:rgba(88,166,255,0.1); border-radius:8px; font-size:12px;">
-      <div>ETH сейчас: <strong>$${fmt(ethPrice,0)}</strong> ${toRecoveryExit ? '✅ Выше порога Recovery' : `(до $${fmt(m.recoveryThreshold,0)} ещё $${fmt(m.recoveryThreshold - ethPrice, 0)}, ${fmt(((m.recoveryThreshold - ethPrice) / ethPrice) * 100, 0)}%)`}</div>
+      <div>ETH сейчас: <strong>$${fmt(ethPrice,0)}</strong></div>
+      <div>vs точка сборки $${fmt(CONFIG.entryETH,0)}: <strong style="color:${dropFromEntry >= -7 ? 'var(--green)' : dropFromEntry >= -30 ? 'var(--yellow)' : 'var(--red)'}">${dropFromEntry >= 0 ? '+' : ''}${fmt(dropFromEntry,1)}%</strong> ${dropFromEntry < -30 ? '(Recovery)' : '(Normal)'}</div>
+      <div>vs weighted avg $${fmt(CONFIG.weightedAvgETH,0)}: <span style="color:var(--dim)">${dropFromWavg >= 0 ? '+' : ''}${fmt(dropFromWavg,1)}% (P&L unrealized)</span></div>
       <div>HF: <strong style="color:${hf >= 1.5 ? 'var(--green)' : hf >= m.emergencyHF ? 'var(--yellow)' : 'var(--red)'}">${fmt(hf, 2)}</strong></div>
     </div>`;
   }
