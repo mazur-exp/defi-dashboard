@@ -360,6 +360,12 @@
     <div id="gmPools"><span class="loading-text">Загрузка...</span></div>
   </div>
 
+  <!-- Uniswap v3 CLMM (Base) -->
+  <div class="card">
+    <div class="card-title"><span class="icon">🦄</span> <a href="https://app.uniswap.org/positions" target="_blank" style="color:var(--dim);text-decoration:none;text-transform:uppercase;letter-spacing:1px;">Uniswap v3 CLMM — ETH/USDC (Base) ↗</a></div>
+    <div id="uniswapClmm"><span class="loading-text">Загрузка...</span></div>
+  </div>
+
   <!-- Pendle PT Position -->
   <div class="card">
     <div class="card-title"><span class="icon">🟣</span> <a href="https://app.pendle.finance/trade/markets/0x6cb9a013604a567a5834fadd411165b1ca616783/swap?view=pt" target="_blank" style="color:var(--dim);text-decoration:none;text-transform:uppercase;letter-spacing:1px;">Pendle — PT-reUSDe ↗</a></div>
@@ -540,6 +546,8 @@ const CONFIG = {
   rpcArbitrumFallback: 'https://arb1.arbitrum.io/rpc',
   rpcEthMainnet: 'https://ethereum-rpc.publicnode.com',
   rpcEthFallback: 'https://eth.llamarpc.com',
+  rpcBase: 'https://base-rpc.publicnode.com',
+  rpcBaseFallback: 'https://mainnet.base.org',
   refreshInterval: 30000, // 30 sec
   // Contract addresses (Arbitrum)
   aavePool: '0x794a61358D6845594F94dc1DB02A252b5b4814aD',
@@ -573,7 +581,9 @@ const CONFIG = {
   ARB: '0x912CE59144191C1204E64559FE8253a0e49E6548',
   // GM pool entry costs (from History)
   gmBTCEntryCost: 33732, // USD invested in GM BTC/USD
-  gmETHEntryCost: 21948, // USD invested in GM ETH/USD
+  gmETHEntryCost: 0, // ЗАКРЫТА 2026-05-19 (Sell в Pair mode → миграция на Uniswap v3 CLMM на Base). Исходно было $21,948.
+  gmETHClosedDate: '2026-05-19',
+  gmETHRealizedPnL: 236, // +$236 realized при продаже GM-ETH (продал $22,184 vs вход $21,948)
   gmEntryDate: '2026-03-20', // дата входа в GM пулы
   gmEntryTimestamp: 1773997321, // UNIX timestamp первого GM tx (2026-03-20T09:02:01Z)
   gmEntryTxHash: '0x99a6a1e398e24b3ef8d4a8056787625bfe84b7c7a98b60527196c352b73859e2',
@@ -586,6 +596,24 @@ const CONFIG = {
   //   средневзвешенная по всем покупкам ETH в Growth (LP1+LP2+ETH-sep)
   weightedAvgETH: 3906, // (122506 + 55495 + 24820) / (25.32+14.32+12.28) ETH
   weightedAvgETHCostBasis: 202821, // USD cost basis для P&L Growth Zone ETH
+  // ======= UNISWAP V3 CLMM на BASE =======
+  // NonfungiblePositionManager на Base (canonical Uniswap v3)
+  uniswapNPMBase: '0x03a520b32C04BF3bEEf7BEb72E919cf822Ed34f1',
+  uniswapFactoryBase: '0x33128a8fC17869897dcE68Ed026d694621f6FDfD',
+  // Token addresses на Base
+  WETH_BASE: '0x4200000000000000000000000000000000000006',
+  USDC_BASE: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
+  // Текущая позиция CLMM Алекса
+  uniswapPositionTokenId: 5150479, // NFT Position ID
+  uniswapClmmCostBasis: 21926, // USD при открытии (5.634 WETH + 10,007 USDC)
+  uniswapClmmEntryDate: '2026-05-19',
+  uniswapClmmEntryTxHash: null, // TODO: добавить когда Алекс пришлёт
+  uniswapClmmPair: 'ETH/USDC',
+  uniswapClmmFeeBips: 3000, // 0.3% = 3000 (Uniswap fee tier в bips × 100)
+  uniswapClmmRangeLow: 1504.23,
+  uniswapClmmRangeHigh: 3203.50,
+  uniswapClmmEntryETH: 5.634, // ETH в позицию при открытии
+  uniswapClmmEntryUSDC: 10007, // USDC в позицию при открытии
   // Pendle PT-reUSDe (Ethereum mainnet)
   pendlePT_reUSDe: '0xdc9a5a2e3ce7ac881fc3b28c629c05d1617d1c56', // PT-reUSDe-25JUN2026
   pendlePT_reUSDe_decimals: 18,
@@ -606,9 +634,10 @@ const CONFIG = {
     { id: 'btc-native-1', zone: 'growth', asset: 'BTC', label: 'BTC (слой 1, 18.12.2025)', qty: 0.02361933, entryPrice: 86064.95, entryDate: '2025-12-18', protocol: 'Native SegWit', chain: 'Bitcoin', txHash: 'd071ca740319d8202adb8c940d17505458f79b0ad9ea61a66cf1c5b22bc31795', note: 'Первый слой BTC на холодный кошелёк' },
     { id: 'btc-native-2', zone: 'growth', asset: 'BTC', label: 'BTC (слой 2, 20.03.2026)', qty: 0.00773753, entryPrice: 69871.45, entryDate: '2026-03-20', protocol: 'Native SegWit', chain: 'Bitcoin', txHash: '77eaa827a091f8a9c623401bacd3bbd3621f22c15d316fb53b6915ced350aeb7', note: 'Второй слой BTC — за час до запуска CGS-цикла' },
     { id: 'btc-native-3', zone: 'growth', asset: 'BTC', label: 'BTC (слой 3, 19.05.2026)', qty: 0.00802941, entryPrice: 76952.21, entryDate: '2026-05-19', protocol: 'Native SegWit', chain: 'Bitcoin', txHash: '091bff4b9a93613c4c3003ba18e235b006676342e7b71bd7e98288e1d5a58bc9', note: 'Третий слой BTC' },
-    // Yield Zone — Borrowed stables → GM pools
+    // Yield Zone — Borrowed stables
     { id: 'gm-btc', zone: 'yield', asset: 'GM-BTC/USD', label: 'GM BTC/USD', costBasis: 33732, entryDate: '2026-03-20', protocol: 'GMX v2', chain: 'Arbitrum', note: 'USDC из Aave → GM BTC/USD' },
-    { id: 'gm-eth', zone: 'yield', asset: 'GM-ETH/USD', label: 'GM ETH/USD', costBasis: 21948, entryDate: '2026-03-20', protocol: 'GMX v2', chain: 'Arbitrum', txHash: '0x99a6a1e398e24b3ef8d4a8056787625bfe84b7c7a98b60527196c352b73859e2', note: 'USDC из Aave → GM ETH/USD' },
+    // GM ETH/USD ЗАКРЫТА 2026-05-19 — мигрировали в Uniswap v3 CLMM на Base
+    { id: 'uniswap-clmm-eth-usdc-base', zone: 'yield', asset: 'Uniswap-v3-ETH/USDC', label: 'Uniswap v3 CLMM #5150479', costBasis: 21926, entryDate: '2026-05-19', protocol: 'Uniswap v3', chain: 'Base', tokenId: 5150479, feeBips: 3000, rangeLow: 1504.23, rangeHigh: 3203.50, entryETH: 5.634, entryUSDC: 10007, note: 'Миграция из GM ETH/USD: GMX exit → Mayan bridge Arb→Base → swap USDC→ETH → Uniswap v3 0.3% диапазон $1504-$3203' },
     // Stability Zone — Own stables
     { id: 'pt-reusde-1', zone: 'stability', asset: 'PT-reUSDe', label: 'PT-reUSDe (вход 1)', costBasis: 8006.83, entryDate: '2026-03-21', protocol: 'Pendle', chain: 'Ethereum', txHash: '0xdcb8faa363c8ae563ed731d97b1ad80850fffc70f1ca67c7d2ad7a7f84d3325c', note: 'Первый вход PT-reUSDe, +8,285.58 PT (Pendle UI)' },
     { id: 'pt-reusde-2', zone: 'stability', asset: 'PT-reUSDe', label: 'PT-reUSDe (DCA)', costBasis: 6997.61, entryDate: '2026-03-22', protocol: 'Pendle', chain: 'Ethereum', txHash: '0x9e01ea1c7f08dce15aefa4ccb1654260cb405c95307bacab34d0a991c72bb54f', note: 'DCA — второй вход PT-reUSDe, +7,239.92 PT (Pendle UI)' },
@@ -631,6 +660,12 @@ const CONFIG = {
     { date: '2026-04-14', type: 'buy', asset: 'PT-reUSDe', amount: 10269.00, price: 0.9752, usd: 10013.80, zone: 'stability', txHash: '0x19aa4b0e80b390d6989696aca3c224a850dd582265d9eda97d89ed42df6ee278', note: 'DCA апрель — третий вход PT-reUSDe (Pendle UI: +10,269.00 PT, value $10,013.80, implied yield 13.67%)' },
     { date: '2026-05-07', type: 'buy', asset: 'PT-reUSDe', amount: 10317.40, price: 0.9799, usd: 10109.00, zone: 'stability', txHash: '0x753da4d5cc22e1664b9b84eee0a22c1728b5096e84aaba9f6baba88f7997f850', note: 'DCA май — четвёртый вход PT-reUSDe-25JUN2026 (Pendle UI: +10,317.40 PT, value $10,109.00, implied yield 16.48%)' },
     { date: '2026-05-19', type: 'buy', asset: 'BTC', amount: 0.00802941, price: 76952.21, usd: 617.88, zone: 'growth', txHash: '091bff4b9a93613c4c3003ba18e235b006676342e7b71bd7e98288e1d5a58bc9', note: 'BTC слой 3 → холодный кошелёк' },
+    // ===== МИГРАЦИЯ GM ETH/USD → Uniswap v3 CLMM на Base (19 мая 2026) =====
+    { date: '2026-05-19', type: 'sell', asset: 'GM-ETH/USD', amount: 13213.80, price: null, usd: 22184, zone: 'yield', chain: 'Arbitrum', note: 'Sell GM ETH/USD в Pair mode на GMX → 5.0517 WETH + 11,409 USDC. P&L +$236 от входа $21,948 (+1.1%, удержание 60д)' },
+    { date: '2026-05-19', type: 'bridge', asset: 'WETH', amount: 5.0517, price: null, usd: 10771, zone: 'yield', note: 'Bridge через Mayan Swift v2: Arbitrum → Base. WETH 5.0517 → ETH native 5.04765 на Base (fee ~$9)' },
+    { date: '2026-05-19', type: 'bridge', asset: 'USDC', amount: 11408.73, price: null, usd: 11406, zone: 'yield', note: 'Bridge через Mayan Swift v2: Arbitrum → Base. USDC 11,408.73 → 11,404.14 на Base (fee ~$5)' },
+    { date: '2026-05-19', type: 'swap', asset: 'USDC→ETH', amount: 1395, price: null, usd: 1395, zone: 'yield', chain: 'Base', note: 'Swap на Base: ~$1,395 USDC → 0.66 ETH (для выравнивания соотношения под CLMM позицию)' },
+    { date: '2026-05-19', type: 'deposit', asset: 'Uniswap-v3-ETH/USDC', amount: null, price: null, usd: 21926, zone: 'yield', chain: 'Base', note: 'Create Uniswap v3 CLMM позиция #5150479 на Base: 5.634 WETH + 10,007 USDC, fee tier 0.3%, диапазон $1504-$3203 (выровнен с Recovery enter $1,496)' },
   ],
 
   // ======= CGS MODEL PARAMETERS =======
@@ -680,9 +715,9 @@ window.fetch = function(url, opts = {}) {
 };
 
 // ======= PROVIDERS (with fallback) =======
-let provider, providerETH;
+let provider, providerETH, providerBase;
 async function initProviders() {
-  // Test Arbitrum RPC
+  // Test RPC
   async function testRpc(url) {
     try {
       const p = new ethers.providers.JsonRpcProvider(url);
@@ -694,11 +729,14 @@ async function initProviders() {
   if (!provider) provider = new ethers.providers.JsonRpcProvider(CONFIG.rpc); // last resort
   providerETH = await testRpc(CONFIG.rpcEthMainnet) || await testRpc(CONFIG.rpcEthFallback);
   if (!providerETH) providerETH = new ethers.providers.JsonRpcProvider(CONFIG.rpcEthMainnet);
-  console.log('RPC Arb:', provider.connection.url, '| ETH:', providerETH.connection.url);
+  providerBase = await testRpc(CONFIG.rpcBase) || await testRpc(CONFIG.rpcBaseFallback);
+  if (!providerBase) providerBase = new ethers.providers.JsonRpcProvider(CONFIG.rpcBase);
+  console.log('RPC Arb:', provider.connection.url, '| ETH:', providerETH.connection.url, '| Base:', providerBase.connection.url);
 }
 // Init with defaults, will be replaced after test
 provider = new ethers.providers.JsonRpcProvider(CONFIG.rpc);
 providerETH = new ethers.providers.JsonRpcProvider(CONFIG.rpcEthMainnet);
+providerBase = new ethers.providers.JsonRpcProvider(CONFIG.rpcBase);
 
 // ======= ABI FRAGMENTS =======
 const ERC20_ABI = ['function balanceOf(address) view returns (uint256)', 'function decimals() view returns (uint8)', 'function symbol() view returns (string)'];
@@ -709,7 +747,7 @@ const AAVE_RESERVE_DATA_ABI = ['function getReserveData(address asset) view retu
 const GMX_READER_ABI = ['function getMarketTokenPrice(address dataStore, tuple(address marketToken, address indexToken, address longToken, address shortToken) market, tuple(uint256 min, uint256 max) indexTokenPrice, tuple(uint256 min, uint256 max) longTokenPrice, tuple(uint256 min, uint256 max) shortTokenPrice, bytes32 pnlFactorType, bool maximize) view returns (int256, tuple(int256 poolValue, int256 longPnl, int256 shortPnl, int256 netPnl, uint256 longTokenAmount, uint256 shortTokenAmount, uint256 longTokenUsd, uint256 shortTokenUsd, uint256 totalBorrowingFees, uint256 borrowingFeePoolFactor, uint256 impactPoolAmount))'];
 
 // ======= STATE =======
-let state = { prices: {}, priceChanges: {}, aave: {}, aaveReserves: {}, gm: {}, gmPoolInfo: {}, wallet: {}, walletETHMain: {}, btcBalance: 0, pendle: { ptBalance: 0, ptPrice: null, ptValue: 0 }, lastUpdate: null, error: null };
+let state = { prices: {}, priceChanges: {}, aave: {}, aaveReserves: {}, gm: {}, gmPoolInfo: {}, wallet: {}, walletETHMain: {}, walletBase: {}, btcBalance: 0, pendle: { ptBalance: 0, ptPrice: null, ptValue: 0 }, uniswap: {}, lastUpdate: null, error: null };
 
 // ======= HELPERS =======
 const fmt = (n, d=2) => n != null ? Number(n).toLocaleString('en-US', {minimumFractionDigits:d, maximumFractionDigits:d}) : '—';
@@ -952,7 +990,191 @@ async function fetchWalletBalances() {
   })();
 
   state.walletETHMain = {};
-  await Promise.all([...arbPromises, ...ethMainPromises, btcPromise]);
+
+  // === BASE (для CLMM позиции на Uniswap) ===
+  state.walletBase = {};
+  const basePromises = [
+    (async () => {
+      try {
+        const bal = await providerBase.getBalance(CONFIG.wallet);
+        state.walletBase['ETH'] = { amount: Number(ethers.utils.formatEther(bal)), chain: 'Base' };
+      } catch(e) { state.walletBase['ETH'] = { amount: 0, chain: 'Base' }; }
+    })(),
+    ...[
+      { key: 'USDC', addr: CONFIG.USDC_BASE, decimals: 6 },
+      { key: 'WETH', addr: CONFIG.WETH_BASE, decimals: 18 },
+    ].map(async (t) => {
+      try {
+        const c = new ethers.Contract(t.addr, ERC20_ABI, providerBase);
+        const bal = await c.balanceOf(CONFIG.wallet);
+        state.walletBase[t.key] = { amount: Number(bal) / Math.pow(10, t.decimals), chain: 'Base' };
+      } catch(e) { state.walletBase[t.key] = { amount: 0, chain: 'Base' }; }
+    }),
+  ];
+
+  await Promise.all([...arbPromises, ...ethMainPromises, ...basePromises, btcPromise]);
+}
+
+// ======= UNISWAP V3 CLMM POSITION FETCHER =======
+// Подтягивает live данные для NFT позиции #5150479 на Base
+async function fetchUniswapV3Position() {
+  try {
+    const tokenId = CONFIG.uniswapPositionTokenId;
+    if (!tokenId) return;
+
+    const NPM_ABI = [
+      'function positions(uint256 tokenId) view returns (uint96 nonce, address operator, address token0, address token1, uint24 fee, int24 tickLower, int24 tickUpper, uint128 liquidity, uint256 feeGrowthInside0LastX128, uint256 feeGrowthInside1LastX128, uint128 tokensOwed0, uint128 tokensOwed1)',
+      'function collect((uint256 tokenId, address recipient, uint128 amount0Max, uint128 amount1Max)) returns (uint256 amount0, uint256 amount1)',
+      'function ownerOf(uint256 tokenId) view returns (address)',
+    ];
+    const FACTORY_ABI = ['function getPool(address tokenA, address tokenB, uint24 fee) view returns (address)'];
+    const POOL_ABI = [
+      'function slot0() view returns (uint160 sqrtPriceX96, int24 tick, uint16 observationIndex, uint16 observationCardinality, uint16 observationCardinalityNext, uint8 feeProtocol, bool unlocked)',
+      'function liquidity() view returns (uint128)',
+      'function feeGrowthGlobal0X128() view returns (uint256)',
+      'function feeGrowthGlobal1X128() view returns (uint256)',
+      'function ticks(int24) view returns (uint128 liquidityGross, int128 liquidityNet, uint256 feeGrowthOutside0X128, uint256 feeGrowthOutside1X128, int56 tickCumulativeOutside, uint160 secondsPerLiquidityOutsideX128, uint32 secondsOutside, bool initialized)',
+    ];
+
+    const npm = new ethers.Contract(CONFIG.uniswapNPMBase, NPM_ABI, providerBase);
+    const pos = await npm.positions(tokenId);
+
+    const token0 = pos.token0.toLowerCase();
+    const token1 = pos.token1.toLowerCase();
+    const fee = pos.fee; // 3000 = 0.3%
+    const tickLower = pos.tickLower;
+    const tickUpper = pos.tickUpper;
+    const liquidity = pos.liquidity;
+    const tokensOwed0 = pos.tokensOwed0;
+    const tokensOwed1 = pos.tokensOwed1;
+
+    // Determine token order (Uniswap orders by address: WETH < USDC numerically)
+    const wethIsToken0 = token0 === CONFIG.WETH_BASE.toLowerCase();
+    const dec0 = wethIsToken0 ? 18 : 6;
+    const dec1 = wethIsToken0 ? 6 : 18;
+
+    // Get pool address from factory
+    const factory = new ethers.Contract(CONFIG.uniswapFactoryBase, FACTORY_ABI, providerBase);
+    const poolAddr = await factory.getPool(pos.token0, pos.token1, fee);
+
+    const pool = new ethers.Contract(poolAddr, POOL_ABI, providerBase);
+    const slot0 = await pool.slot0();
+    const sqrtPriceX96 = slot0.sqrtPriceX96;
+    const currentTick = slot0.tick;
+
+    // Uniswap V3 amount calculation from liquidity + ticks + current price
+    // sqrtRatioA = sqrt(1.0001 ^ tickLower) * 2^96
+    // sqrtRatioB = sqrt(1.0001 ^ tickUpper) * 2^96
+    // sqrtPrice  = sqrt(currentPrice) * 2^96
+    const Q96 = ethers.BigNumber.from(2).pow(96);
+    function tickToSqrtPriceX96(tick) {
+      // returns BigNumber sqrt(1.0001^tick) * 2^96
+      // Use float for precision OK since ticks are bounded
+      const price = Math.pow(1.0001, tick);
+      const sqrtPrice = Math.sqrt(price);
+      // sqrtPrice * 2^96; due to precision use string
+      // multiply via BN: scale to 1e18 then convert
+      const scaled = Math.floor(sqrtPrice * 1e18);
+      // sqrt(price)*2^96 = (scaled/1e18) * 2^96
+      return ethers.BigNumber.from(scaled).mul(Q96).div(ethers.BigNumber.from(10).pow(18));
+    }
+
+    const sqrtA = tickToSqrtPriceX96(tickLower);
+    const sqrtB = tickToSqrtPriceX96(tickUpper);
+
+    let amount0, amount1;
+    if (currentTick < tickLower) {
+      // Below range: 100% token0
+      // amount0 = liquidity * (sqrtB - sqrtA) / (sqrtA * sqrtB / 2^96)
+      const num = sqrtB.sub(sqrtA).mul(Q96);
+      const den = sqrtB.mul(sqrtA).div(Q96);
+      amount0 = liquidity.mul(num).div(den).div(Q96);
+      amount1 = ethers.BigNumber.from(0);
+    } else if (currentTick >= tickUpper) {
+      // Above range: 100% token1
+      amount0 = ethers.BigNumber.from(0);
+      amount1 = liquidity.mul(sqrtB.sub(sqrtA)).div(Q96);
+    } else {
+      // In range
+      const num0 = sqrtB.sub(sqrtPriceX96).mul(Q96);
+      const den0 = sqrtB.mul(sqrtPriceX96).div(Q96);
+      amount0 = liquidity.mul(num0).div(den0).div(Q96);
+      amount1 = liquidity.mul(sqrtPriceX96.sub(sqrtA)).div(Q96);
+    }
+
+    // Convert to human-readable
+    const amt0Human = Number(amount0.toString()) / Math.pow(10, dec0);
+    const amt1Human = Number(amount1.toString()) / Math.pow(10, dec1);
+
+    // Uncollected fees via staticCall to collect()
+    let fees0 = 0, fees1 = 0;
+    try {
+      const MAX_U128 = ethers.BigNumber.from(2).pow(128).sub(1);
+      // staticCall — read-only simulation
+      // Note: ownerOf must be wallet for collect to work; we use callStatic with from override
+      const result = await npm.callStatic.collect(
+        { tokenId, recipient: CONFIG.wallet, amount0Max: MAX_U128, amount1Max: MAX_U128 },
+        { from: CONFIG.wallet }
+      );
+      fees0 = Number(result.amount0.toString()) / Math.pow(10, dec0);
+      fees1 = Number(result.amount1.toString()) / Math.pow(10, dec1);
+    } catch(e) {
+      // Fallback: use tokensOwed from positions() (only includes accrued+collected, not real-time)
+      fees0 = Number(tokensOwed0.toString()) / Math.pow(10, dec0);
+      fees1 = Number(tokensOwed1.toString()) / Math.pow(10, dec1);
+    }
+
+    // Map back to WETH/USDC (in our case WETH is token0)
+    const wethAmount = wethIsToken0 ? amt0Human : amt1Human;
+    const usdcAmount = wethIsToken0 ? amt1Human : amt0Human;
+    const wethFees = wethIsToken0 ? fees0 : fees1;
+    const usdcFees = wethIsToken0 ? fees1 : fees0;
+
+    // Current price ETH/USDC from sqrtPriceX96
+    // price = (sqrtPriceX96/2^96)^2  (token1 per token0)
+    // If WETH is token0 → price is USDC/WETH (what we want)
+    // If WETH is token1 → price is WETH/USDC, invert
+    const sqrtP = Number(sqrtPriceX96.toString()) / Math.pow(2, 96);
+    let priceUSDCperETH = Math.pow(sqrtP, 2);
+    if (wethIsToken0) {
+      // token1/token0 in 10^(dec1-dec0) scale; here dec1=6, dec0=18, so multiply by 10^12
+      priceUSDCperETH = priceUSDCperETH * Math.pow(10, dec0 - dec1);
+    } else {
+      priceUSDCperETH = (1 / priceUSDCperETH) * Math.pow(10, dec1 - dec0);
+    }
+
+    // Determine if in range
+    const inRange = currentTick >= tickLower && currentTick < tickUpper;
+
+    state.uniswap = {
+      tokenId,
+      poolAddress: poolAddr,
+      wethAmount,
+      usdcAmount,
+      wethFees,
+      usdcFees,
+      currentTick,
+      tickLower,
+      tickUpper,
+      priceUSDCperETH,
+      inRange,
+      feeBips: fee,
+      // computed
+      positionValueUSD: wethAmount * (state.prices.ETH || priceUSDCperETH) + usdcAmount,
+      feesValueUSD: wethFees * (state.prices.ETH || priceUSDCperETH) + usdcFees,
+    };
+
+    // APR расчёт: total fees / position value / days * 365
+    const entryDate = new Date(CONFIG.uniswapClmmEntryDate);
+    const daysActive = Math.max(0.01, (Date.now() - entryDate.getTime()) / 86400000);
+    if (state.uniswap.positionValueUSD > 0) {
+      state.uniswap.aprFromFees = (state.uniswap.feesValueUSD / state.uniswap.positionValueUSD) * (365 / daysActive) * 100;
+      state.uniswap.daysActive = daysActive;
+    }
+  } catch(e) {
+    console.warn('Uniswap V3 position fetch error:', e.message);
+    state.uniswap = { error: e.message };
+  }
 }
 
 async function fetchPendlePT() {
@@ -1146,7 +1368,7 @@ function renderGM() {
         ${feeBreakdown(g.btcFeeApr, btcEstFees, btcPriceImpact)}
       </div>
     </div>
-    <div class="token-row" style="flex-wrap:wrap;">
+    ${g.ethBal > 0.01 ? `<div class="token-row" style="flex-wrap:wrap;">
       <div class="token-info"><span style="font-size:20px">🔷</span>
         <div><div class="token-name">GM ETH/USD</div><div class="token-chain">GMX v2 • Arbitrum</div></div>
       </div>
@@ -1156,7 +1378,9 @@ function renderGM() {
         ${ethPnL != null ? `<div style="font-size:11px;color:${pnlColor(ethPnL)}">${pnlSign(ethPnL)}${fmtUSD(ethPnL)} (${pnlSign(ethPnLPct)}${fmt(ethPnLPct,1)}%)</div>` : ''}
         ${feeBreakdown(g.ethFeeApr, ethEstFees, ethPriceImpact)}
       </div>
-    </div>
+    </div>` : `<div style="margin-top:8px; padding:8px; background:rgba(255,255,255,0.03); border-radius:8px; font-size:11px; color:var(--dim);">
+      🔷 GM ETH/USD ЗАКРЫТА ${CONFIG.gmETHClosedDate} → мигрирована в <strong style="color:var(--blue)">Uniswap v3 CLMM (Base)</strong>. Realized P&L: <span style="color:var(--green)">+${fmtUSD(CONFIG.gmETHRealizedPnL)}</span>
+    </div>`}
     ${btcUSD != null && ethUSD != null ? `<div style="margin-top:10px; padding-top:10px; border-top:1px solid var(--border);">
       <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
         <span style="color:var(--dim); font-size:13px;">Итого GM Пулы</span>
@@ -1235,6 +1459,18 @@ function renderWallet() {
     if (d) addRow(t.icon, t.key, 'Ethereum', d.amount, t.dec, t.price);
   }
 
+  // Base tokens (для Uniswap CLMM позиции на Base)
+  const wb = state.walletBase || {};
+  const baseTokens = [
+    { key: 'ETH', icon: '🔷', price: p.ETH, dec: 4 },
+    { key: 'WETH', icon: '🔷', price: p.ETH, dec: 4 },
+    { key: 'USDC', icon: '💵', price: 1, dec: 2 },
+  ];
+  for (const t of baseTokens) {
+    const d = wb[t.key];
+    if (d) addRow(t.icon, t.key, 'Base', d.amount, t.dec, t.price);
+  }
+
   if (html && walletTotal > 0) {
     html += `<div style="margin-top:8px; padding-top:8px; border-top:1px solid var(--border); display:flex; justify-content:space-between; align-items:center;">
       <span style="color:var(--dim); font-size:13px; font-weight:600;">Итого на кошельке</span>
@@ -1242,6 +1478,83 @@ function renderWallet() {
     </div>`;
   }
   container.innerHTML = html || '<span style="color:var(--dim)">Пустой кошелёк</span>';
+}
+
+function renderUniswapCLMM() {
+  const container = document.getElementById('uniswapClmm');
+  if (!container) return;
+  const u = state.uniswap;
+
+  if (!u || u.error || !u.tokenId) {
+    container.innerHTML = u?.error
+      ? `<span style="color:var(--red)">Ошибка: ${u.error}</span>`
+      : '<span style="color:var(--dim)">Загрузка позиции Uniswap...</span>';
+    return;
+  }
+
+  const ethPrice = state.prices.ETH || u.priceUSDCperETH;
+  const positionUSD = u.wethAmount * ethPrice + u.usdcAmount;
+  const feesUSD = u.wethFees * ethPrice + u.usdcFees;
+  const totalUSD = positionUSD + feesUSD;
+  const costBasis = CONFIG.uniswapClmmCostBasis;
+  const pnl = totalUSD - costBasis;
+  const pnlPct = (pnl / costBasis) * 100;
+
+  // Range visualization
+  const rangeLow = CONFIG.uniswapClmmRangeLow;
+  const rangeHigh = CONFIG.uniswapClmmRangeHigh;
+  const rangeMid = Math.sqrt(rangeLow * rangeHigh);
+  const pricePosition = Math.max(0, Math.min(100, ((ethPrice - rangeLow) / (rangeHigh - rangeLow)) * 100));
+
+  const inRangeColor = u.inRange ? 'var(--green)' : 'var(--red)';
+  const inRangeText = u.inRange ? '✅ В диапазоне' : '⚠️ ВНЕ диапазона';
+  const pnlColor = pnl >= 0 ? 'var(--green)' : 'var(--red)';
+  const pnlSign = pnl >= 0 ? '+' : '';
+
+  let html = `
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+      <div>
+        <span style="font-weight:600; font-size:14px;">Position #${u.tokenId}</span>
+        <span style="margin-left:8px; padding:2px 8px; border-radius:8px; background:rgba(${u.inRange ? '63,185,80' : '248,81,73'},0.15); color:${inRangeColor}; font-size:11px;">${inRangeText}</span>
+      </div>
+      <a href="https://basescan.org/token/${CONFIG.uniswapNPMBase}?a=${u.tokenId}" target="_blank" style="font-size:11px; color:var(--dim);">Basescan ↗</a>
+    </div>
+
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:12px;">
+      <div class="metric"><span class="metric-label">WETH в позиции</span><span class="metric-value">${fmt(u.wethAmount, 4)} ETH</span></div>
+      <div class="metric"><span class="metric-label">USDC в позиции</span><span class="metric-value">${fmt(u.usdcAmount, 2)} USDC</span></div>
+      <div class="metric"><span class="metric-label">Стоимость позиции</span><span class="metric-value">${fmtUSD(positionUSD)}</span></div>
+      <div class="metric"><span class="metric-label">Текущая цена ETH</span><span class="metric-value">${fmtUSD(ethPrice)}</span></div>
+    </div>
+
+    <div style="margin:12px 0;">
+      <div style="display:flex; justify-content:space-between; font-size:11px; color:var(--dim); margin-bottom:4px;">
+        <span>$${fmt(rangeLow,0)}</span>
+        <span>Середина $${fmt(rangeMid,0)}</span>
+        <span>$${fmt(rangeHigh,0)}</span>
+      </div>
+      <div style="position:relative; height:8px; background:rgba(255,255,255,0.05); border-radius:4px; overflow:hidden;">
+        <div style="position:absolute; top:0; left:0; height:100%; width:100%; background:linear-gradient(90deg, rgba(63,185,80,0.3) 0%, rgba(63,185,80,0.5) 50%, rgba(63,185,80,0.3) 100%);"></div>
+        <div style="position:absolute; top:-2px; left:${pricePosition}%; width:3px; height:12px; background:var(--blue); transform:translateX(-50%);"></div>
+      </div>
+      <div style="text-align:center; font-size:11px; color:var(--dim); margin-top:4px;">ETH цена: <strong style="color:var(--blue)">$${fmt(ethPrice,2)}</strong> (${fmt(pricePosition,0)}% от ширины диапазона)</div>
+    </div>
+
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:12px; padding-top:12px; border-top:1px solid var(--border);">
+      <div class="metric"><span class="metric-label">Накоплено комиссий</span><span class="metric-value" style="color:var(--green)">${fmtUSD(feesUSD)}</span></div>
+      <div class="metric"><span class="metric-label">└ WETH</span><span class="metric-value" style="font-size:11px;">${fmt(u.wethFees,6)} ETH</span></div>
+      <div class="metric"><span class="metric-label">└ USDC</span><span class="metric-value" style="font-size:11px;">${fmt(u.usdcFees,4)} USDC</span></div>
+      <div class="metric"><span class="metric-label">APR (от комиссий, ${fmt(u.daysActive||0,1)} дн.)</span><span class="metric-value" style="color:var(--green)">${u.aprFromFees != null ? fmt(u.aprFromFees,2)+'%' : '—'}</span></div>
+    </div>
+
+    <div style="margin-top:12px; padding-top:12px; border-top:1px solid var(--border); display:flex; justify-content:space-between; align-items:center;">
+      <span style="color:var(--dim); font-size:12px;">P&L (вложено ${fmtUSD(costBasis)})</span>
+      <span style="font-weight:600; color:${pnlColor}">${pnlSign}${fmtUSD(pnl)} (${pnlSign}${fmt(pnlPct,2)}%)</span>
+    </div>
+
+    <div style="margin-top:8px; font-size:11px; color:var(--dim);">Base • Uniswap v3 • Fee ${u.feeBips/10000}% • Pool ${u.poolAddress?.slice(0,8)}…${u.poolAddress?.slice(-6)}</div>
+  `;
+  container.innerHTML = html;
 }
 
 function renderPendle() {
@@ -1310,10 +1623,12 @@ function renderZones() {
   const ethMainWBTCWallet = (state.walletETHMain['WBTC']?.amount || 0) * (p.BTC || 0);
   const growthValue = (a.collateral || 0) + btcNativeUSD + arbETHWallet + arbWETHWallet + arbWBTCWallet + ethMainETHWallet + ethMainWBTCWallet;
 
-  // Yield: GM pools total value
+  // Yield: GM pools + Uniswap v3 CLMM на Base (всё на заёмные стейблы)
   const gmBtcVal = g.btcPrice && g.btcBal ? g.btcBal * g.btcPrice : 0;
   const gmEthVal = g.ethPrice && g.ethBal ? g.ethBal * g.ethPrice : 0;
-  const yieldValue = gmBtcVal + gmEthVal;
+  const uniClmmVal = state.uniswap?.positionValueUSD || 0;
+  const uniClmmFees = state.uniswap?.feesValueUSD || 0;
+  const yieldValue = gmBtcVal + gmEthVal + uniClmmVal + uniClmmFees;
 
   // Stability: ALL stablecoins across ALL chains + Pendle PT
   const arbStables = (w['USDC']?.amount || 0) + (w['USDC.e']?.amount || 0) + (w['USDT']?.amount || 0);
@@ -1344,7 +1659,7 @@ function renderZones() {
     </div>
     <div class="zone-detail-row">
       <span class="label">🟡 Yield Zone (заёмный)</span>
-      <span><strong>${fmtUSD(yieldValue)}</strong> <span class="target">(GM пулы)</span></span>
+      <span><strong>${fmtUSD(yieldValue)}</strong> <span class="target">GM ${fmtUSD(gmBtcVal + gmEthVal)} + CLMM ${fmtUSD(uniClmmVal + uniClmmFees)}</span></span>
     </div>
     <div class="zone-detail-row">
       <span class="label">🟢 Stability Zone</span>
@@ -1502,9 +1817,11 @@ function renderYieldTracker() {
   const expiry = new Date(CONFIG.pendlePT_reUSDe_expiry);
   const daysToMaturity = Math.max(0, Math.ceil((expiry - new Date()) / 86400000));
 
-  // Total portfolio yield
-  const totalYield = totalGMFees + pendleProfit;
-  const totalInvested = CONFIG.gmBTCEntryCost + CONFIG.gmETHEntryCost + CONFIG.pendlePT_reUSDe_costBasis;
+  // Total portfolio yield: GM fees + Pendle profit + Uniswap CLMM fees + GM ETH realized
+  const uniFees = state.uniswap?.feesValueUSD || 0;
+  const gmETHRealized = CONFIG.gmETHRealizedPnL || 0;
+  const totalYield = totalGMFees + pendleProfit + uniFees + gmETHRealized;
+  const totalInvested = CONFIG.gmBTCEntryCost + CONFIG.uniswapClmmCostBasis + CONFIG.pendlePT_reUSDe_costBasis;
   const annualizedROI = totalInvested > 0 && daysHeld > 0 ? (totalYield / totalInvested) * (365 / daysHeld) * 100 : 0;
 
   let html = '';
@@ -1524,6 +1841,28 @@ function renderYieldTracker() {
     <div class="yield-sub">Вложено: ${fmtUSD(CONFIG.pendlePT_reUSDe_costBasis)} → при погашении ~${fmtUSD(maturityValue)} · До экспирации: ${daysToMaturity} дн.</div>
     ${pt.impliedApy != null ? `<div class="yield-sub">Fixed APY: <span style="color:var(--green)">${fmt(pt.impliedApy * 100, 2)}%</span></div>` : ''}
   </div>`;
+
+  // Uniswap v3 CLMM (Base) block
+  const u = state.uniswap;
+  if (u && u.tokenId && !u.error) {
+    const uDays = u.daysActive || 0;
+    const uniAPR = u.aprFromFees != null ? u.aprFromFees : null;
+    html += `<div class="yield-block">
+      <div class="yield-label">🦄 Uniswap v3 CLMM ETH/USDC (Base) — комиссии за ${fmt(uDays,1)} дн.</div>
+      <div class="yield-value pnl-up">+${fmtUSD(uniFees)}</div>
+      <div class="yield-sub">Position #${u.tokenId} · ${u.inRange ? '✅ В диапазоне' : '⚠️ ВНЕ диапазона'} · APR: <span style="color:var(--green)">${uniAPR != null ? fmt(uniAPR,2)+'%' : '—'}</span></div>
+      <div class="yield-sub">Вложено: ${fmtUSD(CONFIG.uniswapClmmCostBasis)} → сейчас ${fmtUSD(u.positionValueUSD + uniFees)} (с комиссиями)</div>
+    </div>`;
+  }
+
+  // GM ETH realized (закрытая позиция, +$236 при выходе)
+  if (gmETHRealized) {
+    html += `<div class="yield-block" style="opacity:0.7;">
+      <div class="yield-label">🔷 GM ETH/USD — закрыта ${CONFIG.gmETHClosedDate} (realized)</div>
+      <div class="yield-value pnl-up">+${fmtUSD(gmETHRealized)}</div>
+      <div class="yield-sub">Зафиксировано при выходе → миграция в Uniswap v3 CLMM (см. выше)</div>
+    </div>`;
+  }
 
   // Total
   html += `<div class="yield-block" style="padding-top:12px;">
@@ -1700,6 +2039,7 @@ function renderAll() {
   renderAave();
   renderAaveBreakdown();
   renderGM();
+  renderUniswapCLMM();
   renderPendle();
   renderWallet();
   renderZones();
@@ -1733,6 +2073,7 @@ async function refreshAll() {
       withTimeout(fetchGMTokens),
       withTimeout(fetchWalletBalances),
       withTimeout(fetchPendlePT),
+      withTimeout(fetchUniswapV3Position),
     ]);
     state.lastUpdate = new Date();
     state.error = null;
