@@ -596,8 +596,8 @@ const CONFIG = {
   entryBTC: 69871.45, // BTC price at GM entry — для триггеров BTC
   // Точка БЕЗУБЫТОЧНОСТИ Growth Zone (для P&L, НЕ для триггеров):
   //   средневзвешенная по всем покупкам ETH в Growth (LP1+LP2+ETH-sep)
-  weightedAvgETH: 3647, // (202821 + 10000 DCA 2026-06-05) / (51.918 + 6.4377) ETH = blended ETH entry
-  weightedAvgETHCostBasis: 212821, // USD cost basis для P&L Growth Zone ETH (вкл. DCA $10K 2026-06-05)
+  weightedAvgETH: 3647, // (202821 + 6.4377×$1551.8 DCA 2026-06-05) / (51.918 + 6.4377) ETH = blended ETH entry
+  weightedAvgETHCostBasis: 212811, // USD cost basis для P&L Growth Zone ETH (вкл. DCA: 6.4377 ETH @ $1,551.8 = $9,990; $10 ушло в фи вывода)
   // ======= UNISWAP V3 CLMM на BASE =======
   // NonfungiblePositionManager на Base (canonical Uniswap v3)
   uniswapNPMBase: '0x03a520b32C04BF3bEEf7BEb72E919cf822Ed34f1',
@@ -633,7 +633,7 @@ const CONFIG = {
     { id: 'eth-lp1', zone: 'growth', asset: 'ETH', label: 'ETH (LP1)', qty: 25.3217, entryPrice: 4838, entryDate: '2024-11-15', protocol: 'Aave v3', chain: 'Arbitrum', note: 'Первый залог на Aave' },
     { id: 'eth-lp2', zone: 'growth', asset: 'ETH', label: 'ETH (LP2)', qty: 14.3214, entryPrice: 3875, entryDate: '2025-02-10', protocol: 'Aave v3', chain: 'Arbitrum', note: 'Второй транш ETH в залог' },
     { id: 'eth-sep', zone: 'growth', asset: 'ETH', label: 'ETH (отдельный)', qty: 12.275, entryPrice: 2022, entryDate: '2025-08-20', protocol: 'Aave v3', chain: 'Arbitrum', note: 'Докупка ETH по $2,022' },
-    { id: 'eth-dca-0606', zone: 'growth', asset: 'ETH', label: 'ETH (DCA 05.06.2026)', qty: 6.4377, entryPrice: 1553.5, entryDate: '2026-06-05', protocol: 'Aave v3', chain: 'Arbitrum', txHash: '0xf5968bc9951845dc30f8959a79dd60306fb3f47f4dd981fdfb9de5af9b298d14', note: 'Ранний DCA $10K: USDT Bybit → 6.444 ETH @ $1,551.8 → вывод Arbitrum (0xb4876897) → залог Aave. Усреднение ETH вниз.' },
+    { id: 'eth-dca-0606', zone: 'growth', asset: 'ETH', label: 'ETH (DCA 05.06.2026)', qty: 6.4377, entryPrice: 1551.8, entryDate: '2026-06-05', protocol: 'Aave v3', chain: 'Arbitrum', txHash: '0xf5968bc9951845dc30f8959a79dd60306fb3f47f4dd981fdfb9de5af9b298d14', note: 'Ранний DCA $10K: USDT Bybit → 6.44412 ETH @ $1,551.8 → вывод Arbitrum (0xb4876897, дошло 6.4377 после фи) → залог Aave. Усреднение ETH вниз.' },
     { id: 'btc-native-1', zone: 'growth', asset: 'BTC', label: 'BTC (слой 1, 18.12.2025)', qty: 0.02361933, entryPrice: 86064.95, entryDate: '2025-12-18', protocol: 'Aave v3 (WBTC)', chain: 'Arbitrum', txHash: 'd071ca740319d8202adb8c940d17505458f79b0ad9ea61a66cf1c5b22bc31795', note: 'Первый слой BTC (врапнут в WBTC и заведён в залог Aave 2026-06-05)' },
     { id: 'btc-native-2', zone: 'growth', asset: 'BTC', label: 'BTC (слой 2, 20.03.2026)', qty: 0.00773753, entryPrice: 69871.45, entryDate: '2026-03-20', protocol: 'Aave v3 (WBTC)', chain: 'Arbitrum', txHash: '77eaa827a091f8a9c623401bacd3bbd3621f22c15d316fb53b6915ced350aeb7', note: 'Второй слой BTC — за час до запуска CGS-цикла' },
     { id: 'btc-native-3', zone: 'growth', asset: 'BTC', label: 'BTC (слой 3, 19.05.2026)', qty: 0.00802941, entryPrice: 76952.21, entryDate: '2026-05-19', protocol: 'Aave v3 (WBTC)', chain: 'Arbitrum', txHash: '091bff4b9a93613c4c3003ba18e235b006676342e7b71bd7e98288e1d5a58bc9', note: 'Третий слой BTC (врапнут в WBTC и заведён в залог Aave 2026-06-05)' },
@@ -676,7 +676,7 @@ const CONFIG = {
     { date: '2026-06-05', type: 'buy', asset: 'GM-BTC/USD', amount: 7432.18, price: null, usd: 15791, zone: 'yield', chain: 'Arbitrum', txHash: '0x7123e5f0d9ed9fb11c206ee714b42a3c37bad78bb9d6d38fb2e1925a56341bc8', note: 'Откуп нового GM BTC/USD на USDC из продажи (15,796.75 USDC). Yield-база восстановлена дёшево.' },
     { date: '2026-06-05', type: 'swap', asset: 'BTC→WBTC', amount: 0.0394, price: 60800, usd: 2358, zone: 'growth', chain: 'Bitcoin→Arbitrum', note: 'Врап native BTC (0.0394, слои btc-native-1/2/3) → 0.0388 WBTC на Arbitrum через MetaMask (~1.3% all-in). Native BTC больше нет на bc1q.' },
     { date: '2026-06-05', type: 'deposit', asset: 'WBTC', amount: 0.0388, price: 60800, usd: 2358, zone: 'growth', chain: 'Arbitrum', txHash: '0x4d3a040f19848769d1d826a15ab5ba033a6aab51e63272f0a9808f305bccbfd0', note: 'Врапнутый native BTC → залог Aave. Итого WBTC в Aave: 0.3023.' },
-    { date: '2026-06-05', type: 'deposit', asset: 'ETH', external: true, amount: 6.4377, price: 1553.5, usd: 10000, zone: 'growth', chain: 'Arbitrum', txHash: '0xf5968bc9951845dc30f8959a79dd60306fb3f47f4dd981fdfb9de5af9b298d14', note: 'Ранний DCA $10K (за 15.06): USDT Bybit → 6.444 ETH @ $1,551.8 → вывод Arbitrum (0xb4876897) → supply Aave. Усреднение ETH вниз. Следующий DCA 15.07.2026.' },
+    { date: '2026-06-05', type: 'deposit', asset: 'ETH', external: true, amount: 6.44412, price: 1551.8, usd: 10000, zone: 'growth', chain: 'Arbitrum', txHash: '0xf5968bc9951845dc30f8959a79dd60306fb3f47f4dd981fdfb9de5af9b298d14', note: 'Ранний DCA $10K (за 15.06): USDT Bybit → 6.44412 ETH @ $1,551.8 → вывод Arbitrum (0xb4876897, дошло 6.4377) → supply Aave. Усреднение ETH вниз. Следующий DCA 15.07.2026.' },
   ],
 
   // ======= CGS MODEL PARAMETERS =======
