@@ -423,6 +423,24 @@
     <div id="txHistory"><span class="loading-text">Загрузка...</span></div>
   </div>
 
+  <!-- Realized P&L -->
+  <div class="card">
+    <div class="card-title"><span class="icon">💵</span> Реализованный P&L (все позиции)</div>
+    <div id="realizedPnL"><span class="loading-text">Загрузка...</span></div>
+  </div>
+
+  <!-- Накоплено в Growth -->
+  <div class="card">
+    <div class="card-title"><span class="icon">🪙</span> Накоплено в Growth</div>
+    <div id="growthAccum"><span class="loading-text">Загрузка...</span></div>
+  </div>
+
+  <!-- Лог GM-циклов -->
+  <div class="card wide">
+    <div class="card-title"><span class="icon">🔄</span> Лог GM-циклов (слои BTC)</div>
+    <div id="gmCyclesLog"><span class="loading-text">Загрузка...</span></div>
+  </div>
+
 </div>
 </div><!-- /tab-analytics -->
 
@@ -714,6 +732,16 @@ const CONFIG = {
     { date: '2026-06-05', amount: 10000, target: 'ETH', zone: 'growth' },
   ],
   totalDCAInvested: 45004, // cumulative DCA (35,004 в Stability/Pendle + 10,000 ETH DCA 2026-06-05)
+
+  // ======= REALIZED P&L (все закрытые/реализованные позиции — расширяемо) =======
+  realizedPnL: [
+    { date: '2026-05-19', asset: 'GM-ETH/USD', pnl: 236, note: 'Закрытие GM ETH/USD при миграции в Uniswap CLMM ($22,184 vs вход $21,948)' },
+    { date: '2026-06-05', asset: 'GM-BTC/USD', pnl: -1941, note: 'Продажа GM BTC/USD в CGS-цикле (получено ~$31,791 vs вход $33,732)' },
+  ],
+  // ======= ЛОГ GM-ЦИКЛОВ (слои накопления BTC по методичке) =======
+  gmCycles: [
+    { date: '2026-06-05', trigger: 'catch-up −7%/−15%', ethDropPct: -22.7, btcPrice: 60700, btcExtracted: 0.2634, gmRebuy: 15791, realized: -1941 },
+  ],
 };
 
 // ======= SAFE FETCH (auto-timeout for file:// CORS issues) =======
@@ -2052,12 +2080,75 @@ function renderTxHistory() {
   container.innerHTML = html;
 }
 
+function renderRealizedPnL() {
+  const el = document.getElementById('realizedPnL');
+  if (!el) return;
+  const items = CONFIG.realizedPnL || [];
+  const total = items.reduce((s, x) => s + (x.pnl || 0), 0);
+  const col = v => v >= 0 ? 'var(--green)' : 'var(--red)';
+  const sgn = v => (v >= 0 ? '+' : '−') + '$' + fmt(Math.abs(v), 0);
+  let html = `<div style="display:flex; align-items:baseline; gap:8px; margin-bottom:12px;"><span style="font-size:24px; font-weight:600; color:${col(total)}">${sgn(total)}</span><span style="font-size:11px; color:var(--dim)">нетто, кумулятивно</span></div>`;
+  if (!items.length) html += '<span class="loading-text">Реализаций пока нет</span>';
+  items.forEach(x => {
+    html += `<div class="metric"><span class="metric-label">${x.asset} <span style="color:var(--dim); font-size:10px;">${x.date}</span></span><span class="metric-value" style="color:${col(x.pnl)}">${sgn(x.pnl)}</span></div>`;
+  });
+  el.innerHTML = html;
+}
+
+function renderGrowthAccum() {
+  const el = document.getElementById('growthAccum');
+  if (!el) return;
+  const pos = (CONFIG.positions || []).filter(p => p.zone === 'growth');
+  const ethPrice = state.prices.ETH, btcPrice = state.prices.BTC;
+  const agg = asset => {
+    const ps = pos.filter(p => p.asset === asset);
+    const qty = ps.reduce((s, p) => s + (p.qty || 0), 0);
+    const cost = ps.reduce((s, p) => s + (p.qty || 0) * (p.entryPrice || 0), 0);
+    return { qty, cost, avg: qty > 0 ? cost / qty : 0 };
+  };
+  const col = v => v >= 0 ? 'var(--green)' : 'var(--red)';
+  const sgn = v => (v >= 0 ? '+' : '−') + '$' + fmt(Math.abs(v), 0);
+  const row = (icon, name, a, price) => {
+    const val = price ? a.qty * price : null;
+    const pl = val != null ? val - a.cost : null;
+    return `<div style="margin-bottom:10px;"><div style="display:flex; justify-content:space-between; align-items:baseline;"><span style="font-weight:600;">${icon} ${name}</span><span style="font-weight:600;">${fmt(a.qty, 4)}</span></div>
+      <div style="display:flex; justify-content:space-between; font-size:12px; color:var(--dim);"><span>средняя $${fmt(a.avg, 0)} · сейчас $${fmt(price || 0, 0)}</span><span style="color:var(--text)">${val != null ? fmtUSD(val) : '—'}</span></div>
+      ${pl != null ? `<div style="text-align:right; font-size:11px; color:${col(pl)}">${sgn(pl)} (${fmt(pl / a.cost * 100, 1)}%)</div>` : ''}</div>`;
+  };
+  const eth = agg('ETH'), btc = agg('BTC');
+  let html = row('🔷', 'ETH', eth, ethPrice);
+  html += `<div style="border-top:1px solid var(--border); padding-top:10px;">${row('🟠', 'BTC', btc, btcPrice)}</div>`;
+  const totVal = (ethPrice ? eth.qty * ethPrice : 0) + (btcPrice ? btc.qty * btcPrice : 0);
+  html += `<div style="border-top:1px solid var(--border); margin-top:6px; padding-top:8px; display:flex; justify-content:space-between; font-size:12px;"><span style="color:var(--dim)">Итого Growth (крипта)</span><span style="font-weight:600;">${fmtUSD(totVal)}</span></div>`;
+  el.innerHTML = html;
+}
+
+function renderGMCycles() {
+  const el = document.getElementById('gmCyclesLog');
+  if (!el) return;
+  const cy = CONFIG.gmCycles || [];
+  const totalBtc = cy.reduce((s, c) => s + (c.btcExtracted || 0), 0);
+  const col = v => v >= 0 ? 'var(--green)' : 'var(--red)';
+  let html = `<div style="font-size:12px; color:var(--dim); margin-bottom:10px;">Снято BTC в залог через циклы: <strong style="color:var(--green)">${fmt(totalBtc, 4)} BTC</strong></div>`;
+  if (!cy.length) html += '<span class="loading-text">Циклов пока нет</span>';
+  cy.forEach(c => {
+    html += `<div style="border-left:2px solid var(--border); padding-left:12px; margin-bottom:10px;">
+      <div style="font-size:13px; font-weight:600;">${c.date} · ${c.trigger} (ETH ${fmt(c.ethDropPct, 1)}%)</div>
+      <div style="font-size:12px; color:var(--dim); line-height:1.6;">BTC ~$${fmt(c.btcPrice, 0)} · снято <span style="color:var(--green)">${fmt(c.btcExtracted, 4)} BTC</span> → залог · откуп GM $${fmt(c.gmRebuy, 0)} · realized <span style="color:${col(c.realized)}">${c.realized >= 0 ? '+' : '−'}$${fmt(Math.abs(c.realized), 0)}</span></div>
+    </div>`;
+  });
+  el.innerHTML = html;
+}
+
 function renderAnalytics() {
   renderPositionsPnL();
   renderYieldTracker();
   renderDCATracker();
   renderCGSModel();
   renderTxHistory();
+  renderRealizedPnL();
+  renderGrowthAccum();
+  renderGMCycles();
 }
 
 function renderAll() {
