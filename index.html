@@ -580,13 +580,14 @@ const CONFIG = {
   USDT: '0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9',
   ARB: '0x912CE59144191C1204E64559FE8253a0e49E6548',
   // GM pool entry costs (from History)
-  gmBTCEntryCost: 33732, // USD invested in GM BTC/USD
+  gmBTCEntryCost: 15791, // USD invested в ТЕКУЩИЙ GM BTC/USD (откуп после CGS-цикла 2026-06-05: 15,796.75 USDC → 7,432 GM). Старый пул ($33,732) продан в цикле; realized ниже.
+  gmBTCRealizedPnL: -1941, // realized при продаже старого GM BTC/USD 2026-06-05 (получено ~$31,791 = 0.2634 BTC + 15,811 USDC vs вход $33,732). tx sell 0x87b20f02...
   gmETHEntryCost: 0, // ЗАКРЫТА 2026-05-19 (Sell в Pair mode → миграция на Uniswap v3 CLMM на Base). Исходно было $21,948.
   gmETHClosedDate: '2026-05-19',
   gmETHRealizedPnL: 236, // +$236 realized при продаже GM-ETH (продал $22,184 vs вход $21,948)
-  gmEntryDate: '2026-03-20', // дата входа в GM пулы
-  gmEntryTimestamp: 1773997321, // UNIX timestamp первого GM tx (2026-03-20T09:02:01Z)
-  gmEntryTxHash: '0x99a6a1e398e24b3ef8d4a8056787625bfe84b7c7a98b60527196c352b73859e2',
+  gmEntryDate: '2026-06-05', // дата входа в ТЕКУЩИЙ GM BTC/USD (откуп после CGS-цикла)
+  gmEntryTimestamp: 1780682198, // UNIX timestamp откупа GM (2026-06-05T17:56:38Z, tx 0x7123e5f0)
+  gmEntryTxHash: '0x7123e5f0d9ed9fb11c206ee714b42a3c37bad78bb9d6d38fb2e1925a56341bc8',
   // Entry prices for TRIGGERS (по букве курса Web3 Academy CGS):
   //   точка сборки портфеля = цена ETH/BTC на момент покупки первого GM-пула.
   //   ON-CHAIN истина (Chainlink исторически на блоке 443722505):
@@ -631,11 +632,12 @@ const CONFIG = {
     { id: 'eth-lp1', zone: 'growth', asset: 'ETH', label: 'ETH (LP1)', qty: 25.3217, entryPrice: 4838, entryDate: '2024-11-15', protocol: 'Aave v3', chain: 'Arbitrum', note: 'Первый залог на Aave' },
     { id: 'eth-lp2', zone: 'growth', asset: 'ETH', label: 'ETH (LP2)', qty: 14.3214, entryPrice: 3875, entryDate: '2025-02-10', protocol: 'Aave v3', chain: 'Arbitrum', note: 'Второй транш ETH в залог' },
     { id: 'eth-sep', zone: 'growth', asset: 'ETH', label: 'ETH (отдельный)', qty: 12.275, entryPrice: 2022, entryDate: '2025-08-20', protocol: 'Aave v3', chain: 'Arbitrum', note: 'Докупка ETH по $2,022' },
-    { id: 'btc-native-1', zone: 'growth', asset: 'BTC', label: 'BTC (слой 1, 18.12.2025)', qty: 0.02361933, entryPrice: 86064.95, entryDate: '2025-12-18', protocol: 'Native SegWit', chain: 'Bitcoin', txHash: 'd071ca740319d8202adb8c940d17505458f79b0ad9ea61a66cf1c5b22bc31795', note: 'Первый слой BTC на холодный кошелёк' },
-    { id: 'btc-native-2', zone: 'growth', asset: 'BTC', label: 'BTC (слой 2, 20.03.2026)', qty: 0.00773753, entryPrice: 69871.45, entryDate: '2026-03-20', protocol: 'Native SegWit', chain: 'Bitcoin', txHash: '77eaa827a091f8a9c623401bacd3bbd3621f22c15d316fb53b6915ced350aeb7', note: 'Второй слой BTC — за час до запуска CGS-цикла' },
-    { id: 'btc-native-3', zone: 'growth', asset: 'BTC', label: 'BTC (слой 3, 19.05.2026)', qty: 0.00802941, entryPrice: 76952.21, entryDate: '2026-05-19', protocol: 'Native SegWit', chain: 'Bitcoin', txHash: '091bff4b9a93613c4c3003ba18e235b006676342e7b71bd7e98288e1d5a58bc9', note: 'Третий слой BTC' },
+    { id: 'btc-native-1', zone: 'growth', asset: 'BTC', label: 'BTC (слой 1, 18.12.2025)', qty: 0.02361933, entryPrice: 86064.95, entryDate: '2025-12-18', protocol: 'Aave v3 (WBTC)', chain: 'Arbitrum', txHash: 'd071ca740319d8202adb8c940d17505458f79b0ad9ea61a66cf1c5b22bc31795', note: 'Первый слой BTC (врапнут в WBTC и заведён в залог Aave 2026-06-05)' },
+    { id: 'btc-native-2', zone: 'growth', asset: 'BTC', label: 'BTC (слой 2, 20.03.2026)', qty: 0.00773753, entryPrice: 69871.45, entryDate: '2026-03-20', protocol: 'Aave v3 (WBTC)', chain: 'Arbitrum', txHash: '77eaa827a091f8a9c623401bacd3bbd3621f22c15d316fb53b6915ced350aeb7', note: 'Второй слой BTC — за час до запуска CGS-цикла' },
+    { id: 'btc-native-3', zone: 'growth', asset: 'BTC', label: 'BTC (слой 3, 19.05.2026)', qty: 0.00802941, entryPrice: 76952.21, entryDate: '2026-05-19', protocol: 'Aave v3 (WBTC)', chain: 'Arbitrum', txHash: '091bff4b9a93613c4c3003ba18e235b006676342e7b71bd7e98288e1d5a58bc9', note: 'Третий слой BTC (врапнут в WBTC и заведён в залог Aave 2026-06-05)' },
+    { id: 'wbtc-gmcycle', zone: 'growth', asset: 'BTC', label: 'WBTC (GM-цикл, 05.06.2026)', qty: 0.2634, entryPrice: 60700, entryDate: '2026-06-05', protocol: 'Aave v3 (WBTC)', chain: 'Arbitrum', txHash: '0x0bceb866fcb2bb231d51dc26860afb0fde98111aa871405814600cbed910c2bd', note: 'BTC снят из GM-цикла (catch-up −7%/−15%) → залог Aave. ~$60.7K. Накопление BTC по Capital Growth.' },
     // Yield Zone — Borrowed stables
-    { id: 'gm-btc', zone: 'yield', asset: 'GM-BTC/USD', label: 'GM BTC/USD', costBasis: 33732, entryDate: '2026-03-20', protocol: 'GMX v2', chain: 'Arbitrum', note: 'USDC из Aave → GM BTC/USD' },
+    { id: 'gm-btc', zone: 'yield', asset: 'GM-BTC/USD', label: 'GM BTC/USD', costBasis: 15791, entryDate: '2026-06-05', protocol: 'GMX v2', chain: 'Arbitrum', txHash: '0x7123e5f0d9ed9fb11c206ee714b42a3c37bad78bb9d6d38fb2e1925a56341bc8', note: 'Откуп GM после CGS-цикла (15,796.75 USDC → 7,432 GM). Прежний GM ($33,732) продан, BTC снят в залог Aave.' },
     // GM ETH/USD ЗАКРЫТА 2026-05-19 — мигрировали в Uniswap v3 CLMM на Base
     { id: 'uniswap-clmm-eth-usdc-base', zone: 'yield', asset: 'Uniswap-v3-ETH/USDC', label: 'Uniswap v3 CLMM #5150479', costBasis: 21926, entryDate: '2026-05-19', protocol: 'Uniswap v3', chain: 'Base', tokenId: 5150479, feeBips: 3000, rangeLow: 1504.23, rangeHigh: 3203.50, entryETH: 5.634, entryUSDC: 10007, note: 'Миграция из GM ETH/USD: GMX exit → Mayan bridge Arb→Base → swap USDC→ETH → Uniswap v3 0.3% диапазон $1504-$3203' },
     // Stability Zone — Own stables
@@ -666,6 +668,12 @@ const CONFIG = {
     { date: '2026-05-19', type: 'bridge', asset: 'USDC', amount: 11408.73, price: null, usd: 11406, zone: 'yield', note: 'Bridge через Mayan Swift v2: Arbitrum → Base. USDC 11,408.73 → 11,404.14 на Base (fee ~$5)' },
     { date: '2026-05-19', type: 'swap', asset: 'USDC→ETH', amount: 1395, price: null, usd: 1395, zone: 'yield', chain: 'Base', note: 'Swap на Base: ~$1,395 USDC → 0.66 ETH (для выравнивания соотношения под CLMM позицию)' },
     { date: '2026-05-19', type: 'deposit', asset: 'Uniswap-v3-ETH/USDC', amount: null, price: null, usd: 21926, zone: 'yield', chain: 'Base', note: 'Create Uniswap v3 CLMM позиция #5150479 на Base: 5.634 WETH + 10,007 USDC, fee tier 0.3%, диапазон $1504-$3203 (выровнен с Recovery enter $1,496)' },
+    // ===== CGS-ЦИКЛ (catch-up за −7%/−15%) + врап native BTC — 2026-06-05 =====
+    { date: '2026-06-05', type: 'sell', asset: 'GM-BTC/USD', amount: 14981.77, price: null, usd: 31791, zone: 'yield', chain: 'Arbitrum', txHash: '0x87b20f0244d191ed58571016980bfdd2db7e117f3b5d2e444e45aa0b47a46c34', note: 'Продажа GM BTC/USD в Pair mode (CGS-цикл) → 0.2634 BTC + 15,811 USDC. Realized ~-$1,941 vs вход $33,732 (78д удержания, fees включены).' },
+    { date: '2026-06-05', type: 'deposit', asset: 'WBTC', amount: 0.2634, price: 60700, usd: 15986, zone: 'growth', chain: 'Arbitrum', txHash: '0x0bceb866fcb2bb231d51dc26860afb0fde98111aa871405814600cbed910c2bd', note: 'BTC из GM-цикла → залог Aave (snapшот BTC ~$60.7K). Снижает цену ликвидации, копит BTC.' },
+    { date: '2026-06-05', type: 'buy', asset: 'GM-BTC/USD', amount: 7432.18, price: null, usd: 15791, zone: 'yield', chain: 'Arbitrum', txHash: '0x7123e5f0d9ed9fb11c206ee714b42a3c37bad78bb9d6d38fb2e1925a56341bc8', note: 'Откуп нового GM BTC/USD на USDC из продажи (15,796.75 USDC). Yield-база восстановлена дёшево.' },
+    { date: '2026-06-05', type: 'swap', asset: 'BTC→WBTC', amount: 0.0394, price: 60800, usd: 2358, zone: 'growth', chain: 'Bitcoin→Arbitrum', note: 'Врап native BTC (0.0394, слои btc-native-1/2/3) → 0.0388 WBTC на Arbitrum через MetaMask (~1.3% all-in). Native BTC больше нет на bc1q.' },
+    { date: '2026-06-05', type: 'deposit', asset: 'WBTC', amount: 0.0388, price: 60800, usd: 2358, zone: 'growth', chain: 'Arbitrum', txHash: '0x4d3a040f19848769d1d826a15ab5ba033a6aab51e63272f0a9808f305bccbfd0', note: 'Врапнутый native BTC → залог Aave. Итого WBTC в Aave: 0.3023.' },
   ],
 
   // ======= CGS MODEL PARAMETERS =======
