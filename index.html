@@ -2027,15 +2027,17 @@ function renderTxHistory() {
   const ownInvested = history
     .filter(tx => tx.external === true)
     .reduce((s, tx) => s + (tx.usd || 0), 0);
+  // Yield = GM + CLMM (обе live с чейна). НЕ забывать CLMM — это тоже Yield Zone.
   const gmLive = ((state.gm.btcBal && state.gm.btcPrice) ? state.gm.btcBal * state.gm.btcPrice : 0)
                + ((state.gm.ethBal && state.gm.ethPrice) ? state.gm.ethBal * state.gm.ethPrice : 0);
+  const clmmLive = (state.uniswap?.positionValueUSD || 0) + (state.uniswap?.feesValueUSD || 0);
   const gmNetCost = history.filter(tx => (tx.asset || '').startsWith('GM-'))
     .reduce((s, tx) => s + (tx.type === 'sell' ? -(tx.usd || 0) : (tx.usd || 0)), 0);
-  const yieldDeployed = gmLive > 0 ? gmLive : gmNetCost; // live, иначе нетто покупок−продаж
+  const yieldDeployed = (gmLive + clmmLive) > 0 ? (gmLive + clmmLive) : gmNetCost; // live: GM + CLMM
   const totalBorrowed = history.reduce((s, tx) => s + (tx.type === 'borrow' ? (tx.usd || 0) : (tx.type === 'repay' ? -(tx.usd || 0) : 0)), 0);
   const liveDebt = (state.aave && state.aave.debt) ? state.aave.debt : null;
   html += `<div style="margin-top:10px; font-size:11px; color:var(--dim);">
-    Всего вложено своих: <strong style="color:var(--text)">${fmtUSD(ownInvested)}</strong> · В Yield (GM, live): <strong style="color:var(--red)">${fmtUSD(yieldDeployed)}</strong> · Занято нетто: <strong>${fmtUSD(totalBorrowed)}</strong>${liveDebt != null ? ` (тек. долг ${fmtUSD(liveDebt)})` : ''} · Операций: ${history.length}
+    Всего вложено своих: <strong style="color:var(--text)">${fmtUSD(ownInvested)}</strong> · В Yield (live): <strong style="color:var(--red)">${fmtUSD(yieldDeployed)}</strong> <span style="color:var(--dim)">(GM ${fmtUSD(gmLive)} + CLMM ${fmtUSD(clmmLive)})</span> · Занято нетто: <strong>${fmtUSD(totalBorrowed)}</strong>${liveDebt != null ? ` (тек. долг ${fmtUSD(liveDebt)})` : ''} · Операций: ${history.length}
   </div>`;
 
   container.innerHTML = html;
