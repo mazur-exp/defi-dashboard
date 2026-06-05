@@ -649,19 +649,19 @@ const CONFIG = {
 
   // ======= TRANSACTION HISTORY =======
   history: [
-    { date: '2024-11-15', type: 'deposit', asset: 'ETH', amount: 25.3217, price: 4838, usd: 122506, zone: 'growth', note: 'LP1 — первый залог ETH на Aave' },
-    { date: '2025-02-10', type: 'deposit', asset: 'ETH', amount: 14.3214, price: 3875, usd: 55495, zone: 'growth', note: 'LP2 — второй транш ETH в залог' },
-    { date: '2025-08-20', type: 'deposit', asset: 'ETH', amount: 12.275, price: 2022, usd: 24820, zone: 'growth', note: 'Докупка ETH по $2,022 в залог' },
-    { date: '2025-12-18', type: 'buy', asset: 'BTC', amount: 0.02361933, price: 86064.95, usd: 2032.80, zone: 'growth', txHash: 'd071ca740319d8202adb8c940d17505458f79b0ad9ea61a66cf1c5b22bc31795', note: 'BTC слой 1 → холодный кошелёк bc1qn576...' },
-    { date: '2026-03-20', type: 'buy', asset: 'BTC', amount: 0.00773753, price: 69871.45, usd: 540.63, zone: 'growth', txHash: '77eaa827a091f8a9c623401bacd3bbd3621f22c15d316fb53b6915ced350aeb7', note: 'BTC слой 2 → холодный кошелёк (07:46 UTC, за час до GM)' },
+    { date: '2024-11-15', type: 'deposit', asset: 'ETH', external: true, amount: 25.3217, price: 4838, usd: 122506, zone: 'growth', note: 'LP1 — первый залог ETH на Aave' },
+    { date: '2025-02-10', type: 'deposit', asset: 'ETH', external: true, amount: 14.3214, price: 3875, usd: 55495, zone: 'growth', note: 'LP2 — второй транш ETH в залог' },
+    { date: '2025-08-20', type: 'deposit', asset: 'ETH', external: true, amount: 12.275, price: 2022, usd: 24820, zone: 'growth', note: 'Докупка ETH по $2,022 в залог' },
+    { date: '2025-12-18', type: 'buy', asset: 'BTC', external: true, amount: 0.02361933, price: 86064.95, usd: 2032.80, zone: 'growth', txHash: 'd071ca740319d8202adb8c940d17505458f79b0ad9ea61a66cf1c5b22bc31795', note: 'BTC слой 1 → холодный кошелёк bc1qn576...' },
+    { date: '2026-03-20', type: 'buy', asset: 'BTC', external: true, amount: 0.00773753, price: 69871.45, usd: 540.63, zone: 'growth', txHash: '77eaa827a091f8a9c623401bacd3bbd3621f22c15d316fb53b6915ced350aeb7', note: 'BTC слой 2 → холодный кошелёк (07:46 UTC, за час до GM)' },
     { date: '2026-03-20', type: 'borrow', asset: 'USDC', amount: 55680, price: 1, usd: 55680, zone: 'yield', note: 'Заём USDC на Aave для GM пулов' },
     { date: '2026-03-20', type: 'buy', asset: 'GM-BTC/USD', amount: null, price: null, usd: 33732, zone: 'yield', note: 'Депозит в GM BTC/USD пул' },
     { date: '2026-03-20', type: 'buy', asset: 'GM-ETH/USD', amount: null, price: null, usd: 21948, zone: 'yield', txHash: '0x99a6a1e398e24b3ef8d4a8056787625bfe84b7c7a98b60527196c352b73859e2', note: 'Депозит в GM ETH/USD пул' },
-    { date: '2026-03-21', type: 'buy', asset: 'PT-reUSDe', amount: 8285.58, price: 0.9663, usd: 8006.83, zone: 'stability', txHash: '0xdcb8faa363c8ae563ed731d97b1ad80850fffc70f1ca67c7d2ad7a7f84d3325c', note: 'Первый вход PT-reUSDe (Pendle UI: cum 8,285.58 PT, value $8,006.83, implied yield 13.97%)' },
-    { date: '2026-03-22', type: 'buy', asset: 'PT-reUSDe', amount: 7239.92, price: 0.9665, usd: 6997.61, zone: 'stability', txHash: '0x9e01ea1c7f08dce15aefa4ccb1654260cb405c95307bacab34d0a991c72bb54f', note: 'DCA — второй вход PT-reUSDe (Pendle UI: +7,239.92 PT, value $6,997.61, implied yield 14.0%)' },
-    { date: '2026-04-14', type: 'buy', asset: 'PT-reUSDe', amount: 10269.00, price: 0.9752, usd: 10013.80, zone: 'stability', txHash: '0x19aa4b0e80b390d6989696aca3c224a850dd582265d9eda97d89ed42df6ee278', note: 'DCA апрель — третий вход PT-reUSDe (Pendle UI: +10,269.00 PT, value $10,013.80, implied yield 13.67%)' },
-    { date: '2026-05-07', type: 'buy', asset: 'PT-reUSDe', amount: 10317.40, price: 0.9799, usd: 10109.00, zone: 'stability', txHash: '0x753da4d5cc22e1664b9b84eee0a22c1728b5096e84aaba9f6baba88f7997f850', note: 'DCA май — четвёртый вход PT-reUSDe-25JUN2026 (Pendle UI: +10,317.40 PT, value $10,109.00, implied yield 16.48%)' },
-    { date: '2026-05-19', type: 'buy', asset: 'BTC', amount: 0.00802941, price: 76952.21, usd: 617.88, zone: 'growth', txHash: '091bff4b9a93613c4c3003ba18e235b006676342e7b71bd7e98288e1d5a58bc9', note: 'BTC слой 3 → холодный кошелёк' },
+    { date: '2026-03-21', type: 'buy', asset: 'PT-reUSDe', external: true, amount: 8285.58, price: 0.9663, usd: 8006.83, zone: 'stability', txHash: '0xdcb8faa363c8ae563ed731d97b1ad80850fffc70f1ca67c7d2ad7a7f84d3325c', note: 'Первый вход PT-reUSDe (Pendle UI: cum 8,285.58 PT, value $8,006.83, implied yield 13.97%)' },
+    { date: '2026-03-22', type: 'buy', asset: 'PT-reUSDe', external: true, amount: 7239.92, price: 0.9665, usd: 6997.61, zone: 'stability', txHash: '0x9e01ea1c7f08dce15aefa4ccb1654260cb405c95307bacab34d0a991c72bb54f', note: 'DCA — второй вход PT-reUSDe (Pendle UI: +7,239.92 PT, value $6,997.61, implied yield 14.0%)' },
+    { date: '2026-04-14', type: 'buy', asset: 'PT-reUSDe', external: true, amount: 10269.00, price: 0.9752, usd: 10013.80, zone: 'stability', txHash: '0x19aa4b0e80b390d6989696aca3c224a850dd582265d9eda97d89ed42df6ee278', note: 'DCA апрель — третий вход PT-reUSDe (Pendle UI: +10,269.00 PT, value $10,013.80, implied yield 13.67%)' },
+    { date: '2026-05-07', type: 'buy', asset: 'PT-reUSDe', external: true, amount: 10317.40, price: 0.9799, usd: 10109.00, zone: 'stability', txHash: '0x753da4d5cc22e1664b9b84eee0a22c1728b5096e84aaba9f6baba88f7997f850', note: 'DCA май — четвёртый вход PT-reUSDe-25JUN2026 (Pendle UI: +10,317.40 PT, value $10,109.00, implied yield 16.48%)' },
+    { date: '2026-05-19', type: 'buy', asset: 'BTC', external: true, amount: 0.00802941, price: 76952.21, usd: 617.88, zone: 'growth', txHash: '091bff4b9a93613c4c3003ba18e235b006676342e7b71bd7e98288e1d5a58bc9', note: 'BTC слой 3 → холодный кошелёк' },
     // ===== МИГРАЦИЯ GM ETH/USD → Uniswap v3 CLMM на Base (19 мая 2026) =====
     { date: '2026-05-19', type: 'sell', asset: 'GM-ETH/USD', amount: 13213.80, price: null, usd: 22184, zone: 'yield', chain: 'Arbitrum', note: 'Sell GM ETH/USD в Pair mode на GMX → 5.0517 WETH + 11,409 USDC. P&L +$236 от входа $21,948 (+1.1%, удержание 60д)' },
     { date: '2026-05-19', type: 'bridge', asset: 'WETH', amount: 5.0517, price: null, usd: 10771, zone: 'yield', note: 'Bridge через Mayan Swift v2: Arbitrum → Base. WETH 5.0517 → ETH native 5.04765 на Base (fee ~$9)' },
@@ -2019,16 +2019,23 @@ function renderTxHistory() {
 
   html += `</tbody></table></div>`;
 
-  // Summary — exclude GM purchases (bought with borrowed USDC, double-counting)
+  // ===== Сводка: НЕТТО / live, НЕ слепая сумма истории =====
+  // ПРАВИЛО (чтобы баг двойного счёта не вернулся): ownInvested считает ТОЛЬКО записи
+  // с external:true — реальный ввод СВОИХ денег (депозит ETH/BTC в залог, DCA-покупка).
+  // Свопы, бриджи, продажи, повторные депозиты врапнутых активов, любые GM — НЕ external.
+  // GM берём live с чейна (само-корректируется при циклах), не суммой покупок/продаж.
   const ownInvested = history
-    .filter(tx => tx.type !== 'borrow' && !(tx.asset || '').startsWith('GM-'))
+    .filter(tx => tx.external === true)
     .reduce((s, tx) => s + (tx.usd || 0), 0);
-  const yieldDeployed = history
-    .filter(tx => (tx.asset || '').startsWith('GM-'))
-    .reduce((s, tx) => s + (tx.usd || 0), 0);
-  const totalBorrowed = history.filter(tx => tx.type === 'borrow').reduce((s, tx) => s + (tx.usd || 0), 0);
+  const gmLive = ((state.gm.btcBal && state.gm.btcPrice) ? state.gm.btcBal * state.gm.btcPrice : 0)
+               + ((state.gm.ethBal && state.gm.ethPrice) ? state.gm.ethBal * state.gm.ethPrice : 0);
+  const gmNetCost = history.filter(tx => (tx.asset || '').startsWith('GM-'))
+    .reduce((s, tx) => s + (tx.type === 'sell' ? -(tx.usd || 0) : (tx.usd || 0)), 0);
+  const yieldDeployed = gmLive > 0 ? gmLive : gmNetCost; // live, иначе нетто покупок−продаж
+  const totalBorrowed = history.reduce((s, tx) => s + (tx.type === 'borrow' ? (tx.usd || 0) : (tx.type === 'repay' ? -(tx.usd || 0) : 0)), 0);
+  const liveDebt = (state.aave && state.aave.debt) ? state.aave.debt : null;
   html += `<div style="margin-top:10px; font-size:11px; color:var(--dim);">
-    Всего вложено своих: <strong style="color:var(--text)">${fmtUSD(ownInvested)}</strong> · Заёмных в Yield (GM): <strong style="color:var(--red)">${fmtUSD(yieldDeployed)}</strong> из заёма <strong>${fmtUSD(totalBorrowed)}</strong> · Операций: ${history.length}
+    Всего вложено своих: <strong style="color:var(--text)">${fmtUSD(ownInvested)}</strong> · В Yield (GM, live): <strong style="color:var(--red)">${fmtUSD(yieldDeployed)}</strong> · Занято нетто: <strong>${fmtUSD(totalBorrowed)}</strong>${liveDebt != null ? ` (тек. долг ${fmtUSD(liveDebt)})` : ''} · Операций: ${history.length}
   </div>`;
 
   container.innerHTML = html;
