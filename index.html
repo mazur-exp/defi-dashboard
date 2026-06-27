@@ -638,7 +638,7 @@ const CONFIG = {
   pendlePT_reUSDe: '0x2ae4f59e500b6ddeb88c480edf277eda54a00205', // PT-reUSDe-10DEC2026 (Roll over из 25JUN, tx 0x5f9793c2, 2026-06-27)
   pendlePT_reUSDe_decimals: 18,
   pendlePT_reUSDe_expiry: '2026-12-10',
-  pendlePT_reUSDe_costBasis: 36000.44, // Roll over value-at-execution нового PT-reUSDe-10DEC2026 (Pendle UI Target Market $36,000.44). Старый PT-25JUN погашен на $36,040.54, realized +913.30 (см. realizedPnL).
+  pendlePT_reUSDe_costBasis: 45983.83, // Roll over $36,000.44 (25JUN→10DEC, tx 0x5f9793c2) + докупка $9,983.39 на простаивавшие стейблы (tx 0xfbd82bff, 2026-06-27). Итого 49,821.69 PT. Старый PT-25JUN погашен на $36,040.54, realized +913.30 (см. realizedPnL).
   // Pendle API for PT price
   pendleMarketId: '0x90b70c407f1077f8eb92bf423b44cd92329b737a',
   // Target allocation (own capital)
@@ -661,7 +661,7 @@ const CONFIG = {
     // GM ETH/USD ЗАКРЫТА 2026-05-19 — мигрировали в Uniswap v3 CLMM на Base
     { id: 'uniswap-clmm-eth-usdc-base', zone: 'yield', asset: 'Uniswap-v3-ETH/USDC', label: 'Uniswap v3 CLMM #5150479', costBasis: 21926, entryDate: '2026-05-19', protocol: 'Uniswap v3', chain: 'Base', tokenId: 5150479, feeBips: 3000, rangeLow: 1504.23, rangeHigh: 3203.50, entryETH: 5.634, entryUSDC: 10007, note: 'Миграция из GM ETH/USD: GMX exit → Mayan bridge Arb→Base → swap USDC→ETH → Uniswap v3 0.3% диапазон $1504-$3203' },
     // Stability Zone — Own stables
-    { id: 'pt-reusde-dec', zone: 'stability', asset: 'PT-reUSDe', label: 'PT-reUSDe-10DEC2026', costBasis: 36000.44, qty: 38514.4, entryDate: '2026-06-27', protocol: 'Pendle', chain: 'Ethereum', txHash: '0x5f9793c2af049bf7f57c32efd9d151cbe8cf7adddcc6441ec55ba6376dd55d4b', note: 'Roll over из PT-reUSDe-25JUN2026 (погашен 25.06) → PT-reUSDe-10DEC2026 @ implied 15.52% / effective 15.23%, fee $66.50. 36,111.93 PT → 38,514.4 PT. Старый PT realized +$913.30 (cost $35,127.24 → $36,040.54). Погашение 10.12.2026.' },
+    { id: 'pt-reusde-dec', zone: 'stability', asset: 'PT-reUSDe', label: 'PT-reUSDe-10DEC2026', costBasis: 45983.83, qty: 49821.69, entryDate: '2026-06-27', protocol: 'Pendle', chain: 'Ethereum', txHash: '0x5f9793c2af049bf7f57c32efd9d151cbe8cf7adddcc6441ec55ba6376dd55d4b', txHash2: '0xfbd82bffc416b115bfe700147edca59a07c2a4907596ceb3d003d6c878441607', note: 'Roll over PT-25JUN→10DEC (36,111.93→38,514.4 PT, $36,000.44, tx 0x5f9793c2) + докупка на простаивавшие стейблы (+11,307.3 PT, $9,983.39, tx 0xfbd82bff). Итого 49,821.69 PT @ implied 15.52% / effective 15.23%. Старый PT-25JUN realized +$913.30. Погашение 10.12.2026.' },
   ],
 
   // ======= TRANSACTION HISTORY =======
@@ -695,6 +695,9 @@ const CONFIG = {
     // ===== ROLL OVER PT-reUSDe: 25JUN2026 (погашен) → 10DEC2026 — 2026-06-27 =====
     { date: '2026-06-27', type: 'sell', asset: 'PT-reUSDe-25JUN', amount: 36111.93, price: null, usd: 36040.54, zone: 'stability', chain: 'Ethereum', txHash: '0x5f9793c2af049bf7f57c32efd9d151cbe8cf7adddcc6441ec55ba6376dd55d4b', note: 'Redeem погашенного PT-reUSDe-25JUN2026 в Roll over. 36,111.93 PT → $36,040.54. Realized +$913.30 vs cost $35,127.24.' },
     { date: '2026-06-27', type: 'buy', asset: 'PT-reUSDe-10DEC', amount: 38514.4, price: null, usd: 36000.44, zone: 'stability', chain: 'Ethereum', txHash: '0x5f9793c2af049bf7f57c32efd9d151cbe8cf7adddcc6441ec55ba6376dd55d4b', note: 'Roll в PT-reUSDe-10DEC2026 @ implied 15.52% (effective 15.23%, fee $66.50). 38,514.4 PT, погашение 10.12.2026. Stability остаётся на 30%.' },
+    // ===== ДОКУПКА PT на простаивавшие стейблы (idle USDT → работа) — 2026-06-27 =====
+    { date: '2026-06-27', type: 'bridge', asset: 'USDT→USDC', amount: 10000, price: null, usd: 9986.81, zone: 'stability', chain: 'Arbitrum→Ethereum', txHash: '0x5155ea85cabdc6bafecb5b7d849a2ce9507b51a6e693c12c4d29f24c87a1fc03', note: 'Bridge простаивавших стейблов через Across: 10,000 USDT (Arb) → 9,986.81 USDC (Eth), fee ~$1.73. Остаток 625 USDT на Arbitrum.' },
+    { date: '2026-06-27', type: 'buy', asset: 'PT-reUSDe-10DEC', amount: 11307.3, price: null, usd: 9983.39, zone: 'stability', chain: 'Ethereum', txHash: '0xfbd82bffc416b115bfe700147edca59a07c2a4907596ceb3d003d6c878441607', note: 'Докупка PT на простаивавшие стейблы: 9,986.81 USDC → 11,307.3 PT @ implied 15.52% (effective 15.23%, fee $19.52). Idle-капитал заработал. Итого PT: 49,821.69. Stability остаётся 30%.' },
   ],
 
   // ======= CGS MODEL PARAMETERS =======
