@@ -635,12 +635,12 @@ const CONFIG = {
   uniswapClmmEntryETH: 5.634, // ETH в позицию при открытии
   uniswapClmmEntryUSDC: 10007, // USDC в позицию при открытии
   // Pendle PT-reUSDe (Ethereum mainnet)
-  pendlePT_reUSDe: '0xdc9a5a2e3ce7ac881fc3b28c629c05d1617d1c56', // PT-reUSDe-25JUN2026
+  pendlePT_reUSDe: '0x2ae4f59e500b6ddeb88c480edf277eda54a00205', // PT-reUSDe-10DEC2026 (Roll over из 25JUN, tx 0x5f9793c2, 2026-06-27)
   pendlePT_reUSDe_decimals: 18,
-  pendlePT_reUSDe_expiry: '2026-06-25',
-  pendlePT_reUSDe_costBasis: 35127.24, // Pendle UI Position Cost = sum of value-at-execution (8006.83 + 6997.61 + 10013.80 + 10109.00). DCA-USDC отправлено отдельно: 35,004 (см. totalDCAInvested)
+  pendlePT_reUSDe_expiry: '2026-12-10',
+  pendlePT_reUSDe_costBasis: 36000.44, // Roll over value-at-execution нового PT-reUSDe-10DEC2026 (Pendle UI Target Market $36,000.44). Старый PT-25JUN погашен на $36,040.54, realized +913.30 (см. realizedPnL).
   // Pendle API for PT price
-  pendleMarketId: '0x6cb9a013604a567a5834fadd411165b1ca616783',
+  pendleMarketId: '0x90b70c407f1077f8eb92bf423b44cd92329b737a',
   // Target allocation (own capital)
   targetGrowth: 70,
   targetStability: 30,
@@ -661,10 +661,7 @@ const CONFIG = {
     // GM ETH/USD ЗАКРЫТА 2026-05-19 — мигрировали в Uniswap v3 CLMM на Base
     { id: 'uniswap-clmm-eth-usdc-base', zone: 'yield', asset: 'Uniswap-v3-ETH/USDC', label: 'Uniswap v3 CLMM #5150479', costBasis: 21926, entryDate: '2026-05-19', protocol: 'Uniswap v3', chain: 'Base', tokenId: 5150479, feeBips: 3000, rangeLow: 1504.23, rangeHigh: 3203.50, entryETH: 5.634, entryUSDC: 10007, note: 'Миграция из GM ETH/USD: GMX exit → Mayan bridge Arb→Base → swap USDC→ETH → Uniswap v3 0.3% диапазон $1504-$3203' },
     // Stability Zone — Own stables
-    { id: 'pt-reusde-1', zone: 'stability', asset: 'PT-reUSDe', label: 'PT-reUSDe (вход 1)', costBasis: 8006.83, entryDate: '2026-03-21', protocol: 'Pendle', chain: 'Ethereum', txHash: '0xdcb8faa363c8ae563ed731d97b1ad80850fffc70f1ca67c7d2ad7a7f84d3325c', note: 'Первый вход PT-reUSDe, +8,285.58 PT (Pendle UI)' },
-    { id: 'pt-reusde-2', zone: 'stability', asset: 'PT-reUSDe', label: 'PT-reUSDe (DCA)', costBasis: 6997.61, entryDate: '2026-03-22', protocol: 'Pendle', chain: 'Ethereum', txHash: '0x9e01ea1c7f08dce15aefa4ccb1654260cb405c95307bacab34d0a991c72bb54f', note: 'DCA — второй вход PT-reUSDe, +7,239.92 PT (Pendle UI)' },
-    { id: 'pt-reusde-3', zone: 'stability', asset: 'PT-reUSDe', label: 'PT-reUSDe (DCA Apr)', costBasis: 10013.80, entryDate: '2026-04-14', protocol: 'Pendle', chain: 'Ethereum', txHash: '0x19aa4b0e80b390d6989696aca3c224a850dd582265d9eda97d89ed42df6ee278', note: 'DCA апрель — третий вход PT-reUSDe, +10,269.00 PT (Pendle UI)' },
-    { id: 'pt-reusde-4', zone: 'stability', asset: 'PT-reUSDe', label: 'PT-reUSDe (DCA May)', costBasis: 10109.00, entryDate: '2026-05-07', protocol: 'Pendle', chain: 'Ethereum', txHash: '0x753da4d5cc22e1664b9b84eee0a22c1728b5096e84aaba9f6baba88f7997f850', note: 'DCA май — четвёртый вход PT-reUSDe, +10,317.40 PT (Pendle UI), fixed APY 16.48%' },
+    { id: 'pt-reusde-dec', zone: 'stability', asset: 'PT-reUSDe', label: 'PT-reUSDe-10DEC2026', costBasis: 36000.44, qty: 38514.4, entryDate: '2026-06-27', protocol: 'Pendle', chain: 'Ethereum', txHash: '0x5f9793c2af049bf7f57c32efd9d151cbe8cf7adddcc6441ec55ba6376dd55d4b', note: 'Roll over из PT-reUSDe-25JUN2026 (погашен 25.06) → PT-reUSDe-10DEC2026 @ implied 15.52% / effective 15.23%, fee $66.50. 36,111.93 PT → 38,514.4 PT. Старый PT realized +$913.30 (cost $35,127.24 → $36,040.54). Погашение 10.12.2026.' },
   ],
 
   // ======= TRANSACTION HISTORY =======
@@ -695,6 +692,9 @@ const CONFIG = {
     { date: '2026-06-05', type: 'swap', asset: 'BTC→WBTC', amount: 0.0394, price: 60800, usd: 2358, zone: 'growth', chain: 'Bitcoin→Arbitrum', note: 'Врап native BTC (0.0394, слои btc-native-1/2/3) → 0.0388 WBTC на Arbitrum через MetaMask (~1.3% all-in). Native BTC больше нет на bc1q.' },
     { date: '2026-06-05', type: 'deposit', asset: 'WBTC', amount: 0.0388, price: 60800, usd: 2358, zone: 'growth', chain: 'Arbitrum', txHash: '0x4d3a040f19848769d1d826a15ab5ba033a6aab51e63272f0a9808f305bccbfd0', note: 'Врапнутый native BTC → залог Aave. Итого WBTC в Aave: 0.3023.' },
     { date: '2026-06-05', type: 'deposit', asset: 'ETH', external: true, amount: 6.44412, price: 1551.8, usd: 10000, zone: 'growth', chain: 'Arbitrum', txHash: '0xf5968bc9951845dc30f8959a79dd60306fb3f47f4dd981fdfb9de5af9b298d14', note: 'Ранний DCA $10K (за 15.06): USDT Bybit → 6.44412 ETH @ $1,551.8 → вывод Arbitrum (0xb4876897, дошло 6.4377) → supply Aave. Усреднение ETH вниз. Следующий DCA 15.07.2026.' },
+    // ===== ROLL OVER PT-reUSDe: 25JUN2026 (погашен) → 10DEC2026 — 2026-06-27 =====
+    { date: '2026-06-27', type: 'sell', asset: 'PT-reUSDe-25JUN', amount: 36111.93, price: null, usd: 36040.54, zone: 'stability', chain: 'Ethereum', txHash: '0x5f9793c2af049bf7f57c32efd9d151cbe8cf7adddcc6441ec55ba6376dd55d4b', note: 'Redeem погашенного PT-reUSDe-25JUN2026 в Roll over. 36,111.93 PT → $36,040.54. Realized +$913.30 vs cost $35,127.24.' },
+    { date: '2026-06-27', type: 'buy', asset: 'PT-reUSDe-10DEC', amount: 38514.4, price: null, usd: 36000.44, zone: 'stability', chain: 'Ethereum', txHash: '0x5f9793c2af049bf7f57c32efd9d151cbe8cf7adddcc6441ec55ba6376dd55d4b', note: 'Roll в PT-reUSDe-10DEC2026 @ implied 15.52% (effective 15.23%, fee $66.50). 38,514.4 PT, погашение 10.12.2026. Stability остаётся на 30%.' },
   ],
 
   // ======= CGS MODEL PARAMETERS =======
@@ -737,6 +737,7 @@ const CONFIG = {
   realizedPnL: [
     { date: '2026-05-19', asset: 'GM-ETH/USD', pnl: 236, note: 'Закрытие GM ETH/USD при миграции в Uniswap CLMM ($22,184 vs вход $21,948)' },
     { date: '2026-06-05', asset: 'GM-BTC/USD', pnl: -1941, note: 'Продажа GM BTC/USD в CGS-цикле (получено ~$31,791 vs вход $33,732)' },
+    { date: '2026-06-27', asset: 'PT-reUSDe-25JUN', pnl: 913.30, note: 'Погашение PT-reUSDe-25JUN2026 при Roll over ($36,040.54 vs cost $35,127.24). Капитал ролловернут в PT-reUSDe-10DEC2026.' },
   ],
   // ======= ЛОГ GM-ЦИКЛОВ (слои накопления BTC по методичке) =======
   gmCycles: [
@@ -1623,7 +1624,8 @@ function renderPendle() {
   const maturityProfitPct = costBasis > 0 ? (maturityProfit / costBasis * 100) : 0;
 
   let html = '';
-  html += `<div class="metric"><span class="metric-label">Токен</span><span class="metric-value" style="font-size:14px;">PT-reUSDe-25JUN2026</span></div>`;
+  const _ptExpD = new Date(CONFIG.pendlePT_reUSDe_expiry); const _ptMon = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'][_ptExpD.getUTCMonth()]; const _ptLabel = `PT-reUSDe-${String(_ptExpD.getUTCDate()).padStart(2,'0')}${_ptMon}${_ptExpD.getUTCFullYear()}`;
+  html += `<div class="metric"><span class="metric-label">Токен</span><span class="metric-value" style="font-size:14px;">${_ptLabel}</span></div>`;
   html += `<div class="metric"><span class="metric-label">Количество PT</span><span class="metric-value">${fmt(pt.ptBalance, 2)}</span></div>`;
   html += `<div class="metric"><span class="metric-label">Цена PT</span><span class="metric-value">$${fmt(ptPrice, 4)}</span></div>`;
   html += `<div class="metric"><span class="metric-label">Текущая стоимость</span><span class="metric-value" style="color:var(--stability)">${fmtUSD(ptValue)}</span></div>`;
