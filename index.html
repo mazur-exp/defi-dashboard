@@ -944,19 +944,27 @@ async function fetchGMTokens() {
       gmETHSupplyC.totalSupply(),
     ]);
 
-    const adjust = (res, netPnl, supply) => {
+    // GMX UI redeemable-стоимость GM = poolValue − положительный PnL трейдеров − impact pool − pending borrowing fees.
+    // Reader.poolValue включает impact pool (~6.3 BTC) и pending borrow fees → завышал цену GM на ~1.1% vs app.gmx.io.
+    // idxMaxPrice нужен чтобы перевести impactPoolAmount (в index-токенах) в USD: amount(1e dec) × price(1e(30-dec)) / 1e30.
+    const adjust = (res, netPnl, supply, idxMaxPrice) => {
       if (!res) return { price: null, tvl: null };
-      const poolValue = res[1].poolValue;
-      const positivePnl = netPnl.gt(0) ? netPnl : ethers.BigNumber.from(0);
-      const adjustedPool = poolValue.sub(positivePnl);
+      const u30 = (x) => Number(ethers.utils.formatUnits(x, 30));
+      const poolValue = u30(res[1].poolValue);
+      const netPnlN = u30(netPnl);
+      const positivePnl = netPnlN > 0 ? netPnlN : 0;
+      const impactUsd = idxMaxPrice
+        ? Number(ethers.utils.formatUnits(ethers.BigNumber.from(res[1].impactPoolAmount).mul(ethers.BigNumber.from(idxMaxPrice)), 30))
+        : 0;
+      const borrowFees = u30(res[1].totalBorrowingFees);
       const supplyNum = Number(ethers.utils.formatEther(supply));
       if (supplyNum <= 0) return { price: null, tvl: null };
-      const tvl = Number(ethers.utils.formatUnits(adjustedPool, 30));
+      const tvl = poolValue - positivePnl - impactUsd - borrowFees;
       return { price: tvl / supplyNum, tvl };
     };
 
-    const btcAdj = adjust(btcRes, btcNetPnl, btcSupRaw);
-    const ethAdj = adjust(ethRes, ethNetPnl, ethSupRaw);
+    const btcAdj = adjust(btcRes, btcNetPnl, btcSupRaw, pBTC && pBTC.maxPrice);
+    const ethAdj = adjust(ethRes, ethNetPnl, ethSupRaw, pETH && pETH.maxPrice);
     if (btcAdj.price != null) { state.gm.btcPrice = btcAdj.price; state.gm.btcPoolTVL = btcAdj.tvl; }
     if (ethAdj.price != null) { state.gm.ethPrice = ethAdj.price; state.gm.ethPoolTVL = ethAdj.tvl; }
 
