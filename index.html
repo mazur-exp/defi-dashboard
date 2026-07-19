@@ -698,6 +698,8 @@ const CONFIG = {
     // ===== ДОКУПКА PT на простаивавшие стейблы (idle USDT → работа) — 2026-06-27 =====
     { date: '2026-06-27', type: 'bridge', asset: 'USDT→USDC', amount: 10000, price: null, usd: 9986.81, zone: 'stability', chain: 'Arbitrum→Ethereum', txHash: '0x5155ea85cabdc6bafecb5b7d849a2ce9507b51a6e693c12c4d29f24c87a1fc03', note: 'Bridge простаивавших стейблов через Across: 10,000 USDT (Arb) → 9,986.81 USDC (Eth), fee ~$1.73. Остаток 625 USDT на Arbitrum.' },
     { date: '2026-06-27', type: 'buy', asset: 'PT-reUSDe-10DEC', amount: 11307.3, price: null, usd: 9983.39, zone: 'stability', chain: 'Ethereum', txHash: '0xfbd82bffc416b115bfe700147edca59a07c2a4907596ceb3d003d6c878441607', note: 'Докупка PT на простаивавшие стейблы: 9,986.81 USDC → 11,307.3 PT @ implied 15.52% (effective 15.23%, fee $19.52). Idle-капитал заработал. Итого PT: 49,821.69. Stability остаётся 30%.' },
+    // ===== DCA ИЮЛЬ (за 15.07, внесён 19.07) — 2026-07-19 =====
+    { date: '2026-07-19', type: 'deposit', asset: 'USDT', external: true, amount: 10000, price: 1, usd: 10000, zone: 'stability', chain: 'Arbitrum', txHash: '0x783454f85b687fc8341b8207aee4930d28c25212770745fb24ef82593ce27a74', note: 'DCA июль $10K (за 15.07): USDT0 с биржи → кошелёк Arbitrum (15:21 UTC). Итого на кошельке 10,625.40 USDT. Ожидает размещения: план ~$8.7K → PT-reUSDe-10DEC2026, ~$1.9K → WBTC в залог Aave (возврат к точному 70/30).' },
   ],
 
   // ======= CGS MODEL PARAMETERS =======
@@ -733,8 +735,9 @@ const CONFIG = {
     { date: '2026-04-14', amount: 10000, target: 'PT-reUSDe', zone: 'stability' },
     { date: '2026-05-07', amount: 10002, target: 'PT-reUSDe', zone: 'stability' },
     { date: '2026-06-05', amount: 10000, target: 'ETH', zone: 'growth' },
+    { date: '2026-07-19', amount: 10000, target: 'USDT (ожидает размещения)', zone: 'stability' },
   ],
-  totalDCAInvested: 45004, // cumulative DCA (35,004 в Stability/Pendle + 10,000 ETH DCA 2026-06-05)
+  totalDCAInvested: 55004, // cumulative DCA (35,004 в Stability/Pendle + 10,000 ETH DCA 2026-06-05 + 10,000 USDT DCA 2026-07-19)
 
   // ======= REALIZED P&L (все закрытые/реализованные позиции — расширяемо) =======
   realizedPnL: [
