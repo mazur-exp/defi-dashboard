@@ -614,8 +614,8 @@ const CONFIG = {
   entryBTC: 69871.45, // BTC price at GM entry — для триггеров BTC
   // Точка БЕЗУБЫТОЧНОСТИ Growth Zone (для P&L, НЕ для триггеров):
   //   средневзвешенная по всем покупкам ETH в Growth (LP1+LP2+ETH-sep)
-  weightedAvgETH: 3647, // (202821 + 6.4377×$1551.8 DCA 2026-06-05) / (51.918 + 6.4377) ETH = blended ETH entry
-  weightedAvgETHCostBasis: 212811, // USD cost basis для P&L Growth Zone ETH (вкл. DCA: 6.4377 ETH @ $1,551.8 = $9,990; $10 ушло в фи вывода)
+  weightedAvgETH: 3636, // (212811 + 0.3534×$1867.45 CLMM fees 2026-07-19) / (58.3558 + 0.3534) ETH = blended ETH entry
+  weightedAvgETHCostBasis: 213471, // USD cost basis для P&L Growth Zone ETH (вкл. DCA 06.06 $9,990 + CLMM fees 07.19 $660 реинвест в ETH)
   // ======= UNISWAP V3 CLMM на BASE =======
   // NonfungiblePositionManager на Base (canonical Uniswap v3)
   uniswapNPMBase: '0x03a520b32C04BF3bEEf7BEb72E919cf822Ed34f1',
@@ -656,6 +656,7 @@ const CONFIG = {
     { id: 'btc-native-2', zone: 'growth', asset: 'BTC', label: 'BTC (слой 2, 20.03.2026)', qty: 0.00773753, entryPrice: 69871.45, entryDate: '2026-03-20', protocol: 'Aave v3 (WBTC)', chain: 'Arbitrum', txHash: '77eaa827a091f8a9c623401bacd3bbd3621f22c15d316fb53b6915ced350aeb7', note: 'Второй слой BTC — за час до запуска CGS-цикла' },
     { id: 'btc-native-3', zone: 'growth', asset: 'BTC', label: 'BTC (слой 3, 19.05.2026)', qty: 0.00802941, entryPrice: 76952.21, entryDate: '2026-05-19', protocol: 'Aave v3 (WBTC)', chain: 'Arbitrum', txHash: '091bff4b9a93613c4c3003ba18e235b006676342e7b71bd7e98288e1d5a58bc9', note: 'Третий слой BTC (врапнут в WBTC и заведён в залог Aave 2026-06-05)' },
     { id: 'wbtc-gmcycle', zone: 'growth', asset: 'BTC', label: 'WBTC (GM-цикл, 05.06.2026)', qty: 0.2634, entryPrice: 60700, entryDate: '2026-06-05', protocol: 'Aave v3 (WBTC)', chain: 'Arbitrum', txHash: '0x0bceb866fcb2bb231d51dc26860afb0fde98111aa871405814600cbed910c2bd', note: 'BTC снят из GM-цикла (catch-up −7%/−15%) → залог Aave. ~$60.7K. Накопление BTC по Capital Growth.' },
+    { id: 'eth-clmm-fees-0719', zone: 'growth', asset: 'ETH', label: 'ETH (CLMM fees 07.2026)', qty: 0.3534, entryPrice: 1867.45, entryDate: '2026-07-19', protocol: 'Wallet', chain: 'Base', txHash: '0x6d0866a9d19659dfe95899ec7618167286823a7f7988ee0c3c16417cb21179a2', note: 'Собранные комиссии CLMM #5150479 (0.185893 ETH + 312.66 USDC), USDC свапнут в ETH @ ~$1,867 (tx 0x504fc8f7). Прибыль Yield остаётся в рынке. Лежит на кошельке Base, план — при следующей крупной сессии в залог/BTC.' },
     // Yield Zone — Borrowed stables
     { id: 'gm-btc', zone: 'yield', asset: 'GM-BTC/USD', label: 'GM BTC/USD', costBasis: 15791, entryDate: '2026-06-05', protocol: 'GMX v2', chain: 'Arbitrum', txHash: '0x7123e5f0d9ed9fb11c206ee714b42a3c37bad78bb9d6d38fb2e1925a56341bc8', note: 'Откуп GM после CGS-цикла (15,796.75 USDC → 7,432 GM). Прежний GM ($33,732) продан, BTC снят в залог Aave.' },
     // GM ETH/USD ЗАКРЫТА 2026-05-19 — мигрировали в Uniswap v3 CLMM на Base
@@ -700,6 +701,9 @@ const CONFIG = {
     { date: '2026-06-27', type: 'buy', asset: 'PT-reUSDe-10DEC', amount: 11307.3, price: null, usd: 9983.39, zone: 'stability', chain: 'Ethereum', txHash: '0xfbd82bffc416b115bfe700147edca59a07c2a4907596ceb3d003d6c878441607', note: 'Докупка PT на простаивавшие стейблы: 9,986.81 USDC → 11,307.3 PT @ implied 15.52% (effective 15.23%, fee $19.52). Idle-капитал заработал. Итого PT: 49,821.69. Stability остаётся 30%.' },
     // ===== DCA ИЮЛЬ (за 15.07, внесён 19.07) — 2026-07-19 =====
     { date: '2026-07-19', type: 'deposit', asset: 'USDT', external: true, amount: 10000, price: 1, usd: 10000, zone: 'stability', chain: 'Arbitrum', txHash: '0x783454f85b687fc8341b8207aee4930d28c25212770745fb24ef82593ce27a74', note: 'DCA июль $10K (за 15.07): USDT0 с биржи → кошелёк Arbitrum (15:21 UTC). Итого на кошельке 10,625.40 USDT. Ожидает размещения: план ~$8.7K → PT-reUSDe-10DEC2026, ~$1.9K → WBTC в залог Aave (возврат к точному 70/30).' },
+    // ===== СБОР КОМИССИЙ CLMM → реинвест в ETH (прибыль Yield остаётся в рынке) — 2026-07-19 =====
+    { date: '2026-07-19', type: 'collect', asset: 'Uniswap-v3-ETH/USDC', amount: null, price: null, usd: 659.81, zone: 'yield', chain: 'Base', txHash: '0x6d0866a9d19659dfe95899ec7618167286823a7f7988ee0c3c16417cb21179a2', note: 'Сбор комиссий CLMM #5150479 за 61.7 дн (APR ~19%): 0.185893 WETH (собрано как ETH) + 312.6558 USDC ≈ $659.81 (17:45 UTC).' },
+    { date: '2026-07-19', type: 'swap', asset: 'USDC→ETH', amount: 312.894072, price: 1867.45, usd: 312.89, zone: 'growth', chain: 'Base', txHash: '0x504fc8f7d3aec4afa4aef78603f05de29a008a0d39a3cc37c2cd5dbccfa6301c', note: 'Swap собранных fees 312.894 USDC (вкл. $0.24 старой пыли) → ETH @ ~$1,867 (17:50 UTC). Итого +0.3534 ETH на Base (баланс 0.4275). Stability ≥30% закрыта DCA → прибыль Yield в Growth (позиция eth-clmm-fees-0719).' },
   ],
 
   // ======= CGS MODEL PARAMETERS =======
@@ -744,6 +748,7 @@ const CONFIG = {
     { date: '2026-05-19', asset: 'GM-ETH/USD', pnl: 236, note: 'Закрытие GM ETH/USD при миграции в Uniswap CLMM ($22,184 vs вход $21,948)' },
     { date: '2026-06-05', asset: 'GM-BTC/USD', pnl: -1941, note: 'Продажа GM BTC/USD в CGS-цикле (получено ~$31,791 vs вход $33,732)' },
     { date: '2026-06-27', asset: 'PT-reUSDe-25JUN', pnl: 913.30, note: 'Погашение PT-reUSDe-25JUN2026 при Roll over ($36,040.54 vs cost $35,127.24). Капитал ролловернут в PT-reUSDe-10DEC2026.' },
+    { date: '2026-07-19', asset: 'CLMM fees (Uniswap #5150479)', pnl: 659.81, note: 'Собранные комиссии за 61.7 дн (APR ~19.2%). Реинвестированы в ETH на Base @ ~$1,867 (позиция eth-clmm-fees-0719).' },
   ],
   // ======= ЛОГ GM-ЦИКЛОВ (слои накопления BTC по методичке) =======
   gmCycles: [
@@ -1677,7 +1682,9 @@ function renderZones() {
   // Wallet ETH/WBTC on Ethereum mainnet
   const ethMainETHWallet = (state.walletETHMain['ETH']?.amount || 0) * (p.ETH || 0);
   const ethMainWBTCWallet = (state.walletETHMain['WBTC']?.amount || 0) * (p.BTC || 0);
-  const growthValue = (a.collateral || 0) + btcNativeUSD + arbETHWallet + arbWETHWallet + arbWBTCWallet + ethMainETHWallet + ethMainWBTCWallet;
+  // Wallet ETH on Base (Growth = ВСЯ крипта на ВСЕХ сетях; добавлено 2026-07-19 — CLMM fees реинвестированы в ETH на Base)
+  const baseETHWallet = ((state.walletBase || {})['ETH']?.amount || 0) * (p.ETH || 0);
+  const growthValue = (a.collateral || 0) + btcNativeUSD + arbETHWallet + arbWETHWallet + arbWBTCWallet + ethMainETHWallet + ethMainWBTCWallet + baseETHWallet;
 
   // Yield: GM pools + Uniswap v3 CLMM на Base (всё на заёмные стейблы)
   const gmBtcVal = g.btcPrice && g.btcBal ? g.btcBal * g.btcPrice : 0;
@@ -1689,8 +1696,9 @@ function renderZones() {
   // Stability: ALL stablecoins across ALL chains + Pendle PT
   const arbStables = (w['USDC']?.amount || 0) + (w['USDC.e']?.amount || 0) + (w['USDT']?.amount || 0);
   const ethMainStables = (state.walletETHMain['USDT']?.amount || 0) + (state.walletETHMain['USDC']?.amount || 0);
+  const baseStables = ((state.walletBase || {})['USDC']?.amount || 0);
   const pendlePTValue = state.pendle?.ptValue || 0;
-  const stabilityValue = arbStables + ethMainStables + pendlePTValue;
+  const stabilityValue = arbStables + ethMainStables + baseStables + pendlePTValue;
 
   const ownCapital = growthValue + stabilityValue; // 70/30 is about OWN capital only
   const totalPortfolio = growthValue + yieldValue + stabilityValue;
@@ -1940,12 +1948,14 @@ function renderDCATracker() {
   const btcNative = (state.btcBalance || 0) * (p.BTC || 0);
   const arbETH = (state.wallet['ETH']?.amount || 0) * (p.ETH || 0);
   const ethMainETH = (state.walletETHMain?.['ETH']?.amount || 0) * (p.ETH || 0);
-  const totalGrowth = growthVal + btcNative + arbETH + ethMainETH;
+  const baseETH = ((state.walletBase || {})['ETH']?.amount || 0) * (p.ETH || 0);
+  const totalGrowth = growthVal + btcNative + arbETH + ethMainETH + baseETH;
 
   const arbStables = (state.wallet['USDC']?.amount || 0) + (state.wallet['USDC.e']?.amount || 0) + (state.wallet['USDT']?.amount || 0);
   const ethMainStables = (state.walletETHMain?.['USDT']?.amount || 0) + (state.walletETHMain?.['USDC']?.amount || 0);
+  const baseStablesDca = ((state.walletBase || {})['USDC']?.amount || 0);
   const pendleVal = state.pendle?.ptValue || 0;
-  const totalStability = arbStables + ethMainStables + pendleVal;
+  const totalStability = arbStables + ethMainStables + baseStablesDca + pendleVal;
 
   const ownCapital = totalGrowth + totalStability;
   const stabilityTarget = ownCapital * (CONFIG.targetStability / 100);
