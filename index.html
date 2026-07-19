@@ -627,6 +627,7 @@ const CONFIG = {
   uniswapPositionTokenId: 5150479, // NFT Position ID
   uniswapClmmCostBasis: 21926, // USD при открытии (5.634 WETH + 10,007 USDC)
   uniswapClmmEntryDate: '2026-05-19',
+  uniswapClmmFeesSince: '2026-07-19T17:45:43Z', // последний сбор комиссий (tx 0x6d0866a9) — APR и дни считаем от этой даты
   uniswapClmmEntryTxHash: null, // TODO: добавить когда Алекс пришлёт
   uniswapClmmPair: 'ETH/USDC',
   uniswapClmmFeeBips: 3000, // 0.3% = 3000 (Uniswap fee tier в bips × 100)
@@ -638,7 +639,7 @@ const CONFIG = {
   pendlePT_reUSDe: '0x2ae4f59e500b6ddeb88c480edf277eda54a00205', // PT-reUSDe-10DEC2026 (Roll over из 25JUN, tx 0x5f9793c2, 2026-06-27)
   pendlePT_reUSDe_decimals: 18,
   pendlePT_reUSDe_expiry: '2026-12-10',
-  pendlePT_reUSDe_costBasis: 45983.83, // Roll over $36,000.44 (25JUN→10DEC, tx 0x5f9793c2) + докупка $9,983.39 на простаивавшие стейблы (tx 0xfbd82bff, 2026-06-27). Итого 49,821.69 PT. Старый PT-25JUN погашен на $36,040.54, realized +913.30 (см. realizedPnL).
+  pendlePT_reUSDe_costBasis: 54683.83, // Roll over $36,000.44 + докупка $9,983.39 (2026-06-27) + DCA июль $8,700 (2026-07-19, tx 0xd9ade62f). Итого 59,211.13 PT. Старый PT-25JUN погашен, realized +913.30 (см. realizedPnL).
   // Pendle API for PT price
   pendleMarketId: '0x90b70c407f1077f8eb92bf423b44cd92329b737a',
   // Target allocation (own capital)
@@ -662,7 +663,7 @@ const CONFIG = {
     // GM ETH/USD ЗАКРЫТА 2026-05-19 — мигрировали в Uniswap v3 CLMM на Base
     { id: 'uniswap-clmm-eth-usdc-base', zone: 'yield', asset: 'Uniswap-v3-ETH/USDC', label: 'Uniswap v3 CLMM #5150479', costBasis: 21926, entryDate: '2026-05-19', protocol: 'Uniswap v3', chain: 'Base', tokenId: 5150479, feeBips: 3000, rangeLow: 1504.23, rangeHigh: 3203.50, entryETH: 5.634, entryUSDC: 10007, note: 'Миграция из GM ETH/USD: GMX exit → Mayan bridge Arb→Base → swap USDC→ETH → Uniswap v3 0.3% диапазон $1504-$3203' },
     // Stability Zone — Own stables
-    { id: 'pt-reusde-dec', zone: 'stability', asset: 'PT-reUSDe', label: 'PT-reUSDe-10DEC2026', costBasis: 45983.83, qty: 49821.69, entryDate: '2026-06-27', protocol: 'Pendle', chain: 'Ethereum', txHash: '0x5f9793c2af049bf7f57c32efd9d151cbe8cf7adddcc6441ec55ba6376dd55d4b', txHash2: '0xfbd82bffc416b115bfe700147edca59a07c2a4907596ceb3d003d6c878441607', note: 'Roll over PT-25JUN→10DEC (36,111.93→38,514.4 PT, $36,000.44, tx 0x5f9793c2) + докупка на простаивавшие стейблы (+11,307.3 PT, $9,983.39, tx 0xfbd82bff). Итого 49,821.69 PT @ implied 15.52% / effective 15.23%. Старый PT-25JUN realized +$913.30. Погашение 10.12.2026.' },
+    { id: 'pt-reusde-dec', zone: 'stability', asset: 'PT-reUSDe', label: 'PT-reUSDe-10DEC2026', costBasis: 54683.83, qty: 59211.13, entryDate: '2026-06-27', protocol: 'Pendle', chain: 'Ethereum', txHash: '0x5f9793c2af049bf7f57c32efd9d151cbe8cf7adddcc6441ec55ba6376dd55d4b', txHash2: '0xfbd82bffc416b115bfe700147edca59a07c2a4907596ceb3d003d6c878441607', txHash3: '0xd9ade62f97624b6c7c204ba22e548861b616f8106678b5e20cb0d4a4e803fa16', note: 'Roll over PT-25JUN→10DEC (38,514.4 PT, $36,000.44, tx 0x5f9793c2) + докупка idle-стейблов (+11,307.3 PT, $9,983.39, tx 0xfbd82bff) + DCA июль (+9,389.43 PT, $8,700 USDT0 Arb cross-chain zap @ $0.9266, tx 0xd9ade62f, 2026-07-19). Итого 59,211.13 PT. Погашение 10.12.2026 ≈ $59,211.' },
   ],
 
   // ======= TRANSACTION HISTORY =======
@@ -704,6 +705,8 @@ const CONFIG = {
     // ===== СБОР КОМИССИЙ CLMM → реинвест в ETH (прибыль Yield остаётся в рынке) — 2026-07-19 =====
     { date: '2026-07-19', type: 'collect', asset: 'Uniswap-v3-ETH/USDC', amount: null, price: null, usd: 659.81, zone: 'yield', chain: 'Base', txHash: '0x6d0866a9d19659dfe95899ec7618167286823a7f7988ee0c3c16417cb21179a2', note: 'Сбор комиссий CLMM #5150479 за 61.7 дн (APR ~19%): 0.185893 WETH (собрано как ETH) + 312.6558 USDC ≈ $659.81 (17:45 UTC).' },
     { date: '2026-07-19', type: 'swap', asset: 'USDC→ETH', amount: 312.894072, price: 1867.45, usd: 312.89, zone: 'growth', chain: 'Base', txHash: '0x504fc8f7d3aec4afa4aef78603f05de29a008a0d39a3cc37c2cd5dbccfa6301c', note: 'Swap собранных fees 312.894 USDC (вкл. $0.24 старой пыли) → ETH @ ~$1,867 (17:50 UTC). Итого +0.3534 ETH на Base (баланс 0.4275). Stability ≥30% закрыта DCA → прибыль Yield в Growth (позиция eth-clmm-fees-0719).' },
+    // ===== РАЗМЕЩЕНИЕ DCA ИЮЛЬ: покупка PT напрямую с Arbitrum (Pendle cross-chain zap) — 2026-07-19 =====
+    { date: '2026-07-19', type: 'buy', asset: 'PT-reUSDe-10DEC', amount: 9389.43, price: 0.9266, usd: 8700, zone: 'stability', chain: 'Arbitrum→Ethereum', txHash: '0xd9ade62f97624b6c7c204ba22e548861b616f8106678b5e20cb0d4a4e803fa16', note: 'DCA июль часть 1: 8,700 USDT0 (Arb, tx 0xb5afdc41 18:05 UTC) → Pendle cross-chain zap → 9,389.4339 PT @ $0.9266 all-in (Eth, 18:07 UTC). Implied 18.2%, к погашению 10.12.2026 ≈ +$689. Итого PT: 59,211.13. Остаток 1,925.40 USDT — на WBTC (часть 2).' },
   ],
 
   // ======= CGS MODEL PARAMETERS =======
@@ -739,7 +742,7 @@ const CONFIG = {
     { date: '2026-04-14', amount: 10000, target: 'PT-reUSDe', zone: 'stability' },
     { date: '2026-05-07', amount: 10002, target: 'PT-reUSDe', zone: 'stability' },
     { date: '2026-06-05', amount: 10000, target: 'ETH', zone: 'growth' },
-    { date: '2026-07-19', amount: 10000, target: 'USDT (ожидает размещения)', zone: 'stability' },
+    { date: '2026-07-19', amount: 10000, target: 'PT-reUSDe 8.7K + WBTC 1.9K (план)', zone: 'stability' },
   ],
   totalDCAInvested: 55004, // cumulative DCA (35,004 в Stability/Pendle + 10,000 ETH DCA 2026-06-05 + 10,000 USDT DCA 2026-07-19)
 
@@ -1224,9 +1227,10 @@ async function fetchUniswapV3Position() {
       feesValueUSD: wethFees * (state.prices.ETH || priceUSDCperETH) + usdcFees,
     };
 
-    // APR расчёт: total fees / position value / days * 365
-    const entryDate = new Date(CONFIG.uniswapClmmEntryDate);
-    const daysActive = Math.max(0.01, (Date.now() - entryDate.getTime()) / 86400000);
+    // APR расчёт: fees с последнего сбора / position value / days * 365
+    // (fees обнуляются при collect — считаем от uniswapClmmFeesSince, а не от даты входа)
+    const feesSince = new Date(CONFIG.uniswapClmmFeesSince || CONFIG.uniswapClmmEntryDate);
+    const daysActive = Math.max(0.01, (Date.now() - feesSince.getTime()) / 86400000);
     if (state.uniswap.positionValueUSD > 0) {
       state.uniswap.aprFromFees = (state.uniswap.feesValueUSD / state.uniswap.positionValueUSD) * (365 / daysActive) * 100;
       state.uniswap.daysActive = daysActive;
