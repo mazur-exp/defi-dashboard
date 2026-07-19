@@ -657,6 +657,7 @@ const CONFIG = {
     { id: 'btc-native-2', zone: 'growth', asset: 'BTC', label: 'BTC (слой 2, 20.03.2026)', qty: 0.00773753, entryPrice: 69871.45, entryDate: '2026-03-20', protocol: 'Aave v3 (WBTC)', chain: 'Arbitrum', txHash: '77eaa827a091f8a9c623401bacd3bbd3621f22c15d316fb53b6915ced350aeb7', note: 'Второй слой BTC — за час до запуска CGS-цикла' },
     { id: 'btc-native-3', zone: 'growth', asset: 'BTC', label: 'BTC (слой 3, 19.05.2026)', qty: 0.00802941, entryPrice: 76952.21, entryDate: '2026-05-19', protocol: 'Aave v3 (WBTC)', chain: 'Arbitrum', txHash: '091bff4b9a93613c4c3003ba18e235b006676342e7b71bd7e98288e1d5a58bc9', note: 'Третий слой BTC (врапнут в WBTC и заведён в залог Aave 2026-06-05)' },
     { id: 'wbtc-gmcycle', zone: 'growth', asset: 'BTC', label: 'WBTC (GM-цикл, 05.06.2026)', qty: 0.2634, entryPrice: 60700, entryDate: '2026-06-05', protocol: 'Aave v3 (WBTC)', chain: 'Arbitrum', txHash: '0x0bceb866fcb2bb231d51dc26860afb0fde98111aa871405814600cbed910c2bd', note: 'BTC снят из GM-цикла (catch-up −7%/−15%) → залог Aave. ~$60.7K. Накопление BTC по Capital Growth.' },
+    { id: 'btc-dca-0719', zone: 'growth', asset: 'BTC', label: 'BTC (DCA слой 4, 19.07.2026)', qty: 0.0299041, entryPrice: 64386, entryDate: '2026-07-19', protocol: 'Aave v3 (WBTC)', chain: 'Arbitrum', txHash: '0x556403106b6b32a25ca9c2b593b91d5435a28c4fd06e7ec9a892172f0f8fac1c', note: 'DCA июль часть 2: 1,925.40 USDT → 0.0299041 WBTC @ $64,386 (CoW Swap, tx 0x27c36d38) → supply Aave (18:19 UTC). Итого WBTC в Aave: 0.332246. Излишек Stability над 30% → в BTC по приоритету Capital Growth.' },
     { id: 'eth-clmm-fees-0719', zone: 'growth', asset: 'ETH', label: 'ETH (CLMM fees 07.2026)', qty: 0.3534, entryPrice: 1867.45, entryDate: '2026-07-19', protocol: 'Wallet', chain: 'Base', txHash: '0x6d0866a9d19659dfe95899ec7618167286823a7f7988ee0c3c16417cb21179a2', note: 'Собранные комиссии CLMM #5150479 (0.185893 ETH + 312.66 USDC), USDC свапнут в ETH @ ~$1,867 (tx 0x504fc8f7). Прибыль Yield остаётся в рынке. Лежит на кошельке Base, план — при следующей крупной сессии в залог/BTC.' },
     // Yield Zone — Borrowed stables
     { id: 'gm-btc', zone: 'yield', asset: 'GM-BTC/USD', label: 'GM BTC/USD', costBasis: 15791, entryDate: '2026-06-05', protocol: 'GMX v2', chain: 'Arbitrum', txHash: '0x7123e5f0d9ed9fb11c206ee714b42a3c37bad78bb9d6d38fb2e1925a56341bc8', note: 'Откуп GM после CGS-цикла (15,796.75 USDC → 7,432 GM). Прежний GM ($33,732) продан, BTC снят в залог Aave.' },
@@ -707,6 +708,8 @@ const CONFIG = {
     { date: '2026-07-19', type: 'swap', asset: 'USDC→ETH', amount: 312.894072, price: 1867.45, usd: 312.89, zone: 'growth', chain: 'Base', txHash: '0x504fc8f7d3aec4afa4aef78603f05de29a008a0d39a3cc37c2cd5dbccfa6301c', note: 'Swap собранных fees 312.894 USDC (вкл. $0.24 старой пыли) → ETH @ ~$1,867 (17:50 UTC). Итого +0.3534 ETH на Base (баланс 0.4275). Stability ≥30% закрыта DCA → прибыль Yield в Growth (позиция eth-clmm-fees-0719).' },
     // ===== РАЗМЕЩЕНИЕ DCA ИЮЛЬ: покупка PT напрямую с Arbitrum (Pendle cross-chain zap) — 2026-07-19 =====
     { date: '2026-07-19', type: 'buy', asset: 'PT-reUSDe-10DEC', amount: 9389.43, price: 0.9266, usd: 8700, zone: 'stability', chain: 'Arbitrum→Ethereum', txHash: '0xd9ade62f97624b6c7c204ba22e548861b616f8106678b5e20cb0d4a4e803fa16', note: 'DCA июль часть 1: 8,700 USDT0 (Arb, tx 0xb5afdc41 18:05 UTC) → Pendle cross-chain zap → 9,389.4339 PT @ $0.9266 all-in (Eth, 18:07 UTC). Implied 18.2%, к погашению 10.12.2026 ≈ +$689. Итого PT: 59,211.13. Остаток 1,925.40 USDT — на WBTC (часть 2).' },
+    { date: '2026-07-19', type: 'swap', asset: 'USDT→WBTC', amount: 1925.403846, price: 64386, usd: 1925.40, zone: 'growth', chain: 'Arbitrum', txHash: '0x27c36d38f9929c68a8b9ec34e3a52c20bd19a50235daa1dd0a91d18bea0d5df5', note: 'DCA июль часть 2: swap 1,925.40 USDT → 0.0299041 WBTC @ $64,386 через CoW Swap (fee $0.42, 18:18 UTC).' },
+    { date: '2026-07-19', type: 'deposit', asset: 'WBTC', amount: 0.0299041, price: 64386, usd: 1925.40, zone: 'growth', chain: 'Arbitrum', txHash: '0x556403106b6b32a25ca9c2b593b91d5435a28c4fd06e7ec9a892172f0f8fac1c', note: 'WBTC → залог Aave (18:19 UTC). Итого WBTC в Aave: 0.332246. HF 1.90 → 1.92. DCA июль размещён ПОЛНОСТЬЮ: $8.7K PT (Stability ровно 30%) + $1.9K BTC (Growth). Следующий DCA: 15.08.2026.' },
   ],
 
   // ======= CGS MODEL PARAMETERS =======
@@ -742,7 +745,7 @@ const CONFIG = {
     { date: '2026-04-14', amount: 10000, target: 'PT-reUSDe', zone: 'stability' },
     { date: '2026-05-07', amount: 10002, target: 'PT-reUSDe', zone: 'stability' },
     { date: '2026-06-05', amount: 10000, target: 'ETH', zone: 'growth' },
-    { date: '2026-07-19', amount: 10000, target: 'PT-reUSDe 8.7K + WBTC 1.9K (план)', zone: 'stability' },
+    { date: '2026-07-19', amount: 10000, target: 'PT-reUSDe 8.7K + WBTC 1.9K', zone: 'stability' },
   ],
   totalDCAInvested: 55004, // cumulative DCA (35,004 в Stability/Pendle + 10,000 ETH DCA 2026-06-05 + 10,000 USDT DCA 2026-07-19)
 
