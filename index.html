@@ -1827,15 +1827,25 @@ function renderZones() {
   const pendlePTValue = state.pendle?.ptValue || 0;
   const stabilityValue = arbStables + ethMainStables + baseStables + pendlePTValue;
 
-  const ownCapital = growthValue + stabilityValue; // 70/30 is about OWN capital only
   const totalPortfolio = growthValue + yieldValue + stabilityValue;
+  const debt = a.debt || 0;
 
-  // Сохраняем для карточки «Вложено своих» (net worth = все активы минус долг Aave)
-  state.zones = { growth: growthValue, yield: yieldValue, stability: stabilityValue,
-                  own: ownCapital, total: totalPortfolio,
-                  netWorth: totalPortfolio - (a.debt || 0) };
+  // СОБСТВЕННЫЙ КАПИТАЛ = все активы − долг Aave.
+  // Раньше здесь было growthValue + stabilityValue — это ЗАВЫШАЛО капитал, потому что
+  // после CGS-циклов заёмные деньги физически переезжают в Growth (продали GM → WBTC в залог).
+  // Долг при этом никуда не делся. По SKILL.md: «Заёмные средства НЕ входят в расчёт 70/30,
+  // они сверху собственного капитала» — значит заёмную часть внутри Growth надо вычитать.
+  const ownCapital = totalPortfolio - debt;
+  // Сколько заёмных денег сидит внутри Growth = долг минус то, что ещё осталось в Yield.
+  const borrowedInGrowth = Math.max(0, debt - yieldValue);
+  const growthOwn = Math.max(0, growthValue - borrowedInGrowth);
 
-  const gPct = ownCapital > 0 ? (growthValue / ownCapital * 100) : 0;
+  // Сохраняем для карточки «Вложено своих»
+  state.zones = { growth: growthValue, growthOwn, borrowedInGrowth, yield: yieldValue,
+                  stability: stabilityValue, own: ownCapital, total: totalPortfolio,
+                  netWorth: ownCapital };
+
+  const gPct = ownCapital > 0 ? (growthOwn / ownCapital * 100) : 0;
   const sPct = ownCapital > 0 ? (stabilityValue / ownCapital * 100) : 0;
   // Yield is separate (borrowed capital)
 
@@ -1850,9 +1860,13 @@ function renderZones() {
 
   document.getElementById('zoneDetails').innerHTML = `
     <div class="zone-detail-row">
-      <span class="label">🔷 Growth Zone</span>
-      <span><strong>${fmtUSD(growthValue)}</strong> <span class="target">(факт ${fmt(gPct,0)}% / цель ${CONFIG.targetGrowth}%)</span></span>
+      <span class="label">🔷 Growth Zone (свои)</span>
+      <span><strong>${fmtUSD(growthOwn)}</strong> <span class="target">(факт ${fmt(gPct,0)}% / цель ${CONFIG.targetGrowth}%)</span></span>
     </div>
+    ${borrowedInGrowth > 1 ? `<div class="zone-detail-row" style="margin-top:-4px;">
+      <span class="label" style="font-size:11px;color:var(--dim);padding-left:18px;">└ + заёмные в залоге (перенос из GM по CGS-циклам)</span>
+      <span class="target" style="font-size:11px;">${fmtUSD(borrowedInGrowth)} · всего ${fmtUSD(growthValue)}</span>
+    </div>` : ''}
     <div class="zone-detail-row">
       <span class="label">🟡 Yield Zone (заёмный)</span>
       <span><strong>${fmtUSD(yieldValue)}</strong> <span class="target">GM ${fmtUSD(gmBtcVal + gmEthVal)} + CLMM ${fmtUSD(uniClmmVal + uniClmmFees)}</span></span>
@@ -1863,7 +1877,7 @@ function renderZones() {
     </div>
     <div style="margin-top:10px; padding-top:10px; border-top:1px solid var(--border);">
       <div class="zone-detail-row">
-        <span class="label" style="font-weight:600;">Собственный капитал</span>
+        <span class="label" style="font-weight:600;">Собственный капитал <span style="font-weight:400;color:var(--dim);font-size:11px;">(активы − долг)</span></span>
         <span style="font-weight:700;">${fmtUSD(ownCapital)}</span>
       </div>
       <div class="zone-detail-row">
