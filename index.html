@@ -324,6 +324,12 @@
     <div class="zone-detail" id="zoneDetails"><span class="loading-text">Загрузка...</span></div>
   </div>
 
+  <!-- Capital In — сколько реально вложено своих денег -->
+  <div class="card">
+    <div class="card-title"><span class="icon">💰</span> Вложено своих денег</div>
+    <div id="capitalInCard"><span class="loading-text">Загрузка...</span></div>
+  </div>
+
   <!-- Aave Position -->
   <div class="card">
     <div class="card-title"><span class="icon">🏛️</span> Aave v3 — Позиция</div>
@@ -675,6 +681,7 @@ const CONFIG = {
     { date: '2025-08-20', type: 'deposit', asset: 'ETH', external: true, amount: 12.275, price: 2022, usd: 24820, zone: 'growth', note: 'Докупка ETH по $2,022 в залог' },
     { date: '2025-12-18', type: 'buy', asset: 'BTC', external: true, amount: 0.02361933, price: 86064.95, usd: 2032.80, zone: 'growth', txHash: 'd071ca740319d8202adb8c940d17505458f79b0ad9ea61a66cf1c5b22bc31795', note: 'BTC слой 1 → холодный кошелёк bc1qn576...' },
     { date: '2026-03-20', type: 'buy', asset: 'BTC', external: true, amount: 0.00773753, price: 69871.45, usd: 540.63, zone: 'growth', txHash: '77eaa827a091f8a9c623401bacd3bbd3621f22c15d316fb53b6915ced350aeb7', note: 'BTC слой 2 → холодный кошелёк (07:46 UTC, за час до GM)' },
+    { date: '2026-03-20', type: 'deposit', asset: 'ETH', external: true, amount: 11.33941672, price: 2137.45, usd: 24238.16, zone: 'growth', chain: 'Ethereum', txHash: '0x0b140a905161555582e13cf20c1fb7685658bfecacf1534a29befbb6dbd00ff6', note: 'Прямой вывод 11.3394 ETH с Bybit на кошелёк (07:29 UTC) → мост Across на Arbitrum → вошли в те самые 50 ETH залога. Запись добавлена 17.08.2026 при сверке capitalIn — раньше этого поступления в истории не было.' },
     { date: '2026-03-20', type: 'borrow', asset: 'USDC', amount: 55680, price: 1, usd: 55680, zone: 'yield', note: 'Заём USDC на Aave для GM пулов' },
     { date: '2026-03-20', type: 'buy', asset: 'GM-BTC/USD', amount: null, price: null, usd: 33732, zone: 'yield', note: 'Депозит в GM BTC/USD пул' },
     { date: '2026-03-20', type: 'buy', asset: 'GM-ETH/USD', amount: null, price: null, usd: 21948, zone: 'yield', txHash: '0x99a6a1e398e24b3ef8d4a8056787625bfe84b7c7a98b60527196c352b73859e2', note: 'Депозит в GM ETH/USD пул' },
@@ -700,6 +707,7 @@ const CONFIG = {
     { date: '2026-06-27', type: 'sell', asset: 'PT-reUSDe-25JUN', amount: 36111.93, price: null, usd: 36040.54, zone: 'stability', chain: 'Ethereum', txHash: '0x5f9793c2af049bf7f57c32efd9d151cbe8cf7adddcc6441ec55ba6376dd55d4b', note: 'Redeem погашенного PT-reUSDe-25JUN2026 в Roll over. 36,111.93 PT → $36,040.54. Realized +$913.30 vs cost $35,127.24.' },
     { date: '2026-06-27', type: 'buy', asset: 'PT-reUSDe-10DEC', amount: 38514.4, price: null, usd: 36000.44, zone: 'stability', chain: 'Ethereum', txHash: '0x5f9793c2af049bf7f57c32efd9d151cbe8cf7adddcc6441ec55ba6376dd55d4b', note: 'Roll в PT-reUSDe-10DEC2026 @ implied 15.52% (effective 15.23%, fee $66.50). 38,514.4 PT, погашение 10.12.2026. Stability остаётся на 30%.' },
     // ===== ДОКУПКА PT на простаивавшие стейблы (idle USDT → работа) — 2026-06-27 =====
+    { date: '2026-06-16', type: 'deposit', asset: 'USDT', external: true, amount: 10000, price: 1, usd: 10000, zone: 'stability', chain: 'Arbitrum', txHash: '0x45b2c468b8a05c113d03537d12c51038650ae25ef4a9d207b989103cc3198cbd', note: 'Ввод $10,000 USDT0 с биржи на Arbitrum (16:20 UTC). Именно эти деньги 27.06 ушли мостом на Ethereum и были названы «простаивавшими стейблами» — на самом деле это был внешний ввод. Запись добавлена 17.08.2026 при сверке capitalIn.' },
     { date: '2026-06-27', type: 'bridge', asset: 'USDT→USDC', amount: 10000, price: null, usd: 9986.81, zone: 'stability', chain: 'Arbitrum→Ethereum', txHash: '0x5155ea85cabdc6bafecb5b7d849a2ce9507b51a6e693c12c4d29f24c87a1fc03', note: 'Bridge простаивавших стейблов через Across: 10,000 USDT (Arb) → 9,986.81 USDC (Eth), fee ~$1.73. Остаток 625 USDT на Arbitrum.' },
     { date: '2026-06-27', type: 'buy', asset: 'PT-reUSDe-10DEC', amount: 11307.3, price: null, usd: 9983.39, zone: 'stability', chain: 'Ethereum', txHash: '0xfbd82bffc416b115bfe700147edca59a07c2a4907596ceb3d003d6c878441607', note: 'Докупка PT на простаивавшие стейблы: 9,986.81 USDC → 11,307.3 PT @ implied 15.52% (effective 15.23%, fee $19.52). Idle-капитал заработал. Итого PT: 49,821.69. Stability остаётся 30%.' },
     // ===== DCA ИЮЛЬ (за 15.07, внесён 19.07) — 2026-07-19 =====
@@ -754,6 +762,56 @@ const CONFIG = {
     { date: '2026-08-14', amount: 10000, target: 'WBTC 0.1586343', zone: 'growth' },
   ],
   totalDCAInvested: 65004, // cumulative DCA (35,004 в Stability/Pendle + 10,000 ETH DCA 2026-06-05 + 10,000 USDT DCA 2026-07-19 + 10,000 WBTC DCA 2026-08-14)
+
+  // ======= CAPITAL IN — реальные деньги, заведённые извне =======
+  // Реконструкция по on-chain истории (Ethereum + Arbitrum + Unichain), сверено 17.08.2026.
+  // ПРАВИЛО: считается ТОЛЬКО момент, когда деньги приходят на кошелёк СНАРУЖИ (с биржи).
+  //   НЕ считаются: мосты между сетями, свопы, заводы в пулы (обе стороны LP — уже пришедшие деньги),
+  //   заём на Aave (это долг, не свои), прибыль внутри системы (fees CLMM, Pendle, проценты Aave).
+  // Почему НЕ сумма цен лотов: с мая 2025 по март 2026 капитал крутился через пулы на Unichain
+  //   десятки раз (купил ETH → продал в пуле → купил снова). Сумма цен лотов ($271,140) считает
+  //   каждый круг как новое вложение. Проверка: 20.03.2026 в залог легли 50.9 ETH при цене ETH
+  //   $2,137 = $108.8K, а записаны они были на $202.8K.
+  capitalIn: {
+    asOf: '2026-08-17',
+    deposits: [
+      { date: '2025-05-04', chain: 'Ethereum', asset: 'USDT',  amount: 10000,        usd: 10000.00, src: 'Binance', tx: '0xc4d07ba1a61379a29c89916685817eea80354af1db683dcebbefce1136e4fa1a' },
+      { date: '2025-05-31', chain: 'Arbitrum', asset: 'USDT0', amount: 10592.679206, usd: 10592.68, src: 'Биржа',   tx: '0xf5878625eef189941c7b11c2f75357fb96ee267b0beb1aa53fc3ce581e491ccb' },
+      { date: '2025-06-06', chain: 'Ethereum', asset: 'USDT',  amount: 10699.87,     usd: 10699.87, src: 'Binance', tx: '0xe4317546d681acc64a80b07d8d81242b7e7c093ecaf016c40ba68160033a4ff3' },
+      { date: '2025-06-10', chain: 'Ethereum', asset: 'USDT',  amount: 9992.0283,    usd: 9992.03,  src: 'Bybit',   tx: '0x354f99e28c1fbb11e57f4b855f4754616ebcd0c9d4ab79c8c5ac34740f25066b' },
+      { date: '2025-07-21', chain: 'Ethereum', asset: 'USDT',  amount: 5000,         usd: 5000.00,  src: 'Binance', tx: '0x5cf9f14c6b679995c52b02b871d49378da8c82c2aaee66cc92fd5bb53c63757a' },
+      { date: '2025-07-21', chain: 'Ethereum', asset: 'USDT',  amount: 20000,        usd: 20000.00, src: 'Binance', tx: '0x730ef1b4960fb327030122de033378793bcf565b8db3247a85684c79767e74b2' },
+      { date: '2025-07-21', chain: 'Ethereum', asset: 'USDT',  amount: 40000,        usd: 40000.00, src: 'Binance', tx: '0x37c62d693631ffb7a8002353c8f353987fb18b8a74126aa983a2b1e2b0caee9b' },
+      { date: '2025-09-12', chain: 'Ethereum', asset: 'USDT',  amount: 3300,         usd: 3300.00,  src: 'Биржа',   tx: '0x0ce0c732647c6b9b0f014680d9836053adcd7de154d4ad5dc7e3bb5f158c6553' },
+      { date: '2025-10-11', chain: 'Ethereum', asset: 'USDT',  amount: 10803.3409,   usd: 10803.34, src: 'Биржа',   tx: '0x1341fb274acfa1ae673a10fa2c286f27182626c8e66edd645b35f5d9c8127db3' },
+      { date: '2025-10-22', chain: 'Ethereum', asset: 'USDT',  amount: 11936.2985,   usd: 11936.30, src: 'Биржа',   tx: '0x2ede0127cdf1a446adfdbc819f69f715b073c949e0f068550c4c81a3e949bab9' },
+      { date: '2025-12-04', chain: 'Ethereum', asset: 'USDT',  amount: 9996.2839,    usd: 9996.28,  src: 'Биржа',   tx: '0x82d802007ed2d25c48255db90c0d9d7fa40cfff668d9362d31fbe69ad2236a99' },
+      { date: '2025-12-18', chain: 'Bitcoin',  asset: 'BTC',   amount: 0.02361933,   usd: 2032.80,  src: 'Биржа',   tx: 'd071ca740319d8202adb8c940d17505458f79b0ad9ea61a66cf1c5b22bc31795', note: 'BTC слой 1 @ $86,065' },
+      { date: '2025-12-18', chain: 'Arbitrum', asset: 'USDT0', amount: 491.8807,     usd: 491.88,   src: 'Биржа',   tx: '0xf2ab0a9fb4603dfa7f3e2e7c371be89d690af692159dc1c316c6884c1261c677' },
+      { date: '2026-03-20', chain: 'Ethereum', asset: 'USDT',  amount: 257.5898,     usd: 257.59,   src: 'Биржа',   tx: '0x91d384ef1970e1316bbc746b011c5268af3f9d31d2fc8bb1697a0e61f6fa9dfe' },
+      { date: '2026-03-20', chain: 'Ethereum', asset: 'ETH',   amount: 11.33941672,  usd: 24238.16, src: 'Bybit',   tx: '0x0b140a905161555582e13cf20c1fb7685658bfecacf1534a29befbb6dbd00ff6', note: 'Прямой вывод ETH с Bybit @ $2,137.45 → мост Across → залог Aave' },
+      { date: '2026-03-20', chain: 'Arbitrum', asset: 'USDT0', amount: 28.924623,    usd: 28.92,    src: 'Биржа',   tx: '0x0cb2dcf0019913b52e11a92e9ff394684f7ad029140b7a495bc39f2ffbf14b9e' },
+      { date: '2026-03-20', chain: 'Arbitrum', asset: 'USDT0', amount: 104.64258,    usd: 104.64,   src: 'Биржа',   tx: '0xfb9621e3b18ba093260c20715a23eff20c7a49c7d7de977622b65972c75d9b21' },
+      { date: '2026-03-20', chain: 'Bitcoin',  asset: 'BTC',   amount: 0.00773753,   usd: 540.63,   src: 'Биржа',   tx: '77eaa827a091f8a9c623401bacd3bbd3621f22c15d316fb53b6915ced350aeb7', note: 'BTC слой 2 @ $69,871' },
+      { date: '2026-03-21', chain: 'Ethereum', asset: 'USDT',  amount: 7999.2013,    usd: 7999.20,  src: 'Биржа',   tx: '0x94b2b07a88e98bfce103bce9fd39fdeeb83855dd864a24520a7156456e4401cf', note: 'DCA #1' },
+      { date: '2026-03-22', chain: 'Ethereum', asset: 'USDT',  amount: 6999.20,      usd: 6999.20,  src: 'Биржа',   tx: '0xe978066ca241c6ef02e2cdf7964490408ed7f3e40b116585e50a4ddaf89845fa', note: 'DCA #2' },
+      { date: '2026-04-14', chain: 'Ethereum', asset: 'USDT',  amount: 10036.2269,   usd: 10036.23, src: 'Bybit',   tx: '0xe48f4f136ad6b1ada7a4a13ad85025b23b99215042f9c96908c3646b1033aa69', note: 'DCA #3' },
+      { date: '2026-05-07', chain: 'Ethereum', asset: 'USDT',  amount: 10000,        usd: 10000.00, src: 'Биржа',   tx: '0x21ffc28aad11b2f1b3bda4747d17b179bfe3db603fb6c941dbb70beb9433c029', note: 'DCA #4' },
+      { date: '2026-05-19', chain: 'Bitcoin',  asset: 'BTC',   amount: 0.00802941,   usd: 617.88,   src: 'Биржа',   tx: '091bff4b9a93613c4c3003ba18e235b006676342e7b71bd7e98288e1d5a58bc9', note: 'BTC слой 3 @ $76,952' },
+      { date: '2026-06-05', chain: 'Arbitrum', asset: 'ETH',   amount: 6.43763588,   usd: 10000.00, src: 'Bybit',   tx: '0xb4876897b391c08a7f4f67bb96671f8f23e78ef8557f9a1b34ec76b08bc43df4', note: 'DCA #5 — куплено на бирже за $10,000 @ $1,551.8' },
+      { date: '2026-06-16', chain: 'Arbitrum', asset: 'USDT0', amount: 10000,        usd: 10000.00, src: 'Биржа',   tx: '0x45b2c468b8a05c113d03537d12c51038650ae25ef4a9d207b989103cc3198cbd', note: 'Не учитывался до 17.08.2026 — в history попал только как «докупка PT на простаивавшие стейблы» 27.06' },
+      { date: '2026-07-19', chain: 'Arbitrum', asset: 'USDT0', amount: 10000,        usd: 10000.00, src: 'Bybit',   tx: '0x783454f85b687fc8341b8207aee4930d28c25212770745fb24ef82593ce27a74', note: 'DCA #6' },
+      { date: '2026-08-14', chain: 'Arbitrum', asset: 'USDT0', amount: 10000,        usd: 10000.00, src: 'Bybit',   tx: '0x3e9f54283c94253e4d8d9f93b273995d9ff06f9bf24384ed3b5cb1395df23525', note: 'DCA #7' },
+    ],
+    // Выведено себе (подтверждено Алексом 17.08.2026) — вычитается из вложенного
+    withdrawals: [
+      { date: '2025-05-31', chain: 'Ethereum', asset: 'USDT', usd: 950.79,  to: '0x589003b5723cdcf1be215bc1fcb9200cf01f0e7b' },
+      { date: '2025-07-06', chain: 'Ethereum', asset: 'USDT', usd: 28.50,   to: '0x589003b5723cdcf1be215bc1fcb9200cf01f0e7b' },
+      { date: '2025-07-23', chain: 'Ethereum', asset: 'USDT', usd: 4770.00, to: '0x2e5a7d382752eb7f7f63818ff2d16490c086df25' },
+      { date: '2025-08-09', chain: 'Ethereum', asset: 'USDT', usd: 2000.00, to: '0x589003b5723cdcf1be215bc1fcb9200cf01f0e7b' },
+      { date: '2025-08-09', chain: 'Ethereum', asset: 'USDT', usd: 3000.00, to: '0x589003b5723cdcf1be215bc1fcb9200cf01f0e7b' },
+    ],
+  },
 
   // ======= REALIZED P&L (все закрытые/реализованные позиции — расширяемо) =======
   realizedPnL: [
@@ -1677,6 +1735,62 @@ function renderPendle() {
   container.innerHTML = html;
 }
 
+// ======= КАРТОЧКА «ВЛОЖЕНО СВОИХ» =======
+// Источник истины — CONFIG.capitalIn (реальные поступления извне, сверено on-chain).
+// НЕ путать с суммой цен лотов в positions/history — та завышена из-за рециркуляции капитала в пулах.
+function renderCapitalIn() {
+  const el = document.getElementById('capitalInCard');
+  if (!el) return;
+  const ci = CONFIG.capitalIn;
+  if (!ci || !ci.deposits) { el.innerHTML = '<span class="loading-text">нет данных</span>'; return; }
+
+  const gross = ci.deposits.reduce((s, d) => s + (d.usd || 0), 0);
+  const withdrawn = (ci.withdrawals || []).reduce((s, d) => s + (d.usd || 0), 0);
+  const net = gross - withdrawn;
+  const now = state.zones ? state.zones.netWorth : null;
+  const pnl = (now != null) ? now - net : null;
+  const pct = (pnl != null && net > 0) ? (pnl / net * 100) : null;
+  const cls = (pnl == null) ? '' : (pnl >= 0 ? 'safe' : '');
+  const color = (pnl == null) ? 'var(--dim)' : (pnl >= 0 ? 'var(--green)' : 'var(--red)');
+  const last = ci.deposits[ci.deposits.length - 1];
+  const explorer = (d) => d.chain === 'Bitcoin' ? `https://mempool.space/tx/${d.tx}`
+                        : d.chain === 'Arbitrum' ? `https://arbiscan.io/tx/${d.tx}`
+                        : `https://etherscan.io/tx/${d.tx}`;
+
+  let rows = '';
+  ci.deposits.slice().reverse().forEach(d => {
+    const amt = d.asset === 'BTC' ? fmt(d.amount, 8) : d.asset === 'ETH' ? fmt(d.amount, 4) : fmt(d.amount, 2);
+    rows += `<div style="display:flex;justify-content:space-between;gap:8px;padding:4px 0;border-bottom:1px solid rgba(48,54,61,.4);font-size:11px;">
+      <span style="color:var(--dim);white-space:nowrap;">${d.date.slice(8,10)}.${d.date.slice(5,7)}.${d.date.slice(2,4)}</span>
+      <span style="flex:1;color:var(--dim);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${amt} ${d.asset} · ${d.src}${d.note ? ' · ' + d.note.split('—')[0].trim() : ''}</span>
+      <span style="white-space:nowrap;">${fmtUSD(d.usd)}</span>
+      <a href="${explorer(d)}" target="_blank" class="tx-link" style="white-space:nowrap;">↗</a>
+    </div>`;
+  });
+
+  el.innerHTML = `
+    <div style="text-align:center;padding:6px 0 12px;">
+      <div style="font-size:32px;font-weight:700;color:var(--accent);letter-spacing:-.5px;">${fmtUSD(net)}</div>
+      <div style="font-size:11px;color:var(--dim);margin-top:2px;">живые деньги с бирж за всё время</div>
+    </div>
+    <div class="metric"><span class="metric-label">Заведено извне (${ci.deposits.length} поступлений)</span><span class="metric-value">${fmtUSD(gross)}</span></div>
+    <div class="metric"><span class="metric-label">Выведено себе</span><span class="metric-value" style="color:var(--dim)">−${fmtUSD(withdrawn)}</span></div>
+    <div class="metric" style="border-top:1px solid var(--border);padding-top:8px;margin-top:4px;">
+      <span class="metric-label">Сейчас в портфеле (минус долг)</span>
+      <span class="metric-value">${now != null ? fmtUSD(now) : '—'}</span></div>
+    <div class="metric"><span class="metric-label">Результат</span>
+      <span class="metric-value ${cls}" style="color:${color}">${pnl != null ? (pnl >= 0 ? '+' : '−') + fmtUSD(Math.abs(pnl)) + ' · ' + (pnl >= 0 ? '+' : '−') + fmt(Math.abs(pct), 1) + '%' : '—'}</span></div>
+    <div class="metric"><span class="metric-label">Последнее поступление</span>
+      <span class="metric-value" style="font-size:12px;">${last.date.slice(8,10)}.${last.date.slice(5,7)}.${last.date.slice(0,4)} · ${fmtUSD(last.usd)}</span></div>
+    <details style="margin-top:10px;">
+      <summary style="cursor:pointer;font-size:11px;color:var(--accent);">Показать все ${ci.deposits.length} поступлений</summary>
+      <div style="margin-top:8px;max-height:280px;overflow-y:auto;">${rows}</div>
+      <div style="font-size:10px;color:var(--dim);margin-top:8px;line-height:1.5;">
+        Считается только приход денег на кошелёк <b>снаружи</b>. Мосты, свопы, заводы в пулы и заём на Aave — это перекладывание уже посчитанных денег, а не новые вложения. Сверено по on-chain истории Ethereum + Arbitrum + Unichain на ${ci.asOf.slice(8,10)}.${ci.asOf.slice(5,7)}.${ci.asOf.slice(0,4)}.
+      </div>
+    </details>`;
+}
+
 function renderZones() {
   // Growth = Aave collateral (own crypto)
   // Yield = GM pools (funded by borrowed stables)
@@ -1715,6 +1829,11 @@ function renderZones() {
 
   const ownCapital = growthValue + stabilityValue; // 70/30 is about OWN capital only
   const totalPortfolio = growthValue + yieldValue + stabilityValue;
+
+  // Сохраняем для карточки «Вложено своих» (net worth = все активы минус долг Aave)
+  state.zones = { growth: growthValue, yield: yieldValue, stability: stabilityValue,
+                  own: ownCapital, total: totalPortfolio,
+                  netWorth: totalPortfolio - (a.debt || 0) };
 
   const gPct = ownCapital > 0 ? (growthValue / ownCapital * 100) : 0;
   const sPct = ownCapital > 0 ? (stabilityValue / ownCapital * 100) : 0;
@@ -2126,13 +2245,14 @@ function renderTxHistory() {
   html += `</tbody></table></div>`;
 
   // ===== Сводка: НЕТТО / live, НЕ слепая сумма истории =====
-  // ПРАВИЛО (чтобы баг двойного счёта не вернулся): ownInvested считает ТОЛЬКО записи
-  // с external:true — реальный ввод СВОИХ денег (депозит ETH/BTC в залог, DCA-покупка).
-  // Свопы, бриджи, продажи, повторные депозиты врапнутых активов, любые GM — НЕ external.
+  // ВЛОЖЕНО СВОИХ — берём из CONFIG.capitalIn (реальные поступления извне, сверено on-chain 17.08.2026).
+  // РАНЬШЕ здесь была сумма history с external:true = $271,139.55 — она БЫЛА ЗАВЫШЕНА:
+  //   лоты ETH записаны по ценам покупок разных циклов, а капитал крутился через пулы Unichain
+  //   десятки раз, и каждый круг считался новым вложением. Не возвращать этот расчёт.
   // GM берём live с чейна (само-корректируется при циклах), не суммой покупок/продаж.
-  const ownInvested = history
-    .filter(tx => tx.external === true)
-    .reduce((s, tx) => s + (tx.usd || 0), 0);
+  const ciDeps = (CONFIG.capitalIn && CONFIG.capitalIn.deposits) || [];
+  const ciWdr = (CONFIG.capitalIn && CONFIG.capitalIn.withdrawals) || [];
+  const ownInvested = ciDeps.reduce((s, d) => s + (d.usd || 0), 0) - ciWdr.reduce((s, d) => s + (d.usd || 0), 0);
   // Yield = GM + CLMM (обе live с чейна). НЕ забывать CLMM — это тоже Yield Zone.
   const gmLive = ((state.gm.btcBal && state.gm.btcPrice) ? state.gm.btcBal * state.gm.btcPrice : 0)
                + ((state.gm.ethBal && state.gm.ethPrice) ? state.gm.ethBal * state.gm.ethPrice : 0);
@@ -2143,7 +2263,7 @@ function renderTxHistory() {
   const totalBorrowed = history.reduce((s, tx) => s + (tx.type === 'borrow' ? (tx.usd || 0) : (tx.type === 'repay' ? -(tx.usd || 0) : 0)), 0);
   const liveDebt = (state.aave && state.aave.debt) ? state.aave.debt : null;
   html += `<div style="margin-top:10px; font-size:11px; color:var(--dim);">
-    Всего вложено своих: <strong style="color:var(--text)">${fmtUSD(ownInvested)}</strong> · В Yield (live): <strong style="color:var(--red)">${fmtUSD(yieldDeployed)}</strong> <span style="color:var(--dim)">(GM ${fmtUSD(gmLive)} + CLMM ${fmtUSD(clmmLive)})</span> · Занято нетто: <strong>${fmtUSD(totalBorrowed)}</strong>${liveDebt != null ? ` (тек. долг ${fmtUSD(liveDebt)})` : ''} · Операций: ${history.length}
+    Всего вложено своих: <strong style="color:var(--text)">${fmtUSD(ownInvested)}</strong> <span style="color:var(--dim)">(${ciDeps.length} поступлений извне − выведено себе)</span> · В Yield (live): <strong style="color:var(--red)">${fmtUSD(yieldDeployed)}</strong> <span style="color:var(--dim)">(GM ${fmtUSD(gmLive)} + CLMM ${fmtUSD(clmmLive)})</span> · Занято нетто: <strong>${fmtUSD(totalBorrowed)}</strong>${liveDebt != null ? ` (тек. долг ${fmtUSD(liveDebt)})` : ''} · Операций: ${history.length}
   </div>`;
 
   container.innerHTML = html;
@@ -2229,6 +2349,7 @@ function renderAll() {
   renderPendle();
   renderWallet();
   renderZones();
+  renderCapitalIn(); // после renderZones — использует state.zones.netWorth
   renderTriggers();
   renderAnalytics();
 }
