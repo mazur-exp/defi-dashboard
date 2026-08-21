@@ -1860,12 +1860,12 @@ function renderZones() {
 
   document.getElementById('zoneDetails').innerHTML = `
     <div class="zone-detail-row">
-      <span class="label">🔷 Growth Zone (свои)</span>
-      <span><strong>${fmtUSD(growthOwn)}</strong> <span class="target">(факт ${fmt(gPct,0)}% / цель ${CONFIG.targetGrowth}%)</span></span>
+      <span class="label">🔷 Growth Zone</span>
+      <span><strong>${fmtUSD(growthValue)}</strong></span>
     </div>
     ${borrowedInGrowth > 1 ? `<div class="zone-detail-row" style="margin-top:-4px;">
-      <span class="label" style="font-size:11px;color:var(--dim);padding-left:18px;">└ + заёмные в залоге (перенос из GM по CGS-циклам)</span>
-      <span class="target" style="font-size:11px;">${fmtUSD(borrowedInGrowth)} · всего ${fmtUSD(growthValue)}</span>
+      <span class="label" style="font-size:11px;color:var(--dim);padding-left:18px;">└ свои ${fmtUSD(growthOwn)} + заёмные ${fmtUSD(borrowedInGrowth)} (перенос из GM по CGS-циклам)</span>
+      <span class="target" style="font-size:11px;">факт ${fmt(gPct,0)}% / цель ${CONFIG.targetGrowth}%</span>
     </div>` : ''}
     <div class="zone-detail-row">
       <span class="label">🟡 Yield Zone (заёмный)</span>
@@ -1877,16 +1877,19 @@ function renderZones() {
     </div>
     <div style="margin-top:10px; padding-top:10px; border-top:1px solid var(--border);">
       <div class="zone-detail-row">
-        <span class="label" style="font-weight:600;">Собственный капитал <span style="font-weight:400;color:var(--dim);font-size:11px;">(активы − долг)</span></span>
+        <span class="label">Все активы (Growth + Yield + Stability)</span>
+        <span>${fmtUSD(totalPortfolio)}</span>
+      </div>
+      <div class="zone-detail-row">
+        <span class="label">− Долг Aave</span>
+        <span style="color:var(--red);">−${fmtUSD(debt)}</span>
+      </div>
+      <div class="zone-detail-row" style="border-top:1px solid var(--border);padding-top:6px;margin-top:2px;">
+        <span class="label" style="font-weight:600;">= Собственный капитал</span>
         <span style="font-weight:700;">${fmtUSD(ownCapital)}</span>
       </div>
-      <div class="zone-detail-row">
-        <span class="label" style="font-weight:600;">Весь портфель (+ заёмный)</span>
-        <span style="font-weight:700;">${fmtUSD(totalPortfolio)}</span>
-      </div>
-      <div class="zone-detail-row">
-        <span class="label">Заёмный капитал (Aave debt)</span>
-        <span style="color:var(--red);">${fmtUSD(a.debt || 0)}</span>
+      <div style="font-size:10px;color:var(--dim);margin-top:6px;line-height:1.5;">
+        Он же = Growth свои ${fmtUSD(growthOwn)} + Stability ${fmtUSD(stabilityValue)}. Yield целиком на заёмные, поэтому отдельно к капиталу не прибавляется: долг уже вычтен.
       </div>
     </div>
   `;
@@ -1999,6 +2002,16 @@ function renderPositionsPnL() {
   const totalETHEntry = growthPositions.filter(p => p.asset === 'ETH').reduce((s, p) => s + p.qty * p.entryPrice, 0);
   const avgEntry = totalETH > 0 ? totalETHEntry / totalETH : 0;
   html += `<div style="margin-top:10px; font-size:11px; color:var(--dim);">Средневзвешенная цена входа ETH: <strong style="color:var(--text)">$${fmt(avgEntry,0)}</strong> | Всего ETH: <strong style="color:var(--text)">${fmt(totalETH,4)}</strong></div>`;
+  // Предупреждение: база этой таблицы ≠ «Вложено своих». Не сравнивать напрямую.
+  const gmCycleLot = (CONFIG.positions.find(p => p.id === 'wbtc-gmcycle') || {});
+  const feesLot = (CONFIG.positions.find(p => p.id === 'eth-clmm-fees-0719') || {});
+  const borrowedLotCost = (gmCycleLot.qty || 0) * (gmCycleLot.entryPrice || 0);
+  const feesLotCost = (feesLot.qty || 0) * (feesLot.entryPrice || 0);
+  html += `<div style="margin-top:10px;padding:10px 12px;background:rgba(210,153,34,.08);border:1px solid var(--yellow);border-radius:8px;font-size:11px;color:var(--dim);line-height:1.6;">
+    <strong style="color:var(--text)">Эта таблица считает P&L от суммы цен лотов (${fmtUSD(totalEntry)}), а НЕ от заведённых денег.</strong><br>
+    Сюда входит то, что своими деньгами не покупалось: WBTC из GM-цикла ${fmtUSD(borrowedLotCost)} (куплен на заёмные USDC) и ETH из комиссий CLMM ${fmtUSD(feesLotCost)} (заработано внутри). Плюс лоты ETH из пулов Unichain записаны по цене каждой покупки, а капитал там прокручивался по кругу.<br>
+    Реальный результат к вложенным деньгам — в карточке «Вложено своих денег» на вкладке Портфель. Эти два числа не сравнивать.
+  </div>`;
 
   container.innerHTML = html;
 }
