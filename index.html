@@ -606,18 +606,25 @@ const CONFIG = {
   // GM pool entry costs (from History)
   gmBTCEntryCost: 15791, // USD invested в ТЕКУЩИЙ GM BTC/USD (откуп после CGS-цикла 2026-06-05: 15,796.75 USDC → 7,432 GM). Старый пул ($33,732) продан в цикле; realized ниже.
   gmBTCRealizedPnL: -1941, // realized при продаже старого GM BTC/USD 2026-06-05 (получено ~$31,791 = 0.2634 BTC + 15,811 USDC vs вход $33,732). tx sell 0x87b20f02...
-  gmETHEntryCost: 0, // ЗАКРЫТА 2026-05-19 (Sell в Pair mode → миграция на Uniswap v3 CLMM на Base). Исходно было $21,948.
-  gmETHClosedDate: '2026-05-19',
-  gmETHRealizedPnL: 236, // +$236 realized при продаже GM-ETH (продал $22,184 vs вход $21,948)
+  gmETHEntryCost: 12487, // ПЕРЕОТКРЫТА 2026-09-01 при доборе LTV до 50% (12,487 USDC → 6,646.8978 GM, tx 0x7ddace69). Прошлая позиция ($21,948) закрыта 2026-05-19 → CLMM Base, realized +$236.
+  gmETHEntryDate: '2026-09-01', // дата входа в ТЕКУЩИЙ GM ETH/USD — для расчёта комиссий отдельно от BTC-пула
+  gmETHClosedDate: null, // позиция открыта
+  gmETHRealizedPnL: 236, // +$236 realized при продаже прошлого GM-ETH (продал $22,184 vs вход $21,948)
   gmEntryDate: '2026-06-05', // дата входа в ТЕКУЩИЙ GM BTC/USD (откуп после CGS-цикла)
   gmEntryTimestamp: 1780682198, // UNIX timestamp откупа GM (2026-06-05T17:56:38Z, tx 0x7123e5f0)
   gmEntryTxHash: '0x7123e5f0d9ed9fb11c206ee714b42a3c37bad78bb9d6d38fb2e1925a56341bc8',
   assemblyDate: '2026-03-20', // ИСХОДНАЯ дата сборки портфеля (первый GM-пул) — для подписи «точки сборки». НЕ путать с gmEntryDate (дата текущего GM, для комиссий).
-  // Entry prices for TRIGGERS (по букве курса Web3 Academy CGS):
-  //   точка сборки портфеля = цена ETH/BTC на момент покупки первого GM-пула.
-  //   ON-CHAIN истина (Chainlink исторически на блоке 443722505):
-  entryETH: 2137.45, // ETH price at GM entry (НЕ путать с weighted avg по P&L!)
-  entryBTC: 69871.45, // BTC price at GM entry — для триггеров BTC
+  // ======= ТОЧКА ОТСЧЁТА ТРИГГЕРОВ =======
+  // Урок 5: «Все последующие триггеры падения считаем от НОВОЙ точки, с которой доводили LTV до 50%».
+  // ПЕРЕСЧИТАНА 2026-09-01 при доборе займа $34,866 (LTV 30.8% → 49.97%).
+  //   Chainlink на блоке добора 500541844 (tx 0x5fcf8b4a, 06:03:10 UTC): ETH $2,482.31, BTC $79,104.69.
+  // Предыдущая точка (сборка портфеля 2026-03-20): ETH $2,137.45, BTC $69,871.45 — БОЛЬШЕ НЕ ДЕЙСТВУЕТ.
+  entryETH: 2482.31, // ETH при доборе LTV до 50% (НЕ путать с weighted avg по P&L!)
+  entryBTC: 79104.69, // BTC при доборе LTV до 50% — для триггеров BTC
+  entryResetHistory: [
+    { date: '2026-03-20', reason: 'Сборка портфеля (покупка первого GM-пула)', eth: 2137.45, btc: 69871.45 },
+    { date: '2026-09-01', reason: 'Добор займа до LTV 50% (Урок 5)', eth: 2482.31, btc: 79104.69, txHash: '0x5fcf8b4ab4cd6b2840a5e61685ae1ac826d268f87c6f7bc38153a08d594dc82b' },
+  ],
   // Точка БЕЗУБЫТОЧНОСТИ Growth Zone (для P&L, НЕ для триггеров):
   //   средневзвешенная по всем покупкам ETH в Growth (LP1+LP2+ETH-sep)
   weightedAvgETH: 3636, // (212811 + 0.3534×$1867.45 CLMM fees 2026-07-19) / (58.3558 + 0.3534) ETH = blended ETH entry
@@ -659,11 +666,12 @@ const CONFIG = {
   // Триггер −30% «30% всей Stability → GM» тоже считается от СВОЕЙ части.
   // ЗАПОЛНЯТЬ только после покупки PT на заёмные USDC. Пока 0 — весь PT считается своим.
   ptBorrowed: {
-    qty: 0,        // количество PT, купленных на заёмные средства
-    cost: 0,       // сколько заёмных USD потрачено (для P&L резерва)
-    date: null,
-    txHash: null,
-    note: 'Резерв Yield Zone (30% по сплиту 40/30/30)'
+    qty: 23326.17,   // PT, купленные на заёмные 2026-09-01 (cross-chain zap с Arbitrum)
+    cost: 22379,     // заёмных USDC потрачено
+    date: '2026-09-01',
+    txHash: '0xe9f39504014c96f4edaefb163265b3c506f66ba79a54c4dfc9cb6ee2dc1629b2',      // Arbitrum: USDC out
+    txHashDest: '0xb3331bfd410b13261e49856c0a3deec3f368b223b3258960635ace0456cef0a9',  // Ethereum: PT in
+    note: 'Резерв Yield Zone (30% по сплиту 40/30/30). Effective Fixed APY 17.79%, погашение 10.12.2026 ≈ $23,326 (+$947).'
   },
 
   // Target allocation (own capital)
@@ -686,7 +694,9 @@ const CONFIG = {
     { id: 'eth-clmm-fees-0719', zone: 'growth', asset: 'ETH', label: 'ETH (CLMM fees 07.2026)', qty: 0.3534, entryPrice: 1867.45, entryDate: '2026-07-19', protocol: 'Wallet', chain: 'Base', txHash: '0x6d0866a9d19659dfe95899ec7618167286823a7f7988ee0c3c16417cb21179a2', note: 'Собранные комиссии CLMM #5150479 (0.185893 ETH + 312.66 USDC), USDC свапнут в ETH @ ~$1,867 (tx 0x504fc8f7). Прибыль Yield остаётся в рынке. Лежит на кошельке Base, план — при следующей крупной сессии в залог/BTC.' },
     // Yield Zone — Borrowed stables
     { id: 'gm-btc', zone: 'yield', asset: 'GM-BTC/USD', label: 'GM BTC/USD', costBasis: 15791, entryDate: '2026-06-05', protocol: 'GMX v2', chain: 'Arbitrum', txHash: '0x7123e5f0d9ed9fb11c206ee714b42a3c37bad78bb9d6d38fb2e1925a56341bc8', note: 'Откуп GM после CGS-цикла (15,796.75 USDC → 7,432 GM). Прежний GM ($33,732) продан, BTC снят в залог Aave.' },
-    // GM ETH/USD ЗАКРЫТА 2026-05-19 — мигрировали в Uniswap v3 CLMM на Base
+    { id: 'gm-eth', zone: 'yield', asset: 'GM-ETH/USD', label: 'GM ETH/USD', costBasis: 12487, qty: 6646.8978, entryDate: '2026-09-01', protocol: 'GMX v2', chain: 'Arbitrum', txHash: '0x7ddace69edb0680a19aa14af27f5094b22a7fa8f46cfcf4d2924c316eb60e18b', note: 'Переоткрыта при доборе LTV до 50%: 12,487 USDC → 6,646.8978 GM (Single mode, price impact +0.004%, fee 0.05%). Выбран ETH-пул: fee APR 5.15% против 2.53% у BTC-пула при стоимости займа 3.48%.' },
+    { id: 'pt-borrowed-reserve', zone: 'yield', asset: 'PT-reUSDe', label: 'PT-reUSDe (резерв на заёмные)', costBasis: 22379, qty: 23326.17, entryDate: '2026-09-01', protocol: 'Pendle', chain: 'Ethereum', txHash: '0xe9f39504014c96f4edaefb163265b3c506f66ba79a54c4dfc9cb6ee2dc1629b2', note: 'Резерв 30% Yield Zone на заёмные USDC. Cross-chain zap Arbitrum→Ethereum. Effective Fixed APY 17.79%. ЗОНА YIELD, не Stability — см. CONFIG.ptBorrowed.' },
+    // Прошлая GM ETH/USD закрыта 2026-05-19 → мигрировала в Uniswap v3 CLMM на Base
     { id: 'uniswap-clmm-eth-usdc-base', zone: 'yield', asset: 'Uniswap-v3-ETH/USDC', label: 'Uniswap v3 CLMM #5150479', costBasis: 21926, entryDate: '2026-05-19', protocol: 'Uniswap v3', chain: 'Base', tokenId: 5150479, feeBips: 3000, rangeLow: 1504.23, rangeHigh: 3203.50, entryETH: 5.634, entryUSDC: 10007, note: 'Миграция из GM ETH/USD: GMX exit → Mayan bridge Arb→Base → swap USDC→ETH → Uniswap v3 0.3% диапазон $1504-$3203' },
     // Stability Zone — Own stables
     { id: 'pt-reusde-dec', zone: 'stability', asset: 'PT-reUSDe', label: 'PT-reUSDe-10DEC2026', costBasis: 54683.83, qty: 59211.13, entryDate: '2026-06-27', protocol: 'Pendle', chain: 'Ethereum', txHash: '0x5f9793c2af049bf7f57c32efd9d151cbe8cf7adddcc6441ec55ba6376dd55d4b', txHash2: '0xfbd82bffc416b115bfe700147edca59a07c2a4907596ceb3d003d6c878441607', txHash3: '0xd9ade62f97624b6c7c204ba22e548861b616f8106678b5e20cb0d4a4e803fa16', note: 'Roll over PT-25JUN→10DEC (38,514.4 PT, $36,000.44, tx 0x5f9793c2) + докупка idle-стейблов (+11,307.3 PT, $9,983.39, tx 0xfbd82bff) + DCA июль (+9,389.43 PT, $8,700 USDT0 Arb cross-chain zap @ $0.9266, tx 0xd9ade62f, 2026-07-19). Итого 59,211.13 PT. Погашение 10.12.2026 ≈ $59,211.' },
@@ -741,6 +751,10 @@ const CONFIG = {
     { date: '2026-08-14', type: 'deposit', asset: 'USDT', external: true, amount: 10000, price: 1, usd: 10000, zone: 'growth', chain: 'Arbitrum', txHash: '0x3e9f54283c94253e4d8d9f93b273995d9ff06f9bf24384ed3b5cb1395df23525', note: 'DCA август $10K: 10,000 USDT0 с Bybit → кошелёк Arbitrum (18:39 UTC). Stability ровно 30% + нет признаков закрепления роста → по Уроку 11 весь DCA в Growth, 100% BTC (доля BTC в Growth была 16.2%).' },
     { date: '2026-08-14', type: 'swap', asset: 'USDT→WBTC', amount: 10000.000348, price: 63038, usd: 10000, zone: 'growth', chain: 'Arbitrum', txHash: '0x9f19dd91aa5e94f8951c8d19ac8702438d7309b2123657c09d1446647370c1de', note: 'Swap 10,000.000348 USDT0 → 0.1586343 WBTC @ $63,038 через CoW Swap (18:42:53 UTC). Котировка обещала 0.158554 — солвер отдал surplus +0.00008 WBTC (~$5). Комиссии: protocol 0.02% + network $0.03.' },
     { date: '2026-08-14', type: 'deposit', asset: 'WBTC', amount: 0.1586343, price: 63038, usd: 10000, zone: 'growth', chain: 'Arbitrum', txHash: '0x2c99508ea21f90a7ba7beb1341892f70fb9d59644935cb0c7042062b1318ed63', note: 'WBTC → залог Aave (18:44:06 UTC). Итого WBTC в Aave: 0.4908933. Залог $138,954, LTV 43.3% → 40.2%, HF 1.92 → 2.06, ликвидация ETH $797 → ~$650. Следующий DCA: 15.09.2026. Открыто: 0.4275 ETH на Base (комиссии CLMM) — бридж в Arbitrum → залог.' },
+    // ===== ДОБОР ЗАЙМА ДО LTV 50% (Урок 5, подтверждённый рост) — 2026-09-01 =====
+    { date: '2026-09-01', type: 'borrow', asset: 'USDC', amount: 34866, price: 1, usd: 34866, zone: 'yield', chain: 'Arbitrum', txHash: '0x5fcf8b4ab4cd6b2840a5e61685ae1ac826d268f87c6f7bc38153a08d594dc82b', note: 'Добор займа при подтверждённом росте (06:03:10 UTC). ETH $2,482.31, BTC $79,104.69 по Chainlink на блоке 500541844. LTV 30.8% → 49.97%, HF 2.69 → 1.66, долг $55,940 → $90,806, ликвидация ETH $500 → ~$1,231. ТОЧКА ОТСЧЁТА ТРИГГЕРОВ ПЕРЕСЧИТАНА на $2,482.31.' },
+    { date: '2026-09-01', type: 'buy', asset: 'GM-ETH/USD', amount: 6646.8978, price: null, usd: 12487, zone: 'yield', chain: 'Arbitrum', txHash: '0x7ddace69edb0680a19aa14af27f5094b22a7fa8f46cfcf4d2924c316eb60e18b', note: 'Переоткрытие GM ETH/USD на заёмные (06:18:35 UTC): 12,487 USDC → 6,646.8978 GM. Single mode, price impact +0.004%, fee 0.05% ($6.24). Выбран ETH-пул: fee APR 5.15% vs 2.53% у BTC при займе 3.48% — BTC-пул давал отрицательный кэрри. GM всего: $30,848 = 40% Yield.' },
+    { date: '2026-09-01', type: 'buy', asset: 'PT-reUSDe-10DEC', amount: 23326.17, price: 0.9594, usd: 22379, zone: 'yield', chain: 'Arbitrum→Ethereum', txHash: '0xe9f39504014c96f4edaefb163265b3c506f66ba79a54c4dfc9cb6ee2dc1629b2', txHashDest: '0xb3331bfd410b13261e49856c0a3deec3f368b223b3258960635ace0456cef0a9', note: 'Резерв Yield Zone 30% на ЗАЁМНЫЕ (06:21:52 → 06:23:11 UTC). Cross-chain zap: 22,379 USDC (Arb) → 23,326.17 PT (Eth). Effective Fixed APY 17.79%, implied 18.26% → 18.24%, издержки 0.46% (мост 0.03% + Pendle 0.43%, fee $28.16). ЗОНА YIELD, НЕ Stability — деньги заёмные. PT всего 82,537.3, из них свои 59,211.13.' },
   ],
 
   // ======= CGS MODEL PARAMETERS =======
@@ -757,15 +771,15 @@ const CONFIG = {
     criticalLTV: 60,
     emergencyHF: 1.3,
     // Recovery exit = возврат к точке сборки. Recovery enter = просадка >30%.
-    recoveryEnterPrice: 1496, // 2137.45 × 0.7 — ниже этого порога считаем Recovery
-    recoveryExitPrice: 2137,  // возврат к точке сборки = выход из Recovery
+    recoveryEnterPrice: 1737.62, // 2482.31 × 0.7 — ниже этого порога считаем Recovery (пересчитано 2026-09-01)
+    recoveryExitPrice: 2482,  // возврат к точке отсчёта = выход из Recovery
     dcaAmount: 10000,
     dcaDay: 15,
     // DCA-правило по букве курса (Урок 11):
     dcaRule: 'Падение → DCA в Growth (BTC/ETH дёшево). Закрепление роста (48-72ч, не выходные) → DCA в Stability до возврата 70/30.',
     dcaRuleGrowthSplit: 'распределение BTC/ETH — свободный выбор (можно 100% BTC, 100% ETH или сплит по усмотрению / Crypto Insider). Фиксированного 70/30 BTC/ETH НЕТ — 70/30 относится только к блокам Growth/Stability, не к составу Growth.',
     clmmBlocked: false, // по курсу: CLMM блокируется ТОЛЬКО при просадке >30% от точки сборки
-    clmmBlockThreshold: 1496, // CLMM stop при ETH < этой цены
+    clmmBlockThreshold: 1737.62, // CLMM stop при ETH < этой цены (пересчитано 2026-09-01)
     yieldZoneSplit: { gm: 40, clmm: 30, stableReserve: 30 }, // базовый сплит Yield в Normal
   },
 
@@ -1486,10 +1500,11 @@ function renderGM() {
   const btcPnLPct = btcPnL != null ? (btcPnL / CONFIG.gmBTCEntryCost * 100) : null;
   const ethPnLPct = ethPnL != null ? (ethPnL / CONFIG.gmETHEntryCost * 100) : null;
 
-  // Fee breakdown: estimate earned fees from APR × days held
+  // Fee breakdown: estimate earned fees from APR × days held (у пулов РАЗНЫЕ даты входа)
   const daysHeld = Math.max(0, (Date.now() - new Date(CONFIG.gmEntryDate).getTime()) / 86400000);
+  const daysHeldETH = Math.max(0, (Date.now() - new Date(CONFIG.gmETHEntryDate || CONFIG.gmEntryDate).getTime()) / 86400000);
   const btcEstFees = (g.btcFeeApr != null && daysHeld > 0) ? CONFIG.gmBTCEntryCost * g.btcFeeApr * (daysHeld / 365) : null;
-  const ethEstFees = (g.ethFeeApr != null && daysHeld > 0) ? CONFIG.gmETHEntryCost * g.ethFeeApr * (daysHeld / 365) : null;
+  const ethEstFees = (g.ethFeeApr != null && daysHeldETH > 0) ? CONFIG.gmETHEntryCost * g.ethFeeApr * (daysHeldETH / 365) : null;
   const btcPriceImpact = (btcPnL != null && btcEstFees != null) ? btcPnL - btcEstFees : null;
   const ethPriceImpact = (ethPnL != null && ethEstFees != null) ? ethPnL - ethEstFees : null;
 
@@ -2088,9 +2103,11 @@ function renderYieldTracker() {
   const pt = state.pendle;
 
   // GM Fees
+  // Даты входа у пулов РАЗНЫЕ: BTC с 2026-06-05, ETH переоткрыт 2026-09-01. Считаем раздельно.
   const daysHeld = Math.max(0, (Date.now() - new Date(CONFIG.gmEntryDate).getTime()) / 86400000);
+  const daysHeldETH = Math.max(0, (Date.now() - new Date(CONFIG.gmETHEntryDate || CONFIG.gmEntryDate).getTime()) / 86400000);
   const btcFees = (g.btcFeeApr != null && daysHeld > 0) ? CONFIG.gmBTCEntryCost * g.btcFeeApr * (daysHeld / 365) : null;
-  const ethFees = (g.ethFeeApr != null && daysHeld > 0) ? CONFIG.gmETHEntryCost * g.ethFeeApr * (daysHeld / 365) : null;
+  const ethFees = (g.ethFeeApr != null && daysHeldETH > 0) ? CONFIG.gmETHEntryCost * g.ethFeeApr * (daysHeldETH / 365) : null;
   const totalGMFees = (btcFees || 0) + (ethFees || 0);
 
   // GM Price Impact (total PnL minus fees)
@@ -2157,7 +2174,7 @@ function renderYieldTracker() {
   // GM ETH realized (закрытая позиция, +$236 при выходе)
   if (gmETHRealized) {
     html += `<div class="yield-block" style="opacity:0.7;">
-      <div class="yield-label">🔷 GM ETH/USD — закрыта ${CONFIG.gmETHClosedDate} (realized)</div>
+      <div class="yield-label">🔷 GM ETH/USD — прошлый цикл, закрыт 19.05.2026 (realized)</div>
       <div class="yield-value pnl-up">+${fmtUSD(gmETHRealized)}</div>
       <div class="yield-sub">Зафиксировано при выходе → миграция в Uniswap v3 CLMM (см. выше)</div>
     </div>`;
