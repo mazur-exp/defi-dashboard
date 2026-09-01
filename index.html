@@ -374,7 +374,7 @@
 
   <!-- Pendle PT Position -->
   <div class="card">
-    <div class="card-title"><span class="icon">🟣</span> <a href="https://app.pendle.finance/trade/markets/0x6cb9a013604a567a5834fadd411165b1ca616783/swap?view=pt" target="_blank" style="color:var(--dim);text-decoration:none;text-transform:uppercase;letter-spacing:1px;">Pendle — PT-reUSDe ↗</a></div>
+    <div class="card-title"><span class="icon">🟣</span> <a href="https://app.pendle.finance/trade/markets/0x90b70c407f1077f8eb92bf423b44cd92329b737a/swap?view=pt&amp;chain=ethereum" target="_blank" style="color:var(--dim);text-decoration:none;text-transform:uppercase;letter-spacing:1px;">Pendle — PT-reUSDe ↗</a></div>
     <div id="pendlePosition"><span class="loading-text">Загрузка...</span></div>
   </div>
 
@@ -648,6 +648,24 @@ const CONFIG = {
   pendlePT_reUSDe_costBasis: 54683.83, // Roll over $36,000.44 + докупка $9,983.39 (2026-06-27) + DCA июль $8,700 (2026-07-19, tx 0xd9ade62f). Итого 59,211.13 PT. Старый PT-25JUN погашен, realized +913.30 (см. realizedPnL).
   // Pendle API for PT price
   pendleMarketId: '0x90b70c407f1077f8eb92bf423b44cd92329b737a',
+
+  // ======= РАЗДЕЛЕНИЕ PT: свои (Stability) vs заёмные (резерв Yield Zone) =======
+  // Методичка (capital-growth.md): заёмные средства делятся 40% GM / 30% CLMM /
+  //   «30% → стейбл-стратегии (ТЕ ЖЕ, что в Stability Zone — резерв на докупку диапазонов)».
+  // Инструмент тот же, ЗОНА другая. Один PT-токен может лежать в двух зонах одновременно:
+  //   разделяет их не токен, а происхождение денег (свои vs заёмные).
+  // Это принципиально: 70/30 считается ТОЛЬКО от своих. Заёмный PT в Stability не входит,
+  //   иначе дашборд решит, что цель достигнута, хотя она не достигнута.
+  // Триггер −30% «30% всей Stability → GM» тоже считается от СВОЕЙ части.
+  // ЗАПОЛНЯТЬ только после покупки PT на заёмные USDC. Пока 0 — весь PT считается своим.
+  ptBorrowed: {
+    qty: 0,        // количество PT, купленных на заёмные средства
+    cost: 0,       // сколько заёмных USD потрачено (для P&L резерва)
+    date: null,
+    txHash: null,
+    note: 'Резерв Yield Zone (30% по сплиту 40/30/30)'
+  },
+
   // Target allocation (own capital)
   targetGrowth: 70,
   targetStability: 30,
@@ -1719,7 +1737,15 @@ function renderPendle() {
   html += `<div class="metric"><span class="metric-label">Количество PT</span><span class="metric-value">${fmt(pt.ptBalance, 2)}</span></div>`;
   html += `<div class="metric"><span class="metric-label">Цена PT</span><span class="metric-value">$${fmt(ptPrice, 4)}</span></div>`;
   html += `<div class="metric"><span class="metric-label">Текущая стоимость</span><span class="metric-value" style="color:var(--stability)">${fmtUSD(ptValue)}</span></div>`;
-  html += `<div class="metric"><span class="metric-label">Вложено</span><span class="metric-value">${fmtUSD(costBasis)}</span></div>`;
+  // Разделение своих и заёмных PT (см. CONFIG.ptBorrowed)
+  const _ptBorQty = (CONFIG.ptBorrowed && CONFIG.ptBorrowed.qty) || 0;
+  if (_ptBorQty > 0) {
+    const _ptBorVal = Math.min(ptValue, _ptBorQty * ptPrice);
+    html += `<div class="metric" style="background:rgba(210,153,34,.07);border-radius:6px;padding:6px 8px;margin:4px 0;">
+      <span class="metric-label" style="font-size:11px;">└ свои ${fmt(pt.ptBalance - _ptBorQty, 2)} PT = ${fmtUSD(ptValue - _ptBorVal)} <span style="color:var(--stability)">(Stability)</span><br>└ заёмные ${fmt(_ptBorQty, 2)} PT = ${fmtUSD(_ptBorVal)} <span style="color:var(--yield)">(резерв Yield)</span></span>
+      <span></span></div>`;
+  }
+  html += `<div class="metric"><span class="metric-label">Вложено${_ptBorQty > 0 ? ' (свои)' : ''}</span><span class="metric-value">${fmtUSD(costBasis)}</span></div>`;
   html += `<div class="metric"><span class="metric-label">P&L (текущий)</span><span class="metric-value" style="color:${pnlColor}">${pnl >= 0 ? '+' : ''}${fmtUSD(pnl)} (${pnl >= 0 ? '+' : ''}${fmt(pnlPct, 1)}%)</span></div>`;
 
   html += `<div style="margin-top:10px; padding-top:10px; border-top:1px solid var(--border);">`;
@@ -1818,14 +1844,22 @@ function renderZones() {
   const gmEthVal = g.ethPrice && g.ethBal ? g.ethBal * g.ethPrice : 0;
   const uniClmmVal = state.uniswap?.positionValueUSD || 0;
   const uniClmmFees = state.uniswap?.feesValueUSD || 0;
-  const yieldValue = gmBtcVal + gmEthVal + uniClmmVal + uniClmmFees;
 
-  // Stability: ALL stablecoins across ALL chains + Pendle PT
+  // ===== PT делится на свою и заёмную часть (см. CONFIG.ptBorrowed) =====
+  // Заёмный PT — это резерв Yield Zone (30% сплита), а НЕ Stability.
+  const ptTotalValue = state.pendle?.ptValue || 0;
+  const ptPriceNow = state.pendle?.ptPrice || 0;
+  const ptBorrowedQty = (CONFIG.ptBorrowed && CONFIG.ptBorrowed.qty) || 0;
+  const ptBorrowedValue = Math.min(ptTotalValue, ptBorrowedQty * ptPriceNow);
+  const ptOwnValue = ptTotalValue - ptBorrowedValue;
+
+  const yieldValue = gmBtcVal + gmEthVal + uniClmmVal + uniClmmFees + ptBorrowedValue;
+
+  // Stability: ТОЛЬКО свои стейблы + СВОЯ часть PT
   const arbStables = (w['USDC']?.amount || 0) + (w['USDC.e']?.amount || 0) + (w['USDT']?.amount || 0);
   const ethMainStables = (state.walletETHMain['USDT']?.amount || 0) + (state.walletETHMain['USDC']?.amount || 0);
   const baseStables = ((state.walletBase || {})['USDC']?.amount || 0);
-  const pendlePTValue = state.pendle?.ptValue || 0;
-  const stabilityValue = arbStables + ethMainStables + baseStables + pendlePTValue;
+  const stabilityValue = arbStables + ethMainStables + baseStables + ptOwnValue;
 
   const totalPortfolio = growthValue + yieldValue + stabilityValue;
   const debt = a.debt || 0;
@@ -1836,14 +1870,22 @@ function renderZones() {
   // Долг при этом никуда не делся. По SKILL.md: «Заёмные средства НЕ входят в расчёт 70/30,
   // они сверху собственного капитала» — значит заёмную часть внутри Growth надо вычитать.
   const ownCapital = totalPortfolio - debt;
-  // Сколько заёмных денег сидит внутри Growth = долг минус то, что ещё осталось в Yield.
-  const borrowedInGrowth = Math.max(0, debt - yieldValue);
-  const growthOwn = Math.max(0, growthValue - borrowedInGrowth);
+  // netYield = сколько Yield Zone стоит СВЕРХ долга, который её финансирует.
+  //   netYield < 0 → долг больше Yield: разница физически сидит в Growth
+  //                  (CGS-цикл: продали GM → BTC в залог). Вычитаем из своей части Growth.
+  //   netYield > 0 → Yield заработал больше долга: излишек — своя прибыль, прибавляем к Growth.
+  // Без этого тождество «Growth свои + Stability = собственный капитал» не сходится.
+  const netYield = yieldValue - debt;
+  const growthOwn = growthValue + netYield;
+  const borrowedInGrowth = netYield < 0 ? -netYield : 0;   // заёмное внутри Growth
+  const yieldSurplus  = netYield > 0 ?  netYield : 0;      // прибыль Yield сверх долга
 
-  // Сохраняем для карточки «Вложено своих»
+  // Сохраняем для карточки «Вложено своих» и DCA-трекера
   state.zones = { growth: growthValue, growthOwn, borrowedInGrowth, yield: yieldValue,
                   stability: stabilityValue, own: ownCapital, total: totalPortfolio,
-                  netWorth: ownCapital };
+                  netWorth: ownCapital, debt,
+                  gm: gmBtcVal + gmEthVal, clmm: uniClmmVal + uniClmmFees,
+                  ptOwn: ptOwnValue, ptBorrowed: ptBorrowedValue };
 
   const gPct = ownCapital > 0 ? (growthOwn / ownCapital * 100) : 0;
   const sPct = ownCapital > 0 ? (stabilityValue / ownCapital * 100) : 0;
@@ -1863,18 +1905,30 @@ function renderZones() {
       <span class="label">🔷 Growth Zone</span>
       <span><strong>${fmtUSD(growthValue)}</strong></span>
     </div>
-    ${borrowedInGrowth > 1 ? `<div class="zone-detail-row" style="margin-top:-4px;">
-      <span class="label" style="font-size:11px;color:var(--dim);padding-left:18px;">└ свои ${fmtUSD(growthOwn)} + заёмные ${fmtUSD(borrowedInGrowth)} (перенос из GM по CGS-циклам)</span>
+    <div class="zone-detail-row" style="margin-top:-4px;">
+      <span class="label" style="font-size:11px;color:var(--dim);padding-left:18px;">${borrowedInGrowth > 1
+        ? `└ свои ${fmtUSD(growthOwn)} + заёмные ${fmtUSD(borrowedInGrowth)} (перенос из GM по CGS-циклам)`
+        : yieldSurplus > 1
+          ? `└ свои ${fmtUSD(growthValue)} + прибыль Yield сверх долга ${fmtUSD(yieldSurplus)}`
+          : `└ свои ${fmtUSD(growthOwn)}`}</span>
       <span class="target" style="font-size:11px;">факт ${fmt(gPct,0)}% / цель ${CONFIG.targetGrowth}%</span>
-    </div>` : ''}
+    </div>
     <div class="zone-detail-row">
       <span class="label">🟡 Yield Zone (заёмный)</span>
-      <span><strong>${fmtUSD(yieldValue)}</strong> <span class="target">GM ${fmtUSD(gmBtcVal + gmEthVal)} + CLMM ${fmtUSD(uniClmmVal + uniClmmFees)}</span></span>
+      <span><strong>${fmtUSD(yieldValue)}</strong></span>
+    </div>
+    <div class="zone-detail-row" style="margin-top:-4px;">
+      <span class="label" style="font-size:11px;color:var(--dim);padding-left:18px;">└ GM ${fmt(yieldValue>0?(gmBtcVal+gmEthVal)/yieldValue*100:0,0)}% · CLMM ${fmt(yieldValue>0?(uniClmmVal+uniClmmFees)/yieldValue*100:0,0)}% · резерв ${fmt(yieldValue>0?ptBorrowedValue/yieldValue*100:0,0)}% <span style="opacity:.7">(цель 40/30/30)</span></span>
+      <span class="target" style="font-size:11px;">${fmtUSD(gmBtcVal + gmEthVal)} · ${fmtUSD(uniClmmVal + uniClmmFees)} · ${fmtUSD(ptBorrowedValue)}</span>
     </div>
     <div class="zone-detail-row">
-      <span class="label">🟢 Stability Zone</span>
+      <span class="label">🟢 Stability Zone (свои)</span>
       <span><strong>${fmtUSD(stabilityValue)}</strong> <span class="target">(факт ${fmt(sPct,0)}% / цель ${CONFIG.targetStability}%)</span></span>
     </div>
+    ${ptBorrowedValue > 1 ? `<div class="zone-detail-row" style="margin-top:-4px;">
+      <span class="label" style="font-size:11px;color:var(--dim);padding-left:18px;">└ PT всего ${fmtUSD(ptTotalValue)}: свои ${fmtUSD(ptOwnValue)} + заёмные ${fmtUSD(ptBorrowedValue)} (учтены в Yield)</span>
+      <span></span>
+    </div>` : ''}
     <div style="margin-top:10px; padding-top:10px; border-top:1px solid var(--border);">
       <div class="zone-detail-row">
         <span class="label">Все активы (Growth + Yield + Stability)</span>
@@ -1891,6 +1945,17 @@ function renderZones() {
       <div style="font-size:10px;color:var(--dim);margin-top:6px;line-height:1.5;">
         Он же = Growth свои ${fmtUSD(growthOwn)} + Stability ${fmtUSD(stabilityValue)}. Yield целиком на заёмные, поэтому отдельно к капиталу не прибавляется: долг уже вычтен.
       </div>
+      <details style="margin-top:10px;">
+        <summary style="cursor:pointer;font-size:11px;color:var(--accent);">Как читать эту карточку</summary>
+        <div style="font-size:11px;color:var(--dim);line-height:1.7;margin-top:8px;">
+          <b style="color:var(--text)">Полоска сверху</b> — пропорция 70/30. Считается ТОЛЬКО от своих денег: Growth свои ${fmtUSD(growthOwn)} против Stability ${fmtUSD(stabilityValue)}. Заёмные в неё не входят.<br><br>
+          <b style="color:var(--text)">Growth Zone</b> — вся крипта на всех сетях: залог Aave + ETH/WBTC на кошельках Arbitrum, Ethereum, Base + native BTC. Часть её куплена на заёмные (после CGS-циклов: продали GM → BTC в залог), поэтому строка делится на «свои» и «заёмные».<br><br>
+          <b style="color:var(--text)">Yield Zone</b> — то, что работает на заёмные: GM-пулы + CLMM + стейбл-резерв. Цель сплита 40/30/30. К собственному капиталу не прибавляется.<br><br>
+          <b style="color:var(--text)">Stability Zone</b> — только СВОИ стейблы и своя часть PT. Если PT куплен частично на заёмные, эта часть уходит в Yield.<br><br>
+          <b style="color:var(--text)">Собственный капитал</b> = все активы − долг Aave. Это то, что останется, если закрыть всё и вернуть заём. Он же — база для расчёта 70/30 и для «Результата» в карточке «Вложено своих».<br><br>
+          <b style="color:var(--text)">Чего тут НЕТ:</b> цен входа и P&L по позициям — они на вкладке Аналитика и считаются от другой базы (сумма цен лотов, завышена из-за рециркуляции капитала). Не сравнивать с этой карточкой.
+        </div>
+      </details>
     </div>
   `;
 }
@@ -2033,19 +2098,30 @@ function renderYieldTracker() {
   const ethUSD = g.ethPrice ? g.ethBal * g.ethPrice : 0;
   const gmTotalPnL = (btcUSD + ethUSD) - (CONFIG.gmBTCEntryCost + CONFIG.gmETHEntryCost);
 
-  // Pendle yield to maturity
+  // Pendle yield to maturity — РАЗДЕЛЬНО по своим и заёмным PT
+  const ptBorrowedQtyY = (CONFIG.ptBorrowed && CONFIG.ptBorrowed.qty) || 0;
+  const ptBorrowedCostY = (CONFIG.ptBorrowed && CONFIG.ptBorrowed.cost) || 0;
+  const ptOwnQtyY = Math.max(0, pt.ptBalance - ptBorrowedQtyY);
   const ptValue = pt.ptValue || pt.ptBalance * (pt.ptPrice || 0.965);
-  const maturityValue = pt.ptBalance; // 1 PT ≈ $1 at expiry
+  const maturityValue = ptOwnQtyY;   // своя часть при погашении (1 PT ≈ $1)
   const pendleProfit = maturityValue - CONFIG.pendlePT_reUSDe_costBasis;
+  const ptBorrowedProfit = ptBorrowedQtyY - ptBorrowedCostY; // прибыль резерва при погашении
   const expiry = new Date(CONFIG.pendlePT_reUSDe_expiry);
   const daysToMaturity = Math.max(0, Math.ceil((expiry - new Date()) / 86400000));
 
   // Total portfolio yield: GM fees + Pendle profit + Uniswap CLMM fees + GM ETH realized
   const uniFees = state.uniswap?.feesValueUSD || 0;
   const gmETHRealized = CONFIG.gmETHRealizedPnL || 0;
-  const totalYield = totalGMFees + pendleProfit + uniFees + gmETHRealized;
-  const totalInvested = CONFIG.gmBTCEntryCost + CONFIG.uniswapClmmCostBasis + CONFIG.pendlePT_reUSDe_costBasis;
+  const totalYield = totalGMFees + pendleProfit + ptBorrowedProfit + uniFees + gmETHRealized;
+  // Базы разведены: заёмный капитал в работе vs свои деньги в Stability
+  const borrowedAtWork = CONFIG.gmBTCEntryCost + CONFIG.gmETHEntryCost + CONFIG.uniswapClmmCostBasis + ptBorrowedCostY;
+  const ownInStability = CONFIG.pendlePT_reUSDe_costBasis;
+  const totalInvested = borrowedAtWork + ownInStability;
   const annualizedROI = totalInvested > 0 && daysHeld > 0 ? (totalYield / totalInvested) * (365 / daysHeld) * 100 : 0;
+  // Стоимость долга: сколько процентов «съедает» заём (live borrow APY из Aave)
+  const debtNow = state.aave?.debt || 0;
+  const borrowApy = (state.aaveReserves?.USDC?.borrowAPY || 0) / 100;
+  const debtCostYear = debtNow * borrowApy;
 
   let html = '';
 
@@ -2087,11 +2163,22 @@ function renderYieldTracker() {
     </div>`;
   }
 
+  // Резерв Yield Zone на заёмные (появляется только после покупки)
+  if (ptBorrowedQtyY > 0) {
+    html += `<div class="yield-block">
+      <div class="yield-label">🏦 Резерв Yield Zone — PT на заёмные</div>
+      <div class="yield-value pnl-up">+${fmtUSD(ptBorrowedProfit)} <span style="font-size:12px;color:var(--dim)">(при погашении)</span></div>
+      <div class="yield-sub">${fmt(ptBorrowedQtyY,2)} PT · заёмных вложено ${fmtUSD(ptBorrowedCostY)} → при погашении ~${fmtUSD(ptBorrowedQtyY)}</div>
+      <div class="yield-sub" style="color:var(--dim)">Это НЕ Stability Zone — деньги заёмные, их надо вернуть. В пропорцию 70/30 не входят.</div>
+    </div>`;
+  }
+
   // Total
   html += `<div class="yield-block" style="padding-top:12px;">
     <div class="yield-label">📊 Суммарный доход (комиссии + Pendle)</div>
     <div class="yield-value pnl-up">+${fmtUSD(totalYield)}</div>
-    <div class="yield-sub">Вложено в Yield+Stability: ${fmtUSD(totalInvested)} · Аннуализированный ROI: <strong style="color:var(--green)">${fmt(annualizedROI,1)}%</strong></div>
+    <div class="yield-sub">Заёмных в работе: ${fmtUSD(borrowedAtWork)} · своих в Stability: ${fmtUSD(ownInStability)} · Аннуализированный ROI: <strong style="color:var(--green)">${fmt(annualizedROI,1)}%</strong></div>
+    <div class="yield-sub" style="color:var(--dim)">Стоимость долга: ${fmtUSD(debtNow)} × ${fmt(borrowApy*100,2)}% = <span style="color:var(--red)">−${fmtUSD(debtCostYear)}/год</span>. Yield имеет смысл, только пока доход выше этой строки.</div>
   </div>`;
 
   container.innerHTML = html;
@@ -2102,21 +2189,13 @@ function renderDCATracker() {
   if (!container) return;
   const p = state.prices;
 
-  // Own capital = Growth + Stability (from live data)
-  const growthVal = state.aave?.collateral || 0;
-  const btcNative = (state.btcBalance || 0) * (p.BTC || 0);
-  const arbETH = (state.wallet['ETH']?.amount || 0) * (p.ETH || 0);
-  const ethMainETH = (state.walletETHMain?.['ETH']?.amount || 0) * (p.ETH || 0);
-  const baseETH = ((state.walletBase || {})['ETH']?.amount || 0) * (p.ETH || 0);
-  const totalGrowth = growthVal + btcNative + arbETH + ethMainETH + baseETH;
-
-  const arbStables = (state.wallet['USDC']?.amount || 0) + (state.wallet['USDC.e']?.amount || 0) + (state.wallet['USDT']?.amount || 0);
-  const ethMainStables = (state.walletETHMain?.['USDT']?.amount || 0) + (state.walletETHMain?.['USDC']?.amount || 0);
-  const baseStablesDca = ((state.walletBase || {})['USDC']?.amount || 0);
-  const pendleVal = state.pendle?.ptValue || 0;
-  const totalStability = arbStables + ethMainStables + baseStablesDca + pendleVal;
-
-  const ownCapital = totalGrowth + totalStability;
+  // Источник истины — state.zones из renderZones (он вызывается раньше в renderAll).
+  // ВАЖНО: здесь раньше считалось ownCapital = Growth + Stability БЕЗ вычета долга —
+  // капитал завышался, а доля Stability занижалась. Плюс весь PT считался своим.
+  const zs = state.zones;
+  if (!zs) { container.innerHTML = '<span class="loading-text">Загрузка...</span>'; return; }
+  const totalStability = zs.stability;   // только свои стейблы + своя часть PT
+  const ownCapital = zs.own;             // все активы − долг Aave
   const stabilityTarget = ownCapital * (CONFIG.targetStability / 100);
   const stabilityPct = ownCapital > 0 ? (totalStability / ownCapital * 100) : 0;
   const remaining = Math.max(0, stabilityTarget - totalStability);
@@ -2124,8 +2203,8 @@ function renderDCATracker() {
   const progressPct = stabilityTarget > 0 ? Math.min(100, (totalStability / stabilityTarget * 100)) : 0;
 
   let html = '';
-  html += `<div class="cgs-param"><span class="cgs-param-label">Собственный капитал</span><span class="cgs-param-value">${fmtUSD(ownCapital)}</span></div>`;
-  html += `<div class="cgs-param"><span class="cgs-param-label">Stability сейчас</span><span class="cgs-param-value" style="color:var(--stability)">${fmtUSD(totalStability)} (${fmt(stabilityPct,1)}%)</span></div>`;
+  html += `<div class="cgs-param"><span class="cgs-param-label">Собственный капитал <span style="color:var(--dim);font-size:10px;">(активы − долг)</span></span><span class="cgs-param-value">${fmtUSD(ownCapital)}</span></div>`;
+  html += `<div class="cgs-param"><span class="cgs-param-label">Stability сейчас <span style="color:var(--dim);font-size:10px;">(только свои)</span></span><span class="cgs-param-value" style="color:var(--stability)">${fmtUSD(totalStability)} (${fmt(stabilityPct,1)}%)</span></div>`;
   html += `<div class="cgs-param"><span class="cgs-param-label">Цель Stability (${CONFIG.targetStability}%)</span><span class="cgs-param-value">${fmtUSD(stabilityTarget)}</span></div>`;
 
   // Progress bar
