@@ -1556,7 +1556,7 @@ function renderGM() {
       </div>
       ${(btcEstFees != null && ethEstFees != null) ? `
       <div style="display:flex; justify-content:space-between; font-size:11px;">
-        <span style="color:var(--dim);">Комиссии пула (≈${fmt(daysHeld,0)}д)</span>
+        <span style="color:var(--dim);">Комиссии пулов (BTC ${fmt(daysHeld,0)}д · ETH ${fmt(daysHeldETH,0)}д)</span>
         <span style="color:var(--green);">${pnlSign(btcEstFees+ethEstFees)}${fmtUSD(btcEstFees+ethEstFees)}</span>
       </div>
       <div style="display:flex; justify-content:space-between; font-size:11px;">
@@ -1731,20 +1731,36 @@ function renderPendle() {
 
   const ptPrice = pt.ptPrice || 0.965;
   const ptValue = pt.ptValue || pt.ptBalance * ptPrice;
-  const costBasis = CONFIG.pendlePT_reUSDe_costBasis;
-  const pnl = ptValue - costBasis;
+
+  // ===== РАЗДЕЛЬНЫЙ УЧЁТ: свои PT (Stability) и заёмные (резерв Yield) =====
+  // КРИТИЧНО: costBasis относится ТОЛЬКО к своим PT. Сравнивать его со ВСЕМ балансом
+  // нельзя — получится фантомная прибыль на размер заёмной позиции.
+  const ptBorQty  = (CONFIG.ptBorrowed && CONFIG.ptBorrowed.qty)  || 0;
+  const ptBorCost = (CONFIG.ptBorrowed && CONFIG.ptBorrowed.cost) || 0;
+  const ptOwnQty  = Math.max(0, pt.ptBalance - ptBorQty);
+  const ptOwnValue = ptOwnQty * ptPrice;
+  const ptBorValue = ptBorQty * ptPrice;
+
+  const costBasis = CONFIG.pendlePT_reUSDe_costBasis;   // только свои
+  const pnl = ptOwnValue - costBasis;
   const pnlPct = costBasis > 0 ? (pnl / costBasis * 100) : 0;
   const pnlColor = pnl >= 0 ? 'var(--green)' : 'var(--red)';
+
+  const pnlBor = ptBorValue - ptBorCost;
+  const pnlBorColor = pnlBor >= 0 ? 'var(--green)' : 'var(--red)';
 
   // Days to maturity
   const expiry = new Date(CONFIG.pendlePT_reUSDe_expiry);
   const now = new Date();
   const daysLeft = Math.max(0, Math.ceil((expiry - now) / (1000 * 60 * 60 * 24)));
 
-  // Value at maturity (1 PT = $1 of underlying at expiry)
-  const maturityValue = pt.ptBalance; // each PT redeems for ~$1
+  // Value at maturity (1 PT = $1 of underlying at expiry) — РАЗДЕЛЬНО
+  const maturityValue = ptOwnQty;                       // свои при погашении
   const maturityProfit = maturityValue - costBasis;
   const maturityProfitPct = costBasis > 0 ? (maturityProfit / costBasis * 100) : 0;
+  const maturityBor = ptBorQty;                         // заёмные при погашении
+  const maturityBorProfit = maturityBor - ptBorCost;
+  const maturityBorPct = ptBorCost > 0 ? (maturityBorProfit / ptBorCost * 100) : 0;
 
   let html = '';
   const _ptExpD = new Date(CONFIG.pendlePT_reUSDe_expiry); const _ptMon = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'][_ptExpD.getUTCMonth()]; const _ptLabel = `PT-reUSDe-${String(_ptExpD.getUTCDate()).padStart(2,'0')}${_ptMon}${_ptExpD.getUTCFullYear()}`;
@@ -1752,24 +1768,37 @@ function renderPendle() {
   html += `<div class="metric"><span class="metric-label">Количество PT</span><span class="metric-value">${fmt(pt.ptBalance, 2)}</span></div>`;
   html += `<div class="metric"><span class="metric-label">Цена PT</span><span class="metric-value">$${fmt(ptPrice, 4)}</span></div>`;
   html += `<div class="metric"><span class="metric-label">Текущая стоимость</span><span class="metric-value" style="color:var(--stability)">${fmtUSD(ptValue)}</span></div>`;
-  // Разделение своих и заёмных PT (см. CONFIG.ptBorrowed)
-  const _ptBorQty = (CONFIG.ptBorrowed && CONFIG.ptBorrowed.qty) || 0;
-  if (_ptBorQty > 0) {
-    const _ptBorVal = Math.min(ptValue, _ptBorQty * ptPrice);
-    html += `<div class="metric" style="background:rgba(210,153,34,.07);border-radius:6px;padding:6px 8px;margin:4px 0;">
-      <span class="metric-label" style="font-size:11px;">└ свои ${fmt(pt.ptBalance - _ptBorQty, 2)} PT = ${fmtUSD(ptValue - _ptBorVal)} <span style="color:var(--stability)">(Stability)</span><br>└ заёмные ${fmt(_ptBorQty, 2)} PT = ${fmtUSD(_ptBorVal)} <span style="color:var(--yield)">(резерв Yield)</span></span>
-      <span></span></div>`;
+  if (ptBorQty > 0) {
+    // ===== СВОИ =====
+    html += `<div style="margin-top:10px;padding:8px 10px;background:rgba(63,185,80,.07);border-left:2px solid var(--stability);border-radius:6px;">
+      <div style="font-size:11px;color:var(--stability);font-weight:600;margin-bottom:4px;">🟢 СВОИ — Stability Zone (входят в 70/30)</div>
+      <div class="metric"><span class="metric-label">Количество</span><span class="metric-value">${fmt(ptOwnQty, 2)} PT = ${fmtUSD(ptOwnValue)}</span></div>
+      <div class="metric"><span class="metric-label">Вложено</span><span class="metric-value">${fmtUSD(costBasis)}</span></div>
+      <div class="metric"><span class="metric-label">P&L текущий</span><span class="metric-value" style="color:${pnlColor}">${pnl >= 0 ? '+' : '−'}${fmtUSD(Math.abs(pnl))} (${pnl >= 0 ? '+' : '−'}${fmt(Math.abs(pnlPct), 1)}%)</span></div>
+      <div class="metric"><span class="metric-label">При погашении</span><span class="metric-value safe">~${fmtUSD(maturityValue)} (+${fmtUSD(maturityProfit)}, +${fmt(maturityProfitPct, 1)}%)</span></div>
+    </div>`;
+    // ===== ЗАЁМНЫЕ =====
+    html += `<div style="margin-top:8px;padding:8px 10px;background:rgba(210,153,34,.07);border-left:2px solid var(--yield);border-radius:6px;">
+      <div style="font-size:11px;color:var(--yield);font-weight:600;margin-bottom:4px;">🟡 ЗАЁМНЫЕ — резерв Yield Zone (в 70/30 НЕ входят)</div>
+      <div class="metric"><span class="metric-label">Количество</span><span class="metric-value">${fmt(ptBorQty, 2)} PT = ${fmtUSD(ptBorValue)}</span></div>
+      <div class="metric"><span class="metric-label">Вложено заёмных</span><span class="metric-value">${fmtUSD(ptBorCost)}</span></div>
+      <div class="metric"><span class="metric-label">P&L текущий</span><span class="metric-value" style="color:${pnlBorColor}">${pnlBor >= 0 ? '+' : '−'}${fmtUSD(Math.abs(pnlBor))}</span></div>
+      <div class="metric"><span class="metric-label">При погашении</span><span class="metric-value safe">~${fmtUSD(maturityBor)} (+${fmtUSD(maturityBorProfit)}, +${fmt(maturityBorPct, 1)}%)</span></div>
+    </div>`;
+    html += `<div style="margin-top:10px; padding-top:10px; border-top:1px solid var(--border);">`;
+    html += `<div class="metric"><span class="metric-label">📅 До погашения</span><span class="metric-value">${daysLeft} дн.</span></div>`;
+    if (pt.impliedApy != null) html += `<div class="metric"><span class="metric-label">Fixed APY</span><span class="metric-value safe">${fmt(pt.impliedApy * 100, 2)}%</span></div>`;
+    html += `<div class="metric"><span class="metric-label">💰 Итого при погашении</span><span class="metric-value safe">~${fmtUSD(pt.ptBalance)} (+${fmtUSD(maturityProfit + maturityBorProfit)})</span></div>`;
+    html += `</div>`;
+  } else {
+    html += `<div class="metric"><span class="metric-label">Вложено</span><span class="metric-value">${fmtUSD(costBasis)}</span></div>`;
+    html += `<div class="metric"><span class="metric-label">P&L (текущий)</span><span class="metric-value" style="color:${pnlColor}">${pnl >= 0 ? '+' : '−'}${fmtUSD(Math.abs(pnl))} (${pnl >= 0 ? '+' : '−'}${fmt(Math.abs(pnlPct), 1)}%)</span></div>`;
+    html += `<div style="margin-top:10px; padding-top:10px; border-top:1px solid var(--border);">`;
+    html += `<div class="metric"><span class="metric-label">📅 До погашения</span><span class="metric-value">${daysLeft} дн.</span></div>`;
+    if (pt.impliedApy != null) html += `<div class="metric"><span class="metric-label">Fixed APY</span><span class="metric-value safe">${fmt(pt.impliedApy * 100, 2)}%</span></div>`;
+    html += `<div class="metric"><span class="metric-label">💰 При погашении (≈$1/PT)</span><span class="metric-value safe">~${fmtUSD(maturityValue)} (+${fmtUSD(maturityProfit)}, +${fmt(maturityProfitPct, 1)}%)</span></div>`;
+    html += `</div>`;
   }
-  html += `<div class="metric"><span class="metric-label">Вложено${_ptBorQty > 0 ? ' (свои)' : ''}</span><span class="metric-value">${fmtUSD(costBasis)}</span></div>`;
-  html += `<div class="metric"><span class="metric-label">P&L (текущий)</span><span class="metric-value" style="color:${pnlColor}">${pnl >= 0 ? '+' : ''}${fmtUSD(pnl)} (${pnl >= 0 ? '+' : ''}${fmt(pnlPct, 1)}%)</span></div>`;
-
-  html += `<div style="margin-top:10px; padding-top:10px; border-top:1px solid var(--border);">`;
-  html += `<div class="metric"><span class="metric-label">📅 До погашения</span><span class="metric-value">${daysLeft} дн.</span></div>`;
-  if (pt.impliedApy != null) {
-    html += `<div class="metric"><span class="metric-label">Fixed APY</span><span class="metric-value safe">${fmt(pt.impliedApy * 100, 2)}%</span></div>`;
-  }
-  html += `<div class="metric"><span class="metric-label">💰 При погашении (≈$1/PT)</span><span class="metric-value safe">~${fmtUSD(maturityValue)} (+${fmtUSD(maturityProfit)}, +${fmt(maturityProfitPct, 1)}%)</span></div>`;
-  html += `</div>`;
 
   html += `<div style="margin-top:8px; font-size:11px; color:var(--dim);">Ethereum mainnet • Pendle Finance • Expiry: ${CONFIG.pendlePT_reUSDe_expiry}</div>`;
 
@@ -2144,7 +2173,7 @@ function renderYieldTracker() {
 
   // GM Fees block
   html += `<div class="yield-block">
-    <div class="yield-label">🎰 GM Пулы — комиссии за ${fmt(daysHeld,0)} дн.</div>
+    <div class="yield-label">🎰 GM Пулы — комиссии (BTC ${fmt(daysHeld,0)}д · ETH ${fmt(daysHeldETH,0)}д)</div>
     <div class="yield-value pnl-up">+${fmtUSD(totalGMFees)}</div>
     <div class="yield-sub">BTC пул: +${fmtUSD(btcFees)} (APR ${g.btcFeeApr != null ? fmt(g.btcFeeApr*100,1) : '—'}%) · ETH пул: +${fmtUSD(ethFees)} (APR ${g.ethFeeApr != null ? fmt(g.ethFeeApr*100,1) : '—'}%)</div>
     <div class="yield-sub">Общий P&L GM (с ценой): <span class="${gmTotalPnL >= 0 ? 'pnl-up' : 'pnl-down'}">${gmTotalPnL >= 0 ? '+' : ''}${fmtUSD(gmTotalPnL)}</span></div>
@@ -2215,7 +2244,12 @@ function renderDCATracker() {
   const ownCapital = zs.own;             // все активы − долг Aave
   const stabilityTarget = ownCapital * (CONFIG.targetStability / 100);
   const stabilityPct = ownCapital > 0 ? (totalStability / ownCapital * 100) : 0;
-  const remaining = Math.max(0, stabilityTarget - totalStability);
+  // Сколько ДОВНЕСТИ, чтобы доля стала ровно 30%. Простая разница (цель − факт) занижает:
+  // новые деньги увеличивают не только Stability, но и сам капитал.
+  //   (S + x) / (C + x) = t  →  x = (t·C − S) / (1 − t)
+  const t = CONFIG.targetStability / 100;
+  const remaining = Math.max(0, (t * ownCapital - totalStability) / (1 - t));
+  const gapSimple = Math.max(0, stabilityTarget - totalStability); // для справки
   const dcasNeeded = remaining > 0 ? +(remaining / CONFIG.cgsModel.dcaAmount).toFixed(1) : 0;
   const progressPct = stabilityTarget > 0 ? Math.min(100, (totalStability / stabilityTarget * 100)) : 0;
 
@@ -2228,8 +2262,11 @@ function renderDCATracker() {
   const barColor = progressPct >= 100 ? 'var(--green)' : progressPct >= 50 ? 'var(--yellow)' : 'var(--red)';
   html += `<div class="dca-progress">
     <div class="dca-progress-fill" style="width:${progressPct}%; background:${barColor}">${fmt(progressPct,0)}%</div>
-    ${progressPct < 100 ? `<div class="dca-progress-label">осталось ${fmtUSD(remaining)}</div>` : ''}
+    ${progressPct < 100 ? `<div class="dca-progress-label">довнести ${fmtUSD(remaining)}</div>` : ''}
   </div>`;
+  if (remaining > 0) {
+    html += `<div style="font-size:10px;color:var(--dim);margin:-4px 0 8px;line-height:1.5;">Довнести ${fmtUSD(remaining)}, чтобы доля стала ровно ${CONFIG.targetStability}%. Разрыв до цели сейчас ${fmtUSD(gapSimple)}, но взнос поднимает и сам капитал — поэтому нужно больше.</div>`;
+  }
 
   html += `<div class="cgs-param"><span class="cgs-param-label">Уже внесено (DCA)</span><span class="cgs-param-value">${fmtUSD(CONFIG.totalDCAInvested)}</span></div>`;
   html += `<div class="cgs-param"><span class="cgs-param-label">DCA в месяц</span><span class="cgs-param-value">${fmtUSD(CONFIG.cgsModel.dcaAmount)} (${CONFIG.cgsModel.dcaDay}-е число)</span></div>`;
