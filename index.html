@@ -330,6 +330,12 @@
     <div id="capitalInCard"><span class="loading-text">Загрузка...</span></div>
   </div>
 
+  <!-- Кривая стоимости портфеля против заведённых денег -->
+  <div class="card">
+    <div class="card-title"><span class="icon">📈</span> Стоимость портфеля и заведённые деньги</div>
+    <div id="portfolioCurve"><span class="loading-text">Загрузка...</span></div>
+  </div>
+
   <!-- Aave Position -->
   <div class="card">
     <div class="card-title"><span class="icon">🏛️</span> Aave v3 — Позиция</div>
@@ -804,6 +810,13 @@ const CONFIG = {
   //   десятки раз (купил ETH → продал в пуле → купил снова). Сумма цен лотов ($271,140) считает
   //   каждый круг как новое вложение. Проверка: 20.03.2026 в залог легли 50.9 ETH при цене ETH
   //   $2,137 = $108.8K, а записаны они были на $202.8K.
+  // ======= ИСТОРИЯ СТОИМОСТИ ПОРТФЕЛЯ (реконструкция, см. карточку) =======
+  valueHistory: {
+    start: '2025-05-04',
+    asOf: '2026-09-06',
+    note: 'Unichain v4 — по формулам из 64 событий ликвидности; Aave и долг — по фактическим tx; GM и Pendle — приближённо. Модель на дату asOf даёт ~+6% к живому расчёту.',
+    values: [9764,9798,9787,9771,10236,10288,10642,10572,10548,10699,10663,10609,10598,10520,10550,10588,10585,10612,10693,10586,10590,10614,10624,11183,11194,11184,11089,10570,10604,10799,10761,10800,10155,20855,21187,21089,22016,22967,23080,33531,33009,32546,32712,32678,32329,32487,32447,31105,29674,28796,31171,31625,31259,31226,31316,31471,32221,32059,31086,32929,33115,32307,32397,32928,32660,33317,34296,34804,34808,34795,34818,47843,48755,50135,50629,50915,51080,52253,52309,117778,109892,111816,112228,112588,115199,113809,113704,114033,111617,105931,103076,106190,112138,111759,113576,118246,119783,118308,118241,118055,119065,121965,117942,115369,114921,116187,112140,106083,112731,109903,123305,122453,122482,113753,119116,117019,117125,113344,113689,114152,115249,115560,118764,114811,115067,114180,115034,115039,115135,116150,118974,128608,127735,126452,124624,124086,126145,126087,123275,123569,122668,116225,115310,115009,107653,111827,111462,114728,116645,114807,120136,123670,124365,123739,124401,128075,122738,124671,120660,106466,104263,128573,131018,127820,123940,121385,119615,121237,123854,123760,120784,130954,132480,134791,135349,141313,140201,136095,133848,130940,132218,132984,133955,124877,115069,119358,115952,119725,118651,124255,123780,119158,119068,113314,109510,111288,108958,106892,109872,106697,100402,98113,98256,99332,104345,104540,106733,106364,106882,105514,105583,99227,105742,111940,121966,118065,118638,119404,121650,128288,128494,125548,120281,121318,119533,116048,115954,111313,113154,118648,118597,119462,119724,118120,117496,115924,116793,117557,117625,117144,118451,118358,119541,123821,123893,124526,127343,129787,125350,123194,122544,122484,123776,122816,130802,131816,130566,129808,130280,129347,126099,117243,118778,117728,117746,117643,112703,116838,120356,119804,112905,108729,99323,92651,95470,91241,88025,75966,84780,85583,85668,86191,83078,79975,80157,83922,85316,80777,81920,81594,80185,79895,80618,80741,80102,76143,75911,83757,82572,78765,80066,79044,82427,80664,86276,84104,80368,79952,78619,80796,82479,83045,83854,84555,84678,87896,94765,93325,88753,86107,131899,135460,139932,146264,146414,147351,140596,136161,136274,135618,138185,143020,144941,139961,139800,140556,143537,143329,151615,148591,148806,152208,154479,148633,159606,166275,168576,168022,172526,168316,162937,166338,167231,170375,167954,166889,167206,170300,166277,165213,163026,163452,166114,167448,167748,169486,170546,170149,178298,179265,180502,183450,181581,177621,176401,178281,174476,171770,168808,168651,169175,170388,170669,166238,169551,168641,169480,166872,163669,162594,162836,163427,162496,161867,152020,148538,145964,144375,143382,152635,152544,148545,147253,151685,151208,152597,156145,161093,160621,157326,154041,154316,156653,153966,155709,151079,147344,143105,143994,154401,154088,157206,153722,156909,163732,168040,169791,170363,171614,169481,167182,167719,171572,170844,172107,169512,178278,179866,176020,174592,176361,187803,190199,192473,192563,188480,186952,187966,193658,188881,190913,190222,191109,186621,185458,188476,186852,187755,190594,190148,191107,191317,190918,188064,188534,188322,188766,198327,198407,197882,201377,201798,226041,232973,247950,241459,244397,246363,243678,247928,248970,243335,244511,241693,245393,240749,239013,248880,244623,246327,247146],
+  },
   capitalIn: {
     asOf: '2026-08-17',
     deposits: [
@@ -1861,6 +1874,117 @@ function renderCapitalIn() {
     </details>`;
 }
 
+function renderPortfolioCurve() {
+  const el = document.getElementById('portfolioCurve');
+  if (!el) return;
+  const VH = CONFIG.valueHistory;
+  if (!VH || !VH.values || !VH.values.length) { el.innerHTML = '<span class="loading-text">нет данных</span>'; return; }
+
+  // --- даты и серии ---
+  const start = new Date(VH.start + 'T00:00:00Z');
+  const dates = VH.values.map((_, i) => new Date(start.getTime() + i * 86400000).toISOString().slice(0, 10));
+  const port = VH.values.slice();
+  // живая точка из state.zones — заменяет последнюю модельную
+  const live = (state.zones && state.zones.netWorth) || null;
+  const today = new Date().toISOString().slice(0, 10);
+  if (live != null) {
+    if (today > dates[dates.length - 1]) { dates.push(today); port.push(Math.round(live)); }
+    else { port[port.length - 1] = Math.round(live); }
+  }
+  // заведённые деньги — считаем из capitalIn, чтобы всегда были в синхроне
+  const ci = CONFIG.capitalIn || { deposits: [], withdrawals: [] };
+  const dep = dates.map(d =>
+    (ci.deposits || []).reduce((s, x) => s + (x.date <= d ? (x.usd || 0) : 0), 0) -
+    (ci.withdrawals || []).reduce((s, x) => s + (x.date <= d ? (x.usd || 0) : 0), 0));
+
+  const n = port.length;
+  const W = 1000, H = 320, ML = 58, MR = 14, MT = 16, MB = 34;
+  const iw = W - ML - MR, ih = H - MT - MB;
+  const maxV = Math.max(...port, ...dep) * 1.07;
+  const X = i => ML + i / (n - 1) * iw, Y = v => MT + ih - v / maxV * ih;
+  const pathOf = a => a.map((v, i) => (i ? 'L' : 'M') + X(i).toFixed(1) + ' ' + Y(v).toFixed(1)).join('');
+  const MON = ['', 'янв', 'фев', 'мар', 'апр', 'май', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек'];
+  const C_P = '#3987e5', C_D = '#d95926';
+
+  let s = `<svg viewBox="0 0 ${W} ${H}" style="display:block;width:100%;height:auto;overflow:visible" role="img" aria-label="Стоимость портфеля и заведённые деньги">`;
+  const step = maxV > 200000 ? 50000 : 25000;
+  for (let v = 0; v <= maxV; v += step) {
+    s += `<line x1="${ML}" y1="${Y(v)}" x2="${W - MR}" y2="${Y(v)}" stroke="#21262d" stroke-width="1"/>
+      <text x="${ML - 8}" y="${Y(v) + 4}" text-anchor="end" font-size="10" fill="var(--dim)">${v ? '$' + (v / 1000) + 'K' : '0'}</text>`;
+  }
+  dates.forEach((d, i) => { const m = +d.slice(5, 7); if (d.slice(8) === '01' && m % 3 === 1)
+    s += `<text x="${X(i)}" y="${H - MB + 18}" text-anchor="middle" font-size="10" fill="var(--dim)">${MON[m]} ${d.slice(2, 4)}</text>`; });
+
+  // вехи
+  [{ d: '2025-07-21', t: 'выкуп доли +$65K' }, { d: '2026-03-20', t: 'пересборка, залог в Aave' }, { d: '2026-09-01', t: 'добор займа до 50%' }]
+    .forEach(m => { const i = dates.indexOf(m.d); if (i < 0) return; const right = X(i) > W - 210;
+      s += `<line x1="${X(i)}" y1="${MT}" x2="${X(i)}" y2="${MT + ih}" stroke="#8b949e" stroke-width="1" stroke-dasharray="2 4" opacity=".45"/>
+        <text x="${X(i) + (right ? -5 : 5)}" y="${MT + 10}" text-anchor="${right ? 'end' : 'start'}" font-size="10" fill="var(--dim)">${m.t}</text>`; });
+
+  s += `<path d="${pathOf(dep)}" fill="none" stroke="${C_D}" stroke-width="2" stroke-linejoin="round"/>`;
+  s += `<path d="${pathOf(port)}" fill="none" stroke="${C_P}" stroke-width="2" stroke-linejoin="round"/>`;
+  s += `<circle cx="${X(n - 1)}" cy="${Y(port[n - 1])}" r="4.5" fill="${C_P}" stroke="var(--card)" stroke-width="2"/>`;
+  s += `<circle cx="${X(n - 1)}" cy="${Y(dep[n - 1])}" r="4.5" fill="${C_D}" stroke="var(--card)" stroke-width="2"/>`;
+  s += `<line class="pcCross" x1="0" y1="${MT}" x2="0" y2="${MT + ih}" stroke="#e6edf3" stroke-width="1" opacity="0"/>`;
+  s += `<circle class="pcHp" r="4.5" fill="${C_P}" stroke="var(--card)" stroke-width="2" opacity="0"/>`;
+  s += `<circle class="pcHd" r="4.5" fill="${C_D}" stroke="var(--card)" stroke-width="2" opacity="0"/>`;
+  s += `<rect x="${ML}" y="${MT}" width="${iw}" height="${ih}" fill="transparent"/></svg>`;
+
+  // экстремумы по концам месяцев (дневные точки ловят лаг мостов)
+  const me = {}; dates.forEach((d, i) => { if (d >= '2025-07') me[d.slice(0, 7)] = i; });
+  const arr = Object.values(me).map(i => ({ i, g: (port[i] - dep[i]) / dep[i] }));
+  const best = arr.reduce((a, b) => b.g > a.g ? b : a), wrs = arr.reduce((a, b) => b.g < a.g ? b : a);
+  const dt = i => dates[i].slice(8) + '.' + dates[i].slice(5, 7) + '.' + dates[i].slice(2, 4);
+  const gap = port[n - 1] - dep[n - 1];
+  const gc = gap >= 0 ? 'var(--green)' : 'var(--red)';
+
+  el.innerHTML = `
+    <div style="display:flex;gap:16px;font-size:11px;color:var(--dim);margin-bottom:10px;flex-wrap:wrap">
+      <span><i style="display:inline-block;width:16px;height:2px;background:${C_P};vertical-align:middle;margin-right:6px"></i>Стоимость портфеля (минус долг)</span>
+      <span><i style="display:inline-block;width:16px;height:2px;background:${C_D};vertical-align:middle;margin-right:6px"></i>Заведено денег</span>
+    </div>
+    <div style="position:relative">${s}<div class="pcTip" style="position:absolute;pointer-events:none;background:#0d1117;border:1px solid var(--border);border-radius:8px;padding:8px 10px;font-size:11px;white-space:nowrap;opacity:0;transition:opacity .1s;box-shadow:0 6px 20px rgba(0,0,0,.5);z-index:5"></div></div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin-top:14px">
+      <div><div style="font-size:10px;color:var(--dim)">Результат к вложенному</div><div style="font-size:17px;font-weight:700;color:${gc}">${gap >= 0 ? '+' : '−'}${fmtUSD(Math.abs(gap))}</div><div style="font-size:10px;color:var(--dim)">${gap >= 0 ? '+' : '−'}${fmt(Math.abs(gap) / dep[n - 1] * 100, 1)}%</div></div>
+      <div><div style="font-size:10px;color:var(--dim)">Лучший месяц</div><div style="font-size:17px;font-weight:700;color:var(--green)">+${fmt(best.g * 100, 1)}%</div><div style="font-size:10px;color:var(--dim)">${dt(best.i)} · ${fmtUSD(port[best.i])}</div></div>
+      <div><div style="font-size:10px;color:var(--dim)">Худший месяц</div><div style="font-size:17px;font-weight:700;color:var(--red)">${fmt(wrs.g * 100, 1)}%</div><div style="font-size:10px;color:var(--dim)">${dt(wrs.i)} · ${fmtUSD(port[wrs.i])}</div></div>
+      <div><div style="font-size:10px;color:var(--dim)">Максимум стоимости</div><div style="font-size:17px;font-weight:700">${fmtUSD(Math.max(...port))}</div><div style="font-size:10px;color:var(--dim)">${dt(port.indexOf(Math.max(...port)))}</div></div>
+    </div>
+    <details style="margin-top:10px">
+      <summary style="cursor:pointer;font-size:11px;color:var(--accent)">Как это посчитано</summary>
+      <div style="font-size:10px;color:var(--dim);margin-top:8px;line-height:1.6">
+        Синяя линия — стоимость всего портфеля во всех сетях за вычетом долга Aave. Последняя точка — живая из карточки «Зоны»; вся история до неё — <b style="color:var(--text)">реконструкция</b>: ${VH.note}
+        Оранжевая — <b style="color:var(--text)">CONFIG.capitalIn</b> нарастающим итогом минус выведенное себе, считается на лету.
+        Однодневные провалы синей линии — лаг мостов: деньги уже посчитаны заведёнными, но ещё не дошли до пула. Поэтому лучший и худший месяц берутся по концам месяцев, а не по дневным точкам.
+      </div>
+    </details>`;
+
+  // hover
+  const svg = el.querySelector('svg'), tip = el.querySelector('.pcTip');
+  const cr = svg.querySelector('.pcCross'), hp = svg.querySelector('.pcHp'), hd = svg.querySelector('.pcHd');
+  function move(ev) {
+    const r = svg.getBoundingClientRect();
+    let i = Math.round(((ev.clientX - r.left) / r.width * W - ML) / iw * (n - 1));
+    i = Math.max(0, Math.min(n - 1, i));
+    const p = port[i], d = dep[i], g = p - d;
+    cr.setAttribute('x1', X(i)); cr.setAttribute('x2', X(i)); cr.setAttribute('opacity', '.28');
+    hp.setAttribute('cx', X(i)); hp.setAttribute('cy', Y(p)); hp.setAttribute('opacity', '1');
+    hd.setAttribute('cx', X(i)); hd.setAttribute('cy', Y(d)); hd.setAttribute('opacity', '1');
+    tip.innerHTML = `<div style="color:var(--dim);margin-bottom:4px">${dates[i].slice(8)}.${dates[i].slice(5, 7)}.${dates[i].slice(0, 4)}</div>
+      <div style="display:flex;justify-content:space-between;gap:12px"><span>Портфель</span><b>${fmtUSD(p)}</b></div>
+      <div style="display:flex;justify-content:space-between;gap:12px"><span>Заведено</span><b>${fmtUSD(d)}</b></div>
+      <div style="display:flex;justify-content:space-between;gap:12px;border-top:1px solid var(--border);margin-top:4px;padding-top:4px">
+        <span style="color:var(--dim)">Разница</span><b style="color:${g >= 0 ? 'var(--green)' : 'var(--red)'}">${g >= 0 ? '+' : '−'}${fmtUSD(Math.abs(g))}</b></div>`;
+    tip.style.opacity = 1;
+    const rel = X(i) / W * r.width;
+    tip.style.left = Math.min(Math.max(rel - tip.offsetWidth / 2, 0), r.width - tip.offsetWidth) + 'px';
+    tip.style.top = (Y(Math.max(p, d)) / H * r.height - tip.offsetHeight - 12) + 'px';
+  }
+  svg.addEventListener('mousemove', move);
+  svg.addEventListener('touchmove', e => { move(e.touches[0]); e.preventDefault(); }, { passive: false });
+  svg.addEventListener('mouseleave', () => { tip.style.opacity = 0; cr.setAttribute('opacity', 0); hp.setAttribute('opacity', 0); hd.setAttribute('opacity', 0); });
+}
+
 function renderZones() {
   // Growth = Aave collateral (own crypto)
   // Yield = GM pools (funded by borrowed stables)
@@ -2510,6 +2634,7 @@ function renderAll() {
   renderWallet();
   renderZones();
   renderCapitalIn(); // после renderZones — использует state.zones.netWorth
+  renderPortfolioCurve(); // после renderCapitalIn — берёт живую точку из state.zones
   renderTriggers();
   renderAnalytics();
 }
