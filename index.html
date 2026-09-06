@@ -592,7 +592,7 @@ if (sessionStorage.getItem('defi_auth') === '1') {
 <script>
 // ======= CONFIGURATION =======
 const CONFIG = {
-  buildId: '2026-09-06.3',   // видно на карточке «Бенчмарк» — чтобы по скриншоту было ясно, какая сборка
+  buildId: '2026-09-06.4',   // видно на карточке «Бенчмарк» — чтобы по скриншоту было ясно, какая сборка
   wallet: '0x50E779Be63945354414162a05416E48DEDB8376E',
   btcWallet: 'bc1qn576x99g0devh8cnf0d45kradm5t06j4x2g9cp',
   rpc: 'https://arbitrum-one-rpc.publicnode.com',
@@ -2352,7 +2352,7 @@ function renderBenchmark() {
       <div style="font-size:11px;color:var(--dim);margin-top:5px">
         бенчмарк = ${fmt(mix.wE * 100, 0)}% ETH · ${fmt(mix.wB * 100, 0)}% BTC · ${fmt(mix.wS * 100, 0)}% стейблы${mix.fallback ? ' (плановые)' : ''}, куплено и не тронуто</div>
       <div style="font-size:10px;color:var(--dim);margin-top:6px;opacity:.75">
-        котировки: ${BENCH_PX.src || 'Binance'}${BENCH_PX.stale ? ' · из кеша' : ''} · сборка ${CONFIG.buildId || '—'}</div>
+        котировки: ${BENCH_PX.src || 'Binance'}${BENCH_PX.src === 'CoinGecko' ? '<span style="color:var(--yellow)"> · резервный источник, альфа точна до ±0.5 п.п.</span>' : ''}${BENCH_PX.stale ? ' · из кеша' : ''} · сборка ${CONFIG.buildId || '—'}</div>
     </div>
 
     <div style="${th}">Доходность и риск · с запуска CGS</div>
@@ -2435,7 +2435,11 @@ function renderBenchmark() {
         <b style="color:var(--yellow)">Погрешность.</b> Оценка GM и CLMM даёт около ±$8K на текущей стоимости, это ±3.5%,
         и примерно ±1 п.п. на альфе. Отрыв меньше этого читай как ничью.<br><br>
         <b style="color:var(--text)">Котировки:</b> ${BENCH_PX.src || 'Binance'}${BENCH_PX.stale ? ', <span style="color:var(--yellow)">данные из кеша, свежие не загрузились</span>' : ''}.
-        Источники по очереди: Binance → Kraken → CoinGecko, кеш на сутки.
+        Источники по очереди: Binance → Kraken → CoinGecko, кеш на сутки. Binance и Kraken дают закрытия дня и сходятся
+        между собой в пределах 0.05% — альфа на них одинаковая. CoinGecko отдаёт цену на 00:00 UTC, то есть закрытие
+        предыдущего дня; даты сдвигаются на сутки при разборе ответа, но остаточная разница около
+        <b style="color:var(--text)">0.5 п.п. на альфе</b> сохраняется. Поэтому источник подписан на лицевой стороне:
+        если два скриншота расходятся — сначала сравни эту строку.
       </div>
     </details>`;
 }
