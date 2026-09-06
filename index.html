@@ -352,6 +352,12 @@
     <div id="portfolioCurve"><span class="loading-text">Загрузка...</span></div>
   </div>
 
+  <!-- Бенчмарк: насколько обгоняю рынок -->
+  <div class="card">
+    <div class="card-title"><span class="icon">🎯</span> Бенчмарк — насколько обгоняю рынок</div>
+    <div id="benchmarkCard"><span class="loading-text">Загрузка...</span></div>
+  </div>
+
   <!-- Aave Position -->
   <div class="card">
     <div class="card-title"><span class="icon">🏛️</span> Aave v3 — Позиция</div>
@@ -2033,6 +2039,145 @@ function drawPortfolioCurve(el, big) {
   svg.addEventListener('mouseleave', () => { tip.style.opacity = 0; cr.setAttribute('opacity', 0); hp.setAttribute('opacity', 0); hd.setAttribute('opacity', 0); });
 }
 
+// ======= БЕНЧМАРК: TWR, XIRR, BTC-эквивалент =======
+let BENCH_PX = null;
+
+async function loadBenchPrices() {
+  if (BENCH_PX) return BENCH_PX;
+  try {
+    const c = JSON.parse(localStorage.getItem('cgsBenchPrices') || 'null');
+    if (c && c.eth && (Date.now() - c.ts) < 86400000) { BENCH_PX = c; return c; }
+  } catch (e) {}
+  const start = Date.UTC(2025, 4, 1);
+  const grab = async sym => {
+    const r = await fetch(`https://api.binance.com/api/v3/klines?symbol=${sym}&interval=1d&startTime=${start}&limit=1000`).then(x => x.json());
+    const o = {}; r.forEach(k => o[new Date(k[0]).toISOString().slice(0, 10)] = +k[4]); return o;
+  };
+  const [eth, btc] = await Promise.all([grab('ETHUSDT'), grab('BTCUSDT')]);
+  BENCH_PX = { ts: Date.now(), eth, btc };
+  try { localStorage.setItem('cgsBenchPrices', JSON.stringify(BENCH_PX)); } catch (e) {}
+  return BENCH_PX;
+}
+
+function benchCashFlows() {
+  const ci = CONFIG.capitalIn || { deposits: [], withdrawals: [] };
+  const cf = [];
+  (ci.deposits || []).forEach(d => cf.push([d.date, d.usd || 0]));
+  (ci.withdrawals || []).forEach(d => cf.push([d.date, -(d.usd || 0)]));
+  return cf.sort((a, b) => a[0] < b[0] ? -1 : 1);
+}
+
+function xirr(flows, finalDate, finalValue) {
+  const all = flows.map(([d, a]) => [d, -a]).concat([[finalDate, finalValue]]);
+  const t0 = Date.parse(all[0][0]);
+  const npv = r => all.reduce((s, [d, a]) => s + a / Math.pow(1 + r, (Date.parse(d) - t0) / 31557600000), 0);
+  let lo = -0.95, hi = 10;
+  if (npv(lo) < 0) return null;
+  for (let i = 0; i < 200; i++) { const m = (lo + hi) / 2; if (npv(m) > 0) lo = m; else hi = m; }
+  return lo;
+}
+
+function renderBenchmark() {
+  const el = document.getElementById('benchmarkCard');
+  if (!el) return;
+  const live = state.zones && state.zones.netWorth;
+  if (!BENCH_PX || live == null) { el.innerHTML = '<span class="loading-text">Загрузка котировок...</span>'; return; }
+
+  const E = BENCH_PX.eth, B = BENCH_PX.btc;
+  const px = (d, m) => { let k = d; for (let i = 0; i < 12 && !m[k]; i++) k = new Date(Date.parse(k) - 86400000).toISOString().slice(0, 10); return m[k]; };
+  const cf = benchCashFlows();
+  const today = new Date().toISOString().slice(0, 10);
+  const lastPxDay = Object.keys(E).sort().pop();
+  const ethNow = E[lastPxDay], btcNow = B[lastPxDay];
+
+  // --- 1. BTC-эквивалент ---
+  let btcIf = 0;
+  cf.forEach(([d, a]) => { const p = px(d, B); if (p) btcIf += a / p; });
+  const btcNowQty = live / btcNow;
+  const btcGain = btcNowQty - btcIf;
+
+  // --- 2. TWR с 20.03.2026 (запуск CGS) ---
+  const VH = CONFIG.valueHistory;
+  const start = new Date(VH.start + 'T00:00:00Z');
+  const dates = VH.values.map((_, i) => new Date(start.getTime() + i * 86400000).toISOString().slice(0, 10));
+  const port = VH.values.slice(); port[port.length - 1] = Math.round(live);
+  const cfMonth = {}; cf.forEach(([d, a]) => { const m = d.slice(0, 7); cfMonth[m] = (cfMonth[m] || 0) + a; });
+  const mEnd = {}; dates.forEach((d, i) => mEnd[d.slice(0, 7)] = i);
+  const months = Object.keys(mEnd).sort();
+  const FROM = '2026-04'; // первый полный месяц после пересборки 20.03.2026
+  const twr = vals => { let acc = 1; for (let j = 1; j < months.length; j++) { const m = months[j]; if (m < FROM) continue;
+    const v0 = vals[mEnd[months[j - 1]]], v1 = vals[mEnd[m]], c = cfMonth[m] || 0; if (!(v0 > 0)) continue; acc *= (v1 - c) / v0; } return acc - 1; };
+  const series = (wE, wB, wS) => { let qe = 0, qb = 0, st = 0; const map = {}; cf.forEach(([d, a]) => map[d] = (map[d] || 0) + a);
+    return dates.map(d => { const c = map[d] || 0; if (c) { qe += c * wE / px(d, E); qb += c * wB / px(d, B); st += c * wS; }
+      return qe * px(d, E) + qb * px(d, B) + st; }); };
+  const bm = [
+    { n: '80/20 ETH/стейблы', v: twr(series(.8, 0, .2)), main: true },
+    { n: '100% ETH', v: twr(series(1, 0, 0)) },
+    { n: '100% BTC', v: twr(series(0, 1, 0)) },
+    { n: '70/30 ETH/стейблы', v: twr(series(.7, 0, .3)) },
+  ];
+  const twrPort = twr(port);
+  const alpha = twrPort - bm[0].v;
+
+  // --- 3. XIRR ---
+  const irrPort = xirr(cf, today, live);
+  const finalOf = (wE, wB, wS) => { let qe = 0, qb = 0, st = 0; cf.forEach(([d, a]) => { qe += a * wE / px(d, E); qb += a * wB / px(d, B); st += a * wS; }); return qe * ethNow + qb * btcNow + st; };
+  const irrETH = xirr(cf, today, finalOf(1, 0, 0));
+  const irrBTC = xirr(cf, today, finalOf(0, 1, 0));
+
+  const pc = v => (v >= 0 ? '+' : '−') + fmt(Math.abs(v * 100), 1) + '%';
+  const col = v => v >= 0 ? 'var(--green)' : 'var(--red)';
+
+  el.innerHTML = `
+    <div style="text-align:center;padding:4px 0 14px;border-bottom:1px solid var(--border);margin-bottom:14px">
+      <div style="font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:1px">Накоплено сверх простой покупки BTC</div>
+      <div style="font-size:30px;font-weight:700;letter-spacing:-.5px;color:${col(btcGain)};margin-top:4px">
+        ${btcGain >= 0 ? '+' : '−'}${fmt(Math.abs(btcGain), 4)} BTC</div>
+      <div style="font-size:11px;color:var(--dim);margin-top:2px">
+        портфель ${fmt(btcNowQty, 4)} BTC · просто покупал бы ${fmt(btcIf, 4)} BTC · ${pc(btcGain / btcIf)}</div>
+    </div>
+
+    <div style="font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">
+      Доходность TWR с 01.04.2026 · после запуска CGS</div>
+    <div class="metric" style="border:none;padding:5px 0">
+      <span class="metric-label" style="color:var(--text);font-weight:600">Портфель</span>
+      <span class="metric-value" style="color:${col(twrPort)}">${pc(twrPort)}</span></div>
+    ${bm.map(b => `<div class="metric" style="border:none;padding:4px 0">
+      <span class="metric-label">${b.n}${b.main ? ' · бенчмарк по риску' : ''}</span>
+      <span class="metric-value" style="font-size:13px;color:var(--dim)">${pc(b.v)}</span></div>`).join('')}
+    <div class="metric" style="border-top:1px solid var(--border);padding-top:8px;margin-top:6px">
+      <span class="metric-label" style="color:var(--text);font-weight:600">Альфа к бенчмарку</span>
+      <span class="metric-value" style="color:${col(alpha)}">${alpha >= 0 ? '+' : '−'}${fmt(Math.abs(alpha * 100), 1)} п.п.</span></div>
+
+    <div style="font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:1px;margin:16px 0 8px">
+      XIRR · твоя годовая доходность за всё время</div>
+    <div class="metric" style="border:none;padding:5px 0">
+      <span class="metric-label" style="color:var(--text);font-weight:600">Портфель</span>
+      <span class="metric-value" style="color:${col(irrPort)}">${pc(irrPort)} годовых</span></div>
+    <div class="metric" style="border:none;padding:4px 0"><span class="metric-label">100% ETH</span>
+      <span class="metric-value" style="font-size:13px;color:var(--dim)">${pc(irrETH)} годовых</span></div>
+    <div class="metric" style="border:none;padding:4px 0"><span class="metric-label">100% BTC</span>
+      <span class="metric-value" style="font-size:13px;color:var(--dim)">${pc(irrBTC)} годовых</span></div>
+
+    <details style="margin-top:12px">
+      <summary style="cursor:pointer;font-size:11px;color:var(--accent)">Как это считается и чему верить</summary>
+      <div style="font-size:10px;color:var(--dim);margin-top:8px;line-height:1.6">
+        <b style="color:var(--text)">BTC-эквивалент</b> — главная метрика Capital Growth: прибыль считается в биткоинах, не в долларах.
+        Каждый ввод из capitalIn пересчитан в BTC по цене того дня, выводы вычтены. Сравнивается с текущей стоимостью портфеля в BTC.
+        Самая устойчивая цифра: не зависит от выбора бенчмарка.<br><br>
+        <b style="color:var(--text)">TWR</b> (Time-Weighted Return, стандарт GIPS) убирает влияние тайминга вводов и показывает качество управления.
+        Считается помесячной цепочкой с 01.04.2026 — раньше оценка портфеля искажена лагом мостов и доверять ей нельзя.
+        Бенчмарки прогоняются через тот же график вводов, без комиссий и налогов — то есть в идеальных для них условиях.<br><br>
+        <b style="color:var(--text)">Бенчмарк по риску — 80/20</b>, потому что крипто-дельта портфеля около 83%, а не 100%.
+        Сравнение со 100% ETH дано справочно: это более рискованная стратегия.<br><br>
+        <b style="color:var(--text)">XIRR</b> — внутренняя норма доходности с учётом дат всех вводов. Это твоя фактическая годовая доходность как инвестора.<br><br>
+        <b style="color:var(--yellow)">Погрешность.</b> Оценка GM-пулов и CLMM даёт около ±$8K на текущей стоимости, это ±3.5%.
+        Альфа к 80/20 больше погрешности — цифре можно верить. Разница со 100% ETH внутри погрешности — её читай как ничью.
+        Котировки Binance, кешируются на сутки.
+      </div>
+    </details>`;
+}
+
 function renderZones() {
   // Growth = Aave collateral (own crypto)
   // Yield = GM pools (funded by borrowed stables)
@@ -2683,6 +2828,7 @@ function renderAll() {
   renderZones();
   renderCapitalIn(); // после renderZones — использует state.zones.netWorth
   renderPortfolioCurve(); // после renderCapitalIn — берёт живую точку из state.zones
+  renderBenchmark(); // после renderPortfolioCurve — берёт живую стоимость и котировки
   renderTriggers();
   renderAnalytics();
 }
@@ -2982,6 +3128,7 @@ async function loadMVSData() {
 
 // ======= INIT =======
 function startApp() {
+  loadBenchPrices().then(() => renderBenchmark()).catch(e => console.log('bench prices:', e.message));
   initProviders().then(() => {
     refreshAll();
     setInterval(refreshAll, CONFIG.refreshInterval);
