@@ -835,8 +835,9 @@ const CONFIG = {
   // ======= ИСТОРИЯ СТОИМОСТИ ПОРТФЕЛЯ (реконструкция, см. карточку) =======
   valueHistory: {
     start: '2025-05-04',
+    calibrateFrom: '2026-03-20',
     asOf: '2026-09-06',
-    note: 'Unichain v4 — по формулам из 64 событий ликвидности; Aave и долг — по фактическим tx; GM и Pendle — приближённо. Модель на дату asOf даёт ~+6% к живому расчёту.',
+    note: 'Unichain v4 — по формулам из 64 событий ликвидности; Aave и долг — по фактическим tx; GM и Pendle — приближённо.',
     values: [9764,9798,9787,9771,10236,10288,10642,10572,10548,10699,10663,10609,10598,10520,10550,10588,10585,10612,10693,10586,10590,10614,10624,11183,11194,11184,11089,10570,10604,10799,10761,10800,10155,20855,21187,21089,22016,22967,23080,33531,33009,32546,32712,32678,32329,32487,32447,31105,29674,28796,31171,31625,31259,31226,31316,31471,32221,32059,31086,32929,33115,32307,32397,32928,32660,33317,34296,34804,34808,34795,34818,47843,48755,50135,50629,50915,51080,52253,52309,117778,109892,111816,112228,112588,115199,113809,113704,114033,111617,105931,103076,106190,112138,111759,113576,118246,119783,118308,118241,118055,119065,121965,117942,115369,114921,116187,112140,106083,112731,109903,123305,122453,122482,113753,119116,117019,117125,113344,113689,114152,115249,115560,118764,114811,115067,114180,115034,115039,115135,116150,118974,128608,127735,126452,124624,124086,126145,126087,123275,123569,122668,116225,115310,115009,107653,111827,111462,114728,116645,114807,120136,123670,124365,123739,124401,128075,122738,124671,120660,106466,104263,128573,131018,127820,123940,121385,119615,121237,123854,123760,120784,130954,132480,134791,135349,141313,140201,136095,133848,130940,132218,132984,133955,124877,115069,119358,115952,119725,118651,124255,123780,119158,119068,113314,109510,111288,108958,106892,109872,106697,100402,98113,98256,99332,104345,104540,106733,106364,106882,105514,105583,99227,105742,111940,121966,118065,118638,119404,121650,128288,128494,125548,120281,121318,119533,116048,115954,111313,113154,118648,118597,119462,119724,118120,117496,115924,116793,117557,117625,117144,118451,118358,119541,123821,123893,124526,127343,129787,125350,123194,122544,122484,123776,122816,130802,131816,130566,129808,130280,129347,126099,117243,118778,117728,117746,117643,112703,116838,120356,119804,112905,108729,99323,92651,95470,91241,88025,75966,84780,85583,85668,86191,83078,79975,80157,83922,85316,80777,81920,81594,80185,79895,80618,80741,80102,76143,75911,83757,82572,78765,80066,79044,82427,80664,86276,84104,80368,79952,78619,80796,82479,83045,83854,84555,84678,87896,94765,93325,88753,86107,131899,135460,139932,146264,146414,147351,140596,136161,136274,135618,138185,143020,144941,139961,139800,140556,143537,143329,151615,148591,148806,152208,154479,148633,159606,166275,168576,168022,172526,168316,162937,166338,167231,170375,167954,166889,167206,170300,166277,165213,163026,163452,166114,167448,167748,169486,170546,170149,178298,179265,180502,183450,181581,177621,176401,178281,174476,171770,168808,168651,169175,170388,170669,166238,169551,168641,169480,166872,163669,162594,162836,163427,162496,161867,152020,148538,145964,144375,143382,152635,152544,148545,147253,151685,151208,152597,156145,161093,160621,157326,154041,154316,156653,153966,155709,151079,147344,143105,143994,154401,154088,157206,153722,156909,163732,168040,169791,170363,171614,169481,167182,167719,171572,170844,172107,169512,178278,179866,176020,174592,176361,187803,190199,192473,192563,188480,186952,187966,193658,188881,190913,190222,191109,186621,185458,188476,186852,187755,190594,190148,191107,191317,190918,188064,188534,188322,188766,198327,198407,197882,201377,201798,226041,232973,247950,241459,244397,246363,243678,247928,248970,243335,244511,241693,245393,240749,239013,248880,244623,246327,247146],
   },
   capitalIn: {
@@ -1927,6 +1928,23 @@ function renderPortfolioCurve() {
   if (big) drawPortfolioCurve(big, true); // модалка открыта — обновляем и её
 }
 
+// Пишем живую стоимость в локальный журнал — по одной точке на день.
+// Со временем реальные снимки вытесняют модель в хвосте кривой.
+function recordNetWorthSnapshot() {
+  const live = state.zones && state.zones.netWorth;
+  if (!(live > 0)) return;
+  try {
+    const log = JSON.parse(localStorage.getItem('cgsNetWorthLog') || '{}');
+    log[new Date().toISOString().slice(0, 10)] = Math.round(live);
+    const keys = Object.keys(log).sort();
+    if (keys.length > 800) keys.slice(0, keys.length - 800).forEach(k => delete log[k]);
+    localStorage.setItem('cgsNetWorthLog', JSON.stringify(log));
+  } catch (e) {}
+}
+function netWorthLog() {
+  try { return JSON.parse(localStorage.getItem('cgsNetWorthLog') || '{}'); } catch (e) { return {}; }
+}
+
 function drawPortfolioCurve(el, big) {
   if (!el) return;
   const VH = CONFIG.valueHistory;
@@ -1936,9 +1954,30 @@ function drawPortfolioCurve(el, big) {
   const start = new Date(VH.start + 'T00:00:00Z');
   const dates = VH.values.map((_, i) => new Date(start.getTime() + i * 86400000).toISOString().slice(0, 10));
   const port = VH.values.slice();
-  // живая точка из state.zones — заменяет последнюю модельную
   const live = (state.zones && state.zones.netWorth) || null;
   const today = new Date().toISOString().slice(0, 10);
+
+  // --- КАЛИБРОВКА ПО ЖИВОМУ РАСЧЁТУ ---
+  // Модель до пересборки 20.03.2026 проверена (сходится с фактом в пределах 0.5%).
+  // После неё в портфель вошли GM и Pendle, которые модель считает приближённо, и она
+  // уходит вверх от живого расчёта. Разницу размазываем линейной долей от даты пересборки
+  // до сегодня: коэффициент 0 в точке пересборки и полный — на последней точке.
+  // Тогда конец кривой ТОЧНО равен живому netWorth, обрыва на правом краю нет.
+  const i0 = dates.indexOf((VH.calibrateFrom || '2026-03-20'));
+  let drift = 0;
+  if (live != null && i0 > 0 && port[port.length - 1] > 0) {
+    drift = 1 - live / port[port.length - 1];
+    if (Math.abs(drift) > 0.35) drift = 0;           // защита от мусорного live
+    const span = (port.length - 1) - i0;
+    for (let i = i0 + 1; i < port.length; i++) port[i] = Math.round(port[i] * (1 - drift * (i - i0) / span));
+  }
+
+  // --- РЕАЛЬНЫЕ СНИМКИ поверх модели ---
+  // Всё, что дашборд успел записать живьём, заменяет модельную точку.
+  const snap = netWorthLog();
+  let snapN = 0;
+  dates.forEach((d, i) => { if (snap[d] > 0) { port[i] = snap[d]; snapN++; } });
+
   if (live != null) {
     if (today > dates[dates.length - 1]) { dates.push(today); port.push(Math.round(live)); }
     else { port[port.length - 1] = Math.round(live); }
@@ -1989,6 +2028,7 @@ function drawPortfolioCurve(el, big) {
   const dt = i => dates[i].slice(8) + '.' + dates[i].slice(5, 7) + '.' + dates[i].slice(2, 4);
   const gap = port[n - 1] - dep[n - 1];
   const gc = gap >= 0 ? 'var(--green)' : 'var(--red)';
+  const usd0 = v => '$' + fmt(v, 0);
 
   el.innerHTML = `
     <div style="display:flex;gap:16px;font-size:11px;color:var(--dim);margin-bottom:10px;flex-wrap:wrap">
@@ -1997,19 +2037,21 @@ function drawPortfolioCurve(el, big) {
     </div>
     <div style="position:relative">${s}<div class="pcTip" style="position:absolute;pointer-events:none;background:#0d1117;border:1px solid var(--border);border-radius:8px;padding:8px 10px;font-size:11px;white-space:nowrap;opacity:0;transition:opacity .1s;box-shadow:0 6px 20px rgba(0,0,0,.5);z-index:5"></div></div>
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin-top:14px">
-      <div><div style="font-size:10px;color:var(--dim)">Портфель сейчас</div><div style="font-size:17px;font-weight:700">${fmtUSD(port[n - 1])}</div><div style="font-size:10px;color:var(--dim)">за вычетом долга</div></div>
-      <div><div style="font-size:10px;color:var(--dim)">Заведено всего</div><div style="font-size:17px;font-weight:700">${fmtUSD(dep[n - 1])}</div><div style="font-size:10px;color:var(--dim)">${(ci.deposits || []).length} поступлений минус выведенное</div></div>
-      <div><div style="font-size:10px;color:var(--dim)">Результат к вложенному</div><div style="font-size:17px;font-weight:700;color:${gc}">${gap >= 0 ? '+' : '−'}${fmtUSD(Math.abs(gap))}</div><div style="font-size:10px;color:var(--dim)">${gap >= 0 ? '+' : '−'}${fmt(Math.abs(gap) / dep[n - 1] * 100, 1)}%</div></div>
-      <div><div style="font-size:10px;color:var(--dim)">Лучший месяц</div><div style="font-size:17px;font-weight:700;color:var(--green)">+${fmt(best.g * 100, 1)}%</div><div style="font-size:10px;color:var(--dim)">${dt(best.i)} · ${fmtUSD(port[best.i])}</div></div>
-      <div><div style="font-size:10px;color:var(--dim)">Худший месяц</div><div style="font-size:17px;font-weight:700;color:var(--red)">${fmt(wrs.g * 100, 1)}%</div><div style="font-size:10px;color:var(--dim)">${dt(wrs.i)} · ${fmtUSD(port[wrs.i])}</div></div>
-      <div><div style="font-size:10px;color:var(--dim)">Максимум стоимости</div><div style="font-size:17px;font-weight:700">${fmtUSD(Math.max(...port))}</div><div style="font-size:10px;color:var(--dim)">${dt(port.indexOf(Math.max(...port)))}</div></div>
+      <div><div style="font-size:10px;color:var(--dim)">Портфель сейчас</div><div style="font-size:17px;font-weight:700">${usd0(port[n - 1])}</div><div style="font-size:10px;color:var(--dim)">за вычетом долга</div></div>
+      <div><div style="font-size:10px;color:var(--dim)">Заведено всего</div><div style="font-size:17px;font-weight:700">${usd0(dep[n - 1])}</div><div style="font-size:10px;color:var(--dim)">${(ci.deposits || []).length} поступлений минус выведенное</div></div>
+      <div><div style="font-size:10px;color:var(--dim)">Результат к вложенному</div><div style="font-size:17px;font-weight:700;color:${gc}">${gap >= 0 ? '+' : '−'}${usd0(Math.abs(gap))}</div><div style="font-size:10px;color:var(--dim)">${gap >= 0 ? '+' : '−'}${fmt(Math.abs(gap) / dep[n - 1] * 100, 1)}%</div></div>
+      <div><div style="font-size:10px;color:var(--dim)">Лучше всего к вложенному</div><div style="font-size:17px;font-weight:700;color:var(--green)">+${fmt(best.g * 100, 1)}%</div><div style="font-size:10px;color:var(--dim)">${dt(best.i)} · ${usd0(port[best.i])}</div></div>
+      <div><div style="font-size:10px;color:var(--dim)">Хуже всего к вложенному</div><div style="font-size:17px;font-weight:700;color:var(--red)">${fmt(wrs.g * 100, 1)}%</div><div style="font-size:10px;color:var(--dim)">${dt(wrs.i)} · ${usd0(port[wrs.i])}</div></div>
+      <div><div style="font-size:10px;color:var(--dim)">Максимум стоимости</div><div style="font-size:17px;font-weight:700">${usd0(Math.max(...port))}</div><div style="font-size:10px;color:var(--dim)">${dt(port.indexOf(Math.max(...port)))}</div></div>
     </div>
     <details style="margin-top:10px">
       <summary style="cursor:pointer;font-size:11px;color:var(--accent)">Как это посчитано</summary>
       <div style="font-size:10px;color:var(--dim);margin-top:8px;line-height:1.6">
         Синяя линия — стоимость всего портфеля во всех сетях за вычетом долга Aave. Последняя точка — живая из карточки «Зоны»; вся история до неё — <b style="color:var(--text)">реконструкция</b>: ${VH.note}
+        <br><br><b style="color:var(--text)">Калибровка.</b> До пересборки 20.03.2026 модель сходится с фактом в пределах 0.5%. После неё в портфель вошли GM и Pendle, которые модель считает приближённо, и она уходит вверх от живого расчёта — сейчас на ${fmt(Math.abs(drift) * 100, 1)}%. Эта разница вычитается из хвоста нарастающей долей: ноль в точке пересборки, полная величина на сегодня. Поэтому конец синей линии ровно равен живому netWorth, а не обрывается вниз. Это <b style="color:var(--text)">оценка</b>, а не факт: форма кривой модельная, к живой базе привязаны только уровень и правый край.
+        <br><br><b style="color:var(--text)">Реальные точки.</b> Начиная с сегодняшнего дня дашборд записывает живую стоимость к себе в браузер — по одной точке в день. Записано: ${snapN}. Эти точки рисуются как есть и вытесняют модель. Чем дольше ты заходишь в дашборд, тем меньше в правой части графика модели и больше факта.<br><br>
         Оранжевая — <b style="color:var(--text)">CONFIG.capitalIn</b> нарастающим итогом минус выведенное себе, считается на лету.
-        Однодневные провалы синей линии — лаг мостов: деньги уже посчитаны заведёнными, но ещё не дошли до пула. Поэтому лучший и худший месяц берутся по концам месяцев, а не по дневным точкам.
+        Однодневные провалы синей линии — лаг мостов: деньги уже посчитаны заведёнными, но ещё не дошли до пула. Поэтому две плитки с экстремумами берутся по концам месяцев, а не по дневным точкам.
       </div>
     </details>`;
 
@@ -2834,6 +2876,7 @@ function renderAll() {
   renderWallet();
   renderZones();
   renderCapitalIn(); // после renderZones — использует state.zones.netWorth
+  recordNetWorthSnapshot(); // сначала пишем живой снимок, потом рисуем кривую
   renderPortfolioCurve(); // после renderCapitalIn — берёт живую точку из state.zones
   renderBenchmark(); // после renderPortfolioCurve — берёт живую стоимость и котировки
   renderTriggers();
