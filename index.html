@@ -592,6 +592,7 @@ if (sessionStorage.getItem('defi_auth') === '1') {
 <script>
 // ======= CONFIGURATION =======
 const CONFIG = {
+  buildId: '2026-09-06.3',   // видно на карточке «Бенчмарк» — чтобы по скриншоту было ясно, какая сборка
   wallet: '0x50E779Be63945354414162a05416E48DEDB8376E',
   btcWallet: 'bc1qn576x99g0devh8cnf0d45kradm5t06j4x2g9cp',
   rpc: 'https://arbitrum-one-rpc.publicnode.com',
@@ -2135,9 +2136,19 @@ async function loadPxKraken() {
   return { eth, btc };
 }
 async function loadPxCoinGecko() {
+  // ВАЖНО: CoinGecko отдаёт точку на 00:00 UTC — это цена на НАЧАЛО дня, то есть
+  // закрытие ПРЕДЫДУЩЕГО дня. Binance и Kraken отдают закрытие своего дня.
+  // Без сдвига вся серия уезжает на сутки и бенчмарк расходится на несколько п.п.
+  // Проверено 06.09.2026: CoinGecko 21.03 = 2146.58 против Binance 20.03 = 2146.22.
+  // Точки не в полночь (последняя, живая) оставляем на своей дате.
   const grab = async id => {
     const j = await fetch(`https://api.coingecko.com/api/v3/coins/${id}/market_chart?vs_currency=usd&days=365`).then(r => r.json());
-    const o = {}; (j.prices || []).forEach(([t, pz]) => o[new Date(t).toISOString().slice(0, 10)] = pz);
+    const o = {};
+    (j.prices || []).forEach(([t, pz]) => {
+      const d = new Date(t);
+      const midnight = d.getUTCHours() === 0 && d.getUTCMinutes() === 0;
+      o[new Date(t - (midnight ? 86400000 : 0)).toISOString().slice(0, 10)] = pz;
+    });
     return o;
   };
   const eth = await grab('ethereum');            // последовательно — у CoinGecko жёсткий лимит
@@ -2340,6 +2351,8 @@ function renderBenchmark() {
         портфель ${pc(rP)} · пассив ${pc(rB)}</div>
       <div style="font-size:11px;color:var(--dim);margin-top:5px">
         бенчмарк = ${fmt(mix.wE * 100, 0)}% ETH · ${fmt(mix.wB * 100, 0)}% BTC · ${fmt(mix.wS * 100, 0)}% стейблы${mix.fallback ? ' (плановые)' : ''}, куплено и не тронуто</div>
+      <div style="font-size:10px;color:var(--dim);margin-top:6px;opacity:.75">
+        котировки: ${BENCH_PX.src || 'Binance'}${BENCH_PX.stale ? ' · из кеша' : ''} · сборка ${CONFIG.buildId || '—'}</div>
     </div>
 
     <div style="${th}">Доходность и риск · с запуска CGS</div>
