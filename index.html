@@ -2122,6 +2122,33 @@ function xirr(flows, finalDate, finalValue) {
   return lo;
 }
 
+// Фактический состав портфеля прямо сейчас, в долях собственного капитала.
+// Нужен, чтобы бенчмарк соответствовал реальному риску, а не выдуманным 80/20.
+// Долг вычитается из стейбл-части: он профинансирован крипто-залогом, но сам — долларовый.
+function portfolioMix() {
+  const FB = { wE: .70, wB: .20, wS: .10, fallback: true };
+  const z = state.zones, pr = state.prices;
+  if (!z || !(z.netWorth > 0) || !pr || !pr.ETH || !pr.BTC) return FB;
+  const res = state.aaveReserves || {};
+  const sup = k => (res[k] && res[k].supplied) || 0;
+  const w = state.wallet || {}, wm = state.walletETHMain || {}, wb = state.walletBase || {};
+  const amt = (o, k) => (o && o[k] && o[k].amount) || 0;
+  const u = state.uniswap || {}, g = state.gm || {};
+  // GM-пул GMX ≈ половина базовый актив, половина USDC
+  const gmEth = (g.ethBal || 0) * (g.ethPrice || 0), gmBtc = (g.btcBal || 0) * (g.btcPrice || 0);
+
+  const eth = (sup('WETH') + amt(w, 'ETH') + amt(w, 'WETH') + amt(wm, 'ETH') + amt(wm, 'WETH') + amt(wb, 'ETH')
+    + (u.wethAmount || 0) + (u.wethFees || 0)) * pr.ETH + gmEth / 2;
+  const btc = (sup('WBTC') + amt(w, 'WBTC') + (state.btcBalance || 0)) * pr.BTC + gmBtc / 2;
+  const stab = ((state.pendle || {}).ptValue || 0) + (u.usdcAmount || 0) + (u.usdcFees || 0) + gmEth / 2 + gmBtc / 2
+    + amt(w, 'USDC') + amt(w, 'USDC.e') + amt(w, 'USDT') + amt(wm, 'USDT') + amt(wm, 'USDC') + amt(wb, 'USDC')
+    - ((state.aave || {}).debt || 0);
+
+  const sum = eth + btc + stab;
+  if (!(eth > 0) || !(sum > 0)) return FB;
+  return { wE: eth / sum, wB: btc / sum, wS: stab / sum, fallback: false };  // нормируем: бенчмарк вкладывает ровно те же деньги
+}
+
 function renderBenchmark() {
   const el = document.getElementById('benchmarkCard');
   if (!el) return;
@@ -2141,11 +2168,14 @@ function renderBenchmark() {
     cf.forEach(([d, a]) => { qe += a * wE / px(d, E); qb += a * wB / px(d, B); st += a * wS; });
     return qe * ethNow + qb * btcNow + st; };
 
+  const mix = portfolioMix();
+  const p0 = v => fmt(v * 100, 0);
   const rows = [
-    { n: '100% ETH',           v: finalOf(1, 0, 0) },
-    { n: '80/20 ETH/стейблы',  v: finalOf(.8, 0, .2), risk: true },
-    { n: '50/50 ETH/BTC',      v: finalOf(.5, .5, 0) },
-    { n: '100% BTC',           v: finalOf(0, 1, 0) },
+    { n: 'Твой же состав, но пассивно', sub: `${p0(mix.wE)}% ETH · ${p0(mix.wB)}% BTC · ${p0(mix.wS)}% стейблы${mix.fallback ? ' (плановые доли)' : ''}`,
+      v: finalOf(mix.wE, mix.wB, mix.wS), risk: true },
+    { n: '100% ETH',          v: finalOf(1, 0, 0) },
+    { n: '100% BTC',          v: finalOf(0, 1, 0) },
+    { n: '80/20 ETH/стейблы', v: finalOf(.8, 0, .2) },
   ].map(r => ({ ...r, d: live - r.v, irr: xirr(cf, today, r.v) }));
   rows.sort((a, b) => b.v - a.v);
 
@@ -2164,7 +2194,7 @@ function renderBenchmark() {
 
   el.innerHTML = `
     <div style="text-align:center;padding:4px 0 14px;border-bottom:1px solid var(--border);margin-bottom:14px">
-      <div style="font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:1px">Против бенчмарка по риску · 80/20 ETH/стейблы</div>
+      <div style="font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:1px">Против бенчмарка по риску · твой же состав пассивно</div>
       <div style="font-size:30px;font-weight:700;letter-spacing:-.5px;color:${col(bm.d)};margin-top:4px">
         ${money(bm.d)}</div>
       <div style="font-size:11px;color:var(--dim);margin-top:2px">
@@ -2182,8 +2212,8 @@ function renderBenchmark() {
       <span class="metric-label" style="color:var(--text);font-weight:600">Твой портфель</span>
       <span class="metric-value">${usd0(live)}</span></div>
     ${rows.map(r => `<div class="metric" style="border:none;padding:6px 8px">
-      <span class="metric-label">${r.n}${r.risk ? ' · по риску' : ''}<br>
-        <span style="font-size:10px;color:var(--dim)">${usd0(r.v)}</span></span>
+      <span class="metric-label">${r.n}${r.risk ? ' · бенчмарк по риску' : ''}<br>
+        <span style="font-size:10px;color:var(--dim)">${usd0(r.v)}${r.sub ? ' · ' + r.sub : ''}</span></span>
       <span class="metric-value" style="color:${col(r.d)}">${money(r.d)}</span></div>`).join('')}
 
     <div style="font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:1px;margin:16px 0 8px">
@@ -2214,10 +2244,24 @@ function renderBenchmark() {
         <b style="color:var(--text)">«Те же деньги, те же дни»</b> — каждый ввод переводится в актив по цене того дня,
         выводы вычитаются, остаток оценивается по сегодняшней цене. Бенчмарки идут без комиссий, без налогов и без
         газа — то есть в идеальных для них условиях. Если ты их обгоняешь, обгоняешь с запасом.<br><br>
-        <b style="color:var(--text)">Бенчмарк по риску — 80/20</b>, потому что крипто-дельта портфеля около 83%,
-        а не 100%. Сравнение со 100% ETH дано справочно: это заметно более рискованная стратегия.<br><br>
+        <b style="color:var(--text)">Бенчмарк по риску — твой же состав.</b> Доли ETH / BTC / стейблов берутся
+        живьём из текущего портфеля: залог в Aave, кошельки, половина каждого GM-пула (вторая половина там USDC),
+        крипто-часть CLMM, PT как долларовый инструмент, долг Aave вычитается из стейбл-части. Эти доли прогоняются
+        через тот же график вводов. Смысл: что было бы, если бы ты держал ровно те же активы, но <b style="color:var(--text)">без
+        Aave, без плеча, без GM, без Pendle и без LP</b> — просто купил и не трогал. Разница и есть цена всей механики.
+        Строки 100% ETH и 80/20 оставлены справочно, они не соответствуют твоему риску.<br><br>
         <b style="color:var(--text)">XIRR</b> — внутренняя норма доходности с учётом дат всех вводов. Твоя фактическая
         годовая доходность как инвестора. Бенчмарки прогнаны через тот же график вводов.<br><br>
+        <b style="color:var(--text)">Что уже сидит в цифре портфеля.</b> Всё считается от живого netWorth, поэтому
+        внутрь автоматически попали: газ и комиссии свопов и мостов (они уменьшили реальные активы), проценты по займу
+        Aave (долг рос), проценты на залог, комиссии LP, доход GM и Pendle. Крипта, которая появилась не из твоих
+        пополнений, а из работы портфеля, — тоже здесь: это ровно разница между netWorth и заведёнными деньгами.<br><br>
+        <b style="color:var(--text)">Чего в цифре нет.</b> Налогов — ни с твоей стороны, ни у бенчмарков. И денег,
+        потерянных <b style="color:var(--text)">вне</b> портфеля: грид-бот и копитрейдинг на Bybit, спред при покупке.
+        В capitalIn попало только то, что реально дошло до кошелька. То есть карточка про портфель, а не про весь
+        твой путь в крипте — по всем деньгам картина хуже.<br><br>
+        <b style="color:var(--text)">Бенчмарки не платят ничего:</b> ни газа, ни комиссий, ни спреда, ни налога.
+        Поэтому ничья с бенчмарком по факту означает, что доходность механики покрыла её собственную стоимость.<br><br>
         <b style="color:var(--yellow)">Погрешность.</b> Оценка GM-пулов и CLMM даёт около ±$8K на текущей стоимости.
         Отрыв меньше $8K читай как ничью, а не как победу или поражение.<br><br>
         <b style="color:var(--text)">Чего здесь нет.</b> TWR (доходность без влияния тайминга вводов) убран:
