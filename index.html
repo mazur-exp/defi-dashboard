@@ -2107,23 +2107,88 @@ function drawPortfolioCurve(el, big) {
 // ТОЛЬКО как стартовая точка 20.03.2026, с вычетом доказанной ошибки $19.9K
 // (повторный заём 19,763 USDC 20.03.2026, который модель не записала в долг).
 const CGS_START = '2026-03-20';
-let BENCH_PX = null;
+let BENCH_PX = null, BENCH_ERR = null, BENCH_INFLIGHT = null;
 
-async function loadBenchPrices() {
-  if (BENCH_PX) return BENCH_PX;
-  try {
-    const c = JSON.parse(localStorage.getItem('cgsBenchPrices') || 'null');
-    if (c && c.eth && (Date.now() - c.ts) < 86400000) { BENCH_PX = c; return c; }
-  } catch (e) {}
+// Три независимых источника дневных котировок. Binance в некоторых сетях и странах
+// недоступен (в частности у мобильных операторов в Индонезии) — без запасных
+// источников карточка молча висела бы в загрузке. Kraken и CoinGecko работают
+// без ключа и отдают CORS. CryptoCompare больше не годится: histoday требует ключ.
+async function loadPxBinance() {
   const start = Date.UTC(2025, 4, 1);
   const grab = async sym => {
     const r = await fetch(`https://api.binance.com/api/v3/klines?symbol=${sym}&interval=1d&startTime=${start}&limit=1000`).then(x => x.json());
+    if (!Array.isArray(r)) throw new Error('bad response');
     const o = {}; r.forEach(k => o[new Date(k[0]).toISOString().slice(0, 10)] = +k[4]); return o;
   };
   const [eth, btc] = await Promise.all([grab('ETHUSDT'), grab('BTCUSDT')]);
-  BENCH_PX = { ts: Date.now(), eth, btc };
-  try { localStorage.setItem('cgsBenchPrices', JSON.stringify(BENCH_PX)); } catch (e) {}
-  return BENCH_PX;
+  return { eth, btc };
+}
+async function loadPxKraken() {
+  const grab = async pair => {
+    const j = await fetch(`https://api.kraken.com/0/public/OHLC?pair=${pair}&interval=1440`).then(r => r.json());
+    if (j.error && j.error.length) throw new Error(j.error[0]);
+    const k = Object.keys(j.result || {}).filter(x => x !== 'last')[0];
+    const o = {}; (j.result[k] || []).forEach(r => o[new Date(r[0] * 1000).toISOString().slice(0, 10)] = +r[4]);
+    return o;
+  };
+  const [eth, btc] = await Promise.all([grab('ETHUSD'), grab('XBTUSD')]);
+  return { eth, btc };
+}
+async function loadPxCoinGecko() {
+  const grab = async id => {
+    const j = await fetch(`https://api.coingecko.com/api/v3/coins/${id}/market_chart?vs_currency=usd&days=365`).then(r => r.json());
+    const o = {}; (j.prices || []).forEach(([t, pz]) => o[new Date(t).toISOString().slice(0, 10)] = pz);
+    return o;
+  };
+  const eth = await grab('ethereum');            // последовательно — у CoinGecko жёсткий лимит
+  const btc = await grab('bitcoin');
+  return { eth, btc };
+}
+
+async function loadBenchPrices(force) {
+  if (BENCH_PX && !BENCH_PX.stale && !force) return BENCH_PX;
+  if (!force) {
+    try {
+      const c = JSON.parse(localStorage.getItem('cgsBenchPrices') || 'null');
+      if (c && c.eth && Object.keys(c.eth).length > 100 && (Date.now() - c.ts) < 86400000) {
+        BENCH_PX = c; BENCH_ERR = null; return c;
+      }
+    } catch (e) {}
+  }
+  // Параллельные вызовы делят один запрос. Раньше здесь стоял флаг, и повторная
+  // попытка во время незавершённого запроса молча возвращала null, не пробуя источники.
+  if (BENCH_INFLIGHT && !force) return BENCH_INFLIGHT;
+  const run = (async () => {
+    const sources = [['Binance', loadPxBinance], ['Kraken', loadPxKraken], ['CoinGecko', loadPxCoinGecko]];
+    const errs = [];
+    for (const [name, fn] of sources) {
+      try {
+        const r = await fn();
+        if (r && r.eth && Object.keys(r.eth).length > 100 && Object.keys(r.btc || {}).length > 100) {
+          BENCH_PX = { ts: Date.now(), src: name, eth: r.eth, btc: r.btc };
+          BENCH_ERR = null;
+          try { localStorage.setItem('cgsBenchPrices', JSON.stringify(BENCH_PX)); } catch (e) {}
+          return BENCH_PX;
+        }
+        errs.push(name + ': пустой ответ');
+      } catch (e) { errs.push(name + ': ' + String(e.message || 'ошибка').slice(0, 40)); }
+    }
+    BENCH_ERR = errs.join(' · ');
+    // просроченный кеш лучше, чем вечная загрузка
+    try {
+      const c = JSON.parse(localStorage.getItem('cgsBenchPrices') || 'null');
+      if (c && c.eth) { BENCH_PX = Object.assign({}, c, { stale: true }); return BENCH_PX; }
+    } catch (e) {}
+    return null;
+  })();
+  BENCH_INFLIGHT = run;
+  try { return await run; } finally { if (BENCH_INFLIGHT === run) BENCH_INFLIGHT = null; }
+}
+
+function retryBenchPrices() {
+  const el = document.getElementById('benchmarkCard');
+  if (el) el.innerHTML = '<span class="loading-text">Загружаю котировки...</span>';
+  loadBenchPrices(true).then(() => renderBenchmark()).catch(() => renderBenchmark());
 }
 
 function benchCashFlows() {
@@ -2187,8 +2252,30 @@ function renderBenchmark() {
   if (!el) return;
   const live = state.zones && state.zones.netWorth;
   const VH = CONFIG.valueHistory;
-  if (!BENCH_PX || live == null || !VH || !VH.values) {
-    el.innerHTML = '<span class="loading-text">Загрузка котировок...</span>'; return;
+  if (live == null || !VH || !VH.values) {
+    el.innerHTML = '<span class="loading-text">Загрузка данных портфеля...</span>'; return;
+  }
+  if (!BENCH_PX) {
+    // Котировки не пришли. Показываем то, что считается без них, и даём кнопку — но НЕ висим в загрузке.
+    const c0 = carrySpread(), u0 = v => '$' + fmt(v, 0);
+    el.innerHTML = `
+      <div style="padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:rgba(210,153,34,.08);margin-bottom:14px">
+        <div style="font-size:12px;color:var(--yellow);font-weight:600;margin-bottom:4px">Котировки не загрузились</div>
+        <div style="font-size:10px;color:var(--dim);line-height:1.5">Доходность и бенчмарк без дневных цен посчитать нельзя.
+        ${BENCH_ERR ? 'Источники: ' + BENCH_ERR + '.' : ''} Часто это блокировка биржевого API у мобильного оператора — попробуй через Wi-Fi или VPN.</div>
+        <button class="btn" style="margin-top:8px;font-size:11px;padding:5px 10px" onclick="retryBenchPrices()">Повторить</button>
+      </div>
+      <div style="font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">
+        Кэрри · считается без котировок</div>
+      <div class="metric" style="border:none;padding:5px 0">
+        <span class="metric-label" style="color:var(--text);font-weight:600">Чистый кэрри в год</span>
+        <span class="metric-value" style="color:${c0.net >= 0 ? 'var(--green)' : 'var(--red)'}">
+          ${c0.net >= 0 ? '+' : '−'}${u0(Math.abs(c0.net))}</span></div>
+      <div class="metric" style="border:none;padding:4px 0"><span class="metric-label">доход механики</span>
+        <span class="metric-value" style="font-size:13px;color:var(--dim)">+${u0(c0.gross)}</span></div>
+      <div class="metric" style="border:none;padding:4px 0"><span class="metric-label">проценты по займу</span>
+        <span class="metric-value" style="font-size:13px;color:var(--dim)">−${u0(c0.cost)}</span></div>`;
+    return;
   }
 
   const E = BENCH_PX.eth, B = BENCH_PX.btc;
@@ -2333,7 +2420,9 @@ function renderBenchmark() {
         дальше идут записанные живые снимки, а последняя точка — живой netWorth по живым ценам.
         Без этого бенчмарк застревал бы на ценах последнего модельного дня и альфа росла бы сама собой.<br><br>
         <b style="color:var(--yellow)">Погрешность.</b> Оценка GM и CLMM даёт около ±$8K на текущей стоимости, это ±3.5%,
-        и примерно ±1 п.п. на альфе. Отрыв меньше этого читай как ничью.
+        и примерно ±1 п.п. на альфе. Отрыв меньше этого читай как ничью.<br><br>
+        <b style="color:var(--text)">Котировки:</b> ${BENCH_PX.src || 'Binance'}${BENCH_PX.stale ? ', <span style="color:var(--yellow)">данные из кеша, свежие не загрузились</span>' : ''}.
+        Источники по очереди: Binance → Kraken → CoinGecko, кеш на сутки.
       </div>
     </details>`;
 }
@@ -2996,6 +3085,8 @@ function renderAll() {
 
 // ======= REFRESH LOGIC =======
 async function refreshAll() {
+  // котировки бенчмарка — тоже обновляем, иначе разовый сбой сети вешает карточку навсегда
+  if (!BENCH_PX || BENCH_PX.stale) loadBenchPrices(true).then(() => renderBenchmark()).catch(() => renderBenchmark());
   const info = document.getElementById('refreshInfo');
   const text = document.getElementById('refreshText');
   const btn = document.getElementById('refreshBtn');

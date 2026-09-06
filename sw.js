@@ -1,10 +1,11 @@
-const CACHE_NAME = 'defi-cgs-v3';
+const CACHE_NAME = 'defi-cgs-v4';
 const SHELL_FILES = [
   './',
   './index.html',
   './manifest.json',
   'https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js'
 ];
+const SHELL_CROSS_ORIGIN = ['cdnjs.cloudflare.com'];
 
 // Install — cache the app shell
 self.addEventListener('install', event => {
@@ -25,33 +26,27 @@ self.addEventListener('activate', event => {
 });
 
 // Fetch strategy:
-//   - API calls (RPC, DeFi Llama, Pendle, CoinGecko, etc.) → network-only
-//   - HTML/index/root navigation → network-first (always try fresh, fall back to cache offline)
-//   - Other shell assets (manifest, icons, ethers.js) → stale-while-revalidate (instant, refresh in bg)
+//   - anything cross-origin that is not app shell (RPC, price APIs, explorers) → network-only,
+//     passed straight through. Раньше здесь был белый список хостов, и всё, чего в нём нет,
+//     попадало в stale-while-revalidate: при сетевой ошибке ветка возвращала undefined,
+//     запрос падал, и карточка «Бенчмарк» вечно висела в загрузке.
+//   - HTML/navigation → network-first (дашборд всегда обновляется)
+//   - shell assets (manifest, icons, ethers.js) → stale-while-revalidate
 self.addEventListener('fetch', event => {
   const req = event.request;
-  const url = new URL(req.url);
 
-  // 1) API calls — always network, no cache fallback
-  if (url.hostname.includes('publicnode.com') ||
-      url.hostname.includes('arbitrum.io') ||
-      url.hostname.includes('llamarpc.com') ||
-      url.hostname.includes('llama.fi') ||
-      url.hostname.includes('defillama.com') ||
-      url.hostname.includes('pendle.finance') ||
-      url.hostname.includes('coingecko.com') ||
-      url.hostname.includes('cryptocompare.com') ||
-      url.hostname.includes('mempool.space') ||
-      url.hostname.includes('blockchain.info') ||
-      url.hostname.includes('gmx.io') ||
-      url.hostname.includes('gmxinfra.io') ||
-      url.hostname.includes('drpc.org') ||
-      url.hostname.includes('1rpc.io')) {
-    event.respondWith(fetch(req));
-    return;
-  }
+  // Не трогаем ничего кроме GET: POST на RPC должен идти мимо кеша всегда.
+  if (req.method !== 'GET') return;
 
-  // 2) HTML / navigation — network-first (so dashboard updates always reach the client)
+  let url;
+  try { url = new URL(req.url); } catch (e) { return; }
+
+  // 1) Всё внешнее, кроме shell-CDN — только сеть, без кеша и без подмены ответа
+  const sameOrigin = url.origin === self.location.origin;
+  const isShellCdn = SHELL_CROSS_ORIGIN.some(h => url.hostname === h);
+  if (!sameOrigin && !isShellCdn) return;   // отдаём браузеру, SW не вмешивается
+
+  // 2) HTML / навигация — network-first
   const isHtml = req.mode === 'navigate' ||
                  req.destination === 'document' ||
                  url.pathname.endsWith('/') ||
@@ -70,7 +65,7 @@ self.addEventListener('fetch', event => {
     return;
   }
 
-  // 3) Other shell assets — stale-while-revalidate
+  // 3) Shell-ассеты — stale-while-revalidate, с гарантией непустого ответа
   event.respondWith(
     caches.match(req).then(cached => {
       const fetchPromise = fetch(req).then(response => {
@@ -79,7 +74,7 @@ self.addEventListener('fetch', event => {
           caches.open(CACHE_NAME).then(cache => cache.put(req, clone));
         }
         return response;
-      }).catch(() => cached);
+      }).catch(() => cached || Response.error());   // никогда не возвращаем undefined
       return cached || fetchPromise;
     })
   );
