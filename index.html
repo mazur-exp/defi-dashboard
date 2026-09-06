@@ -2082,9 +2082,13 @@ function drawPortfolioCurve(el, big) {
 }
 
 
-// ======= БЕНЧМАРК: «те же деньги, те же дни» + XIRR + BTC-эквивалент =======
-// Ничего не берёт из модели valueHistory. Только: capitalIn (сверено с блокчейном),
-// живой netWorth и котировки Binance. Одна база измерения на всю карточку.
+
+// ======= БЕНЧМАРК: только период CGS, с 20.03.2026 =======
+// Одна база измерения. Источники: capitalIn (сверено ончейн), живой netWorth,
+// котировки Binance и живые ставки протоколов. Модельная кривая используется
+// ТОЛЬКО как стартовая точка 20.03.2026, с вычетом доказанной ошибки $19.9K
+// (повторный заём 19,763 USDC 20.03.2026, который модель не записала в долг).
+const CGS_START = '2026-03-20';
 let BENCH_PX = null;
 
 async function loadBenchPrices() {
@@ -2112,19 +2116,8 @@ function benchCashFlows() {
   return cf.sort((a, b) => a[0] < b[0] ? -1 : 1);
 }
 
-function xirr(flows, finalDate, finalValue) {
-  const all = flows.map(([d, a]) => [d, -a]).concat([[finalDate, finalValue]]);
-  const t0 = Date.parse(all[0][0]);
-  const npv = r => all.reduce((s, [d, a]) => s + a / Math.pow(1 + r, (Date.parse(d) - t0) / 31557600000), 0);
-  let lo = -0.95, hi = 10;
-  if (npv(lo) < 0) return null;
-  for (let i = 0; i < 200; i++) { const m = (lo + hi) / 2; if (npv(m) > 0) lo = m; else hi = m; }
-  return lo;
-}
-
-// Фактический состав портфеля прямо сейчас, в долях собственного капитала.
-// Нужен, чтобы бенчмарк соответствовал реальному риску, а не выдуманным 80/20.
-// Долг вычитается из стейбл-части: он профинансирован крипто-залогом, но сам — долларовый.
+// Фактический состав портфеля в долях собственного капитала.
+// Долг вычитается из стейбл-части: он профинансирован крипто-залогом, но сам долларовый.
 function portfolioMix() {
   const FB = { wE: .70, wB: .20, wS: .10, fallback: true };
   const z = state.zones, pr = state.prices;
@@ -2134,139 +2127,192 @@ function portfolioMix() {
   const w = state.wallet || {}, wm = state.walletETHMain || {}, wb = state.walletBase || {};
   const amt = (o, k) => (o && o[k] && o[k].amount) || 0;
   const u = state.uniswap || {}, g = state.gm || {};
-  // GM-пул GMX ≈ половина базовый актив, половина USDC
   const gmEth = (g.ethBal || 0) * (g.ethPrice || 0), gmBtc = (g.btcBal || 0) * (g.btcPrice || 0);
-
   const eth = (sup('WETH') + amt(w, 'ETH') + amt(w, 'WETH') + amt(wm, 'ETH') + amt(wm, 'WETH') + amt(wb, 'ETH')
     + (u.wethAmount || 0) + (u.wethFees || 0)) * pr.ETH + gmEth / 2;
   const btc = (sup('WBTC') + amt(w, 'WBTC') + (state.btcBalance || 0)) * pr.BTC + gmBtc / 2;
   const stab = ((state.pendle || {}).ptValue || 0) + (u.usdcAmount || 0) + (u.usdcFees || 0) + gmEth / 2 + gmBtc / 2
     + amt(w, 'USDC') + amt(w, 'USDC.e') + amt(w, 'USDT') + amt(wm, 'USDT') + amt(wm, 'USDC') + amt(wb, 'USDC')
     - ((state.aave || {}).debt || 0);
-
   const sum = eth + btc + stab;
   if (!(eth > 0) || !(sum > 0)) return FB;
-  return { wE: eth / sum, wB: btc / sum, wS: stab / sum, fallback: false };  // нормируем: бенчмарк вкладывает ровно те же деньги
+  return { wE: eth / sum, wB: btc / sum, wS: stab / sum, fallback: false };
+}
+
+// Что механика приносит сейчас, по живым ставкам, минус стоимость займа.
+function carrySpread() {
+  const g = state.gm || {}, u = state.uniswap || {}, p = state.pendle || {},
+        res = state.aaveReserves || {}, pr = state.prices || {}, a = state.aave || {};
+  const rows = [];
+  if (p.ptValue > 0) rows.push({ n: 'Pendle PT', v: p.ptValue, r: p.impliedApy || 0 });
+  const clmm = (u.positionValueUSD || 0) + (u.feesValueUSD || 0);
+  if (clmm > 0) rows.push({ n: 'CLMM Base', v: clmm, r: (u.aprFromFees || 0) / 100 });
+  const gmE = (g.ethBal || 0) * (g.ethPrice || 0), gmB = (g.btcBal || 0) * (g.btcPrice || 0);
+  if (gmE > 0) rows.push({ n: 'GM ETH', v: gmE, r: g.ethFeeApr || 0 });
+  if (gmB > 0) rows.push({ n: 'GM BTC', v: gmB, r: g.btcFeeApr || 0 });
+  let supV = 0, supY = 0;
+  Object.entries(res).forEach(([k, r]) => {
+    const price = k === 'WETH' ? pr.ETH : k === 'WBTC' ? pr.BTC : 1;
+    const v = (r.supplied || 0) * (price || 0);
+    supV += v; supY += v * ((r.supplyAPY || 0) / 100);
+  });
+  if (supV > 0) rows.push({ n: 'Залог в Aave', v: supV, r: supY / supV });
+  const gross = rows.reduce((s, x) => s + x.v * x.r, 0);
+  const debt = a.debt || 0;
+  const bAPY = ((res.USDC && res.USDC.borrowAPY) || 0) / 100;
+  const cost = debt * bAPY;
+  return { rows, gross, debt, bAPY, cost, net: gross - cost };
 }
 
 function renderBenchmark() {
   const el = document.getElementById('benchmarkCard');
   if (!el) return;
   const live = state.zones && state.zones.netWorth;
-  if (!BENCH_PX || live == null) { el.innerHTML = '<span class="loading-text">Загрузка котировок...</span>'; return; }
+  const VH = CONFIG.valueHistory;
+  if (!BENCH_PX || live == null || !VH || !VH.values) {
+    el.innerHTML = '<span class="loading-text">Загрузка котировок...</span>'; return;
+  }
 
   const E = BENCH_PX.eth, B = BENCH_PX.btc;
   const px = (d, m) => { let k = d; for (let i = 0; i < 12 && !m[k]; i++) k = new Date(Date.parse(k) - 86400000).toISOString().slice(0, 10); return m[k]; };
-  const cf = benchCashFlows();
-  const today = new Date().toISOString().slice(0, 10);
-  const lastPxDay = Object.keys(E).sort().pop();
-  const ethNow = E[lastPxDay], btcNow = B[lastPxDay];
-  const netIn = cf.reduce((s, [, a]) => s + a, 0);
+  const cf = benchCashFlows(), mix = portfolioMix();
+  const N = VH.values.length, n = N - 1;
+  const dates = VH.values.map((_, i) => new Date(Date.parse(VH.start) + i * 86400000).toISOString().slice(0, 10));
+  const i0 = dates.indexOf(CGS_START);
+  if (i0 < 1) { el.innerHTML = '<span class="loading-text">нет данных</span>'; return; }
 
-  // те же деньги, те же дни — во что бы они превратились
-  const finalOf = (wE, wB, wS) => { let qe = 0, qb = 0, st = 0;
-    cf.forEach(([d, a]) => { qe += a * wE / px(d, E); qb += a * wB / px(d, B); st += a * wS; });
-    return qe * ethNow + qb * btcNow + st; };
+  // Портфель: модель минус доказанная ошибка, живой конец, поверх — реальные снимки
+  const err = VH.values[n] - live;
+  const port = VH.values.map((v, i) => i < i0 ? v : v - err);
+  port[n] = Math.round(live);
+  const snap = (typeof netWorthLog === 'function') ? netWorthLog() : {};
+  dates.forEach((d, i) => { if (i >= i0 && snap[d] > 0) port[i] = snap[d]; });
+  const v0 = port[i0];
 
-  const mix = portfolioMix();
-  const p0 = v => fmt(v * 100, 0);
-  const rows = [
-    { n: 'Твой же состав, но пассивно', sub: `${p0(mix.wE)}% ETH · ${p0(mix.wB)}% BTC · ${p0(mix.wS)}% стейблы${mix.fallback ? ' (плановые доли)' : ''}`,
-      v: finalOf(mix.wE, mix.wB, mix.wS), risk: true },
-    { n: '100% ETH',          v: finalOf(1, 0, 0) },
-    { n: '100% BTC',          v: finalOf(0, 1, 0) },
-    { n: '80/20 ETH/стейблы', v: finalOf(.8, 0, .2) },
-  ].map(r => ({ ...r, d: live - r.v, irr: xirr(cf, today, r.v) }));
-  rows.sort((a, b) => b.v - a.v);
+  // Бенчмарк: тот же капитал в тот же день + те же доливки, куплено пассивно
+  const flow = {}; cf.filter(([d]) => d > CGS_START).forEach(([d, a]) => flow[d] = (flow[d] || 0) + a);
+  const bser = (wE, wB, wS) => { let qe = v0 * wE / px(CGS_START, E), qb = v0 * wB / px(CGS_START, B), st = v0 * wS;
+    return dates.map((d, i) => { if (i < i0) return 0; const c = flow[d] || 0;
+      if (c) { qe += c * wE / px(d, E); qb += c * wB / px(d, B); st += c * wS; }
+      return qe * px(d, E) + qb * px(d, B) + st; }); };
+  const bm = bser(mix.wE, mix.wB, mix.wS), bBtc = bser(0, 1, 0);
 
-  // BTC-эквивалент
-  let btcIf = 0; cf.forEach(([d, a]) => { const p = px(d, B); if (p) btcIf += a / p; });
-  const btcNowQty = live / btcNow, btcGain = btcNowQty - btcIf;
+  // NAV-индекс помесячно — убирает влияние доливок
+  const mEnd = {}; dates.forEach((d, i) => { if (i >= i0) mEnd[d.slice(0, 7)] = i; });
+  const months = Object.keys(mEnd).sort(), FROM = months[1];
+  const cfM = {}; cf.forEach(([d, a]) => { const m = d.slice(0, 7); if (d > CGS_START) cfM[m] = (cfM[m] || 0) + a; });
+  const nav = vals => { let acc = 1; const out = [];
+    for (let j = 1; j < months.length; j++) { const m = months[j];
+      const a0 = vals[mEnd[months[j - 1]]], a1 = vals[mEnd[m]], c = cfM[m] || 0;
+      if (a0 > 0) acc *= (a1 - c) / a0;
+      out.push([m, acc]); } return out; };
+  const nP = nav(port), nB = nav(bm), nBtc = nav(bBtc);
+  const lastOf = a => a.length ? a[a.length - 1][1] - 1 : 0;
+  const dd = a => { let pk = 1, mx = 0; a.forEach(([, v]) => { if (v > pk) pk = v; const d = (v - pk) / pk; if (d < mx) mx = d; }); return mx; };
+  const rP = lastOf(nP), rB = lastOf(nB), rBtc = lastOf(nBtc);
+  const alpha = rP - rB;
 
-  const irrPort = xirr(cf, today, live);
-  const beaten = rows.filter(r => r.d > 0).length;
-  const bm = rows.find(r => r.risk);
+  // BTC-эквивалент за тот же период
+  let btcIf = v0 / px(CGS_START, B);
+  cf.filter(([d]) => d > CGS_START).forEach(([d, a]) => { const p = px(d, B); if (p) btcIf += a / p; });
+  const btcNow = B[Object.keys(B).sort().pop()], btcQty = live / btcNow, btcGain = btcQty - btcIf;
 
+  const cs = carrySpread();
+  const MON = { '01': 'янв', '02': 'фев', '03': 'мар', '04': 'апр', '05': 'май', '06': 'июн',
+                '07': 'июл', '08': 'авг', '09': 'сен', '10': 'окт', '11': 'ноя', '12': 'дек' };
   const pc = v => (v >= 0 ? '+' : '−') + fmt(Math.abs(v * 100), 1) + '%';
+  const pp = v => (v >= 0 ? '+' : '−') + fmt(Math.abs(v * 100), 1) + ' п.п.';
   const usd0 = v => '$' + fmt(v, 0);
-  const money = v => (v >= 0 ? '+' : '−') + '$' + fmt(Math.abs(v), 0);
   const col = v => v >= 0 ? 'var(--green)' : 'var(--red)';
+  const th = 'font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:1px;padding:0 0 6px';
+  const td = 'padding:5px 0;border-top:1px solid var(--border);font-size:12px';
 
   el.innerHTML = `
-    <div style="text-align:center;padding:4px 0 14px;border-bottom:1px solid var(--border);margin-bottom:14px">
-      <div style="font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:1px">Против бенчмарка по риску · твой же состав пассивно</div>
-      <div style="font-size:30px;font-weight:700;letter-spacing:-.5px;color:${col(bm.d)};margin-top:4px">
-        ${money(bm.d)}</div>
+    <div style="text-align:center;padding:4px 0 14px;border-bottom:1px solid var(--border);margin-bottom:16px">
+      <div style="font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:1px">
+        Альфа с 20.03.2026 · против своего же состава пассивно</div>
+      <div style="font-size:32px;font-weight:700;letter-spacing:-.5px;color:${col(alpha)};margin-top:4px">${pp(alpha)}</div>
       <div style="font-size:11px;color:var(--dim);margin-top:2px">
-        ${pc(bm.d / bm.v)} к бенчмарку · обгоняешь ${beaten} из ${rows.length} стратегий</div>
-      <div style="font-size:11px;color:var(--dim);margin-top:6px">
-        заведено чистыми ${usd0(netIn)} · сейчас ${usd0(live)} · <span style="color:${col(live - netIn)}">${money(live - netIn)}</span></div>
+        портфель ${pc(rP)} · пассив ${pc(rB)}</div>
+      <div style="font-size:11px;color:var(--dim);margin-top:5px">
+        бенчмарк = ${fmt(mix.wE * 100, 0)}% ETH · ${fmt(mix.wB * 100, 0)}% BTC · ${fmt(mix.wS * 100, 0)}% стейблы${mix.fallback ? ' (плановые)' : ''}, куплено и не тронуто</div>
     </div>
 
-    <div style="font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">
-      Те же деньги, те же дни — если бы просто купил и держал</div>
-    <div style="font-size:10px;color:var(--dim);margin-bottom:10px;line-height:1.5">
-      Каждый твой ввод пересчитан по цене того дня, выводы вычтены. Справа — насколько твой портфель впереди или позади.</div>
+    <div style="${th}">Доходность и риск · с запуска CGS</div>
+    <table style="width:100%;border-collapse:collapse">
+      <tr><td style="${td};border-top:none;color:var(--dim)"></td>
+        <td style="${td};border-top:none;text-align:right;font-size:10px;color:var(--dim)">ПОРТФЕЛЬ</td>
+        <td style="${td};border-top:none;text-align:right;font-size:10px;color:var(--dim)">ПАССИВ</td></tr>
+      <tr><td style="${td}">Доходность</td>
+        <td style="${td};text-align:right;font-weight:700;color:${col(rP)}">${pc(rP)}</td>
+        <td style="${td};text-align:right;color:var(--dim)">${pc(rB)}</td></tr>
+      <tr><td style="${td}">Максимальная просадка</td>
+        <td style="${td};text-align:right;font-weight:700;color:${col(dd(nP) - dd(nB))}">${pc(dd(nP))}</td>
+        <td style="${td};text-align:right;color:var(--dim)">${pc(dd(nB))}</td></tr>
+      <tr><td style="${td};color:var(--dim)">100% BTC · справочно</td>
+        <td style="${td}"></td>
+        <td style="${td};text-align:right;color:var(--dim)">${pc(rBtc)}</td></tr>
+    </table>
 
-    <div class="metric" style="border:none;padding:6px 0;background:rgba(88,166,255,.07);border-radius:6px;padding-left:8px;padding-right:8px">
-      <span class="metric-label" style="color:var(--text);font-weight:600">Твой портфель</span>
-      <span class="metric-value">${usd0(live)}</span></div>
-    ${rows.map(r => `<div class="metric" style="border:none;padding:6px 8px">
-      <span class="metric-label">${r.n}${r.risk ? ' · бенчмарк по риску' : ''}<br>
-        <span style="font-size:10px;color:var(--dim)">${usd0(r.v)}${r.sub ? ' · ' + r.sub : ''}</span></span>
-      <span class="metric-value" style="color:${col(r.d)}">${money(r.d)}</span></div>`).join('')}
+    <div style="${th};padding-top:16px">По месяцам · нарастающим итогом</div>
+    <table style="width:100%;border-collapse:collapse">
+      <tr><td style="${td};border-top:none;font-size:10px;color:var(--dim)">МЕСЯЦ</td>
+        <td style="${td};border-top:none;text-align:right;font-size:10px;color:var(--dim)">ПОРТФЕЛЬ</td>
+        <td style="${td};border-top:none;text-align:right;font-size:10px;color:var(--dim)">ПАССИВ</td>
+        <td style="${td};border-top:none;text-align:right;font-size:10px;color:var(--dim)">ОТРЫВ</td></tr>
+      ${nP.map(([m, v], k) => { const b = nB[k][1], g = v - b; return `<tr>
+        <td style="${td}">${MON[m.slice(5)]} ${m.slice(2, 4)}</td>
+        <td style="${td};text-align:right">${pc(v - 1)}</td>
+        <td style="${td};text-align:right;color:var(--dim)">${pc(b - 1)}</td>
+        <td style="${td};text-align:right;font-weight:600;color:${col(g)}">${pp(g)}</td></tr>`; }).join('')}
+    </table>
 
-    <div style="font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:1px;margin:16px 0 8px">
-      XIRR · годовая доходность с учётом дат вводов</div>
-    <div class="metric" style="border:none;padding:5px 0">
-      <span class="metric-label" style="color:var(--text);font-weight:600">Твой портфель</span>
-      <span class="metric-value" style="color:${col(irrPort)}">${pc(irrPort)} годовых</span></div>
-    ${rows.map(r => `<div class="metric" style="border:none;padding:4px 0"><span class="metric-label">${r.n}</span>
-      <span class="metric-value" style="font-size:13px;color:var(--dim)">${pc(r.irr)} годовых</span></div>`).join('')}
+    <div style="${th};padding-top:16px">Кэрри · что механика приносит по текущим ставкам</div>
+    <table style="width:100%;border-collapse:collapse">
+      ${cs.rows.map(r => `<tr>
+        <td style="${td}">${r.n}<br><span style="font-size:10px;color:var(--dim)">${usd0(r.v)} · ${fmt(r.r * 100, 2)}%</span></td>
+        <td style="${td};text-align:right;color:var(--green)">+${usd0(r.v * r.r)}</td></tr>`).join('')}
+      <tr><td style="${td}">Проценты по займу<br><span style="font-size:10px;color:var(--dim)">${usd0(cs.debt)} · ${fmt(cs.bAPY * 100, 2)}%</span></td>
+        <td style="${td};text-align:right;color:var(--red)">−${usd0(cs.cost)}</td></tr>
+      <tr><td style="${td};font-weight:700;border-top:1px solid var(--border)">Чистый кэрри в год</td>
+        <td style="${td};text-align:right;font-weight:700;color:${col(cs.net)};border-top:1px solid var(--border)">
+          ${cs.net >= 0 ? '+' : '−'}${usd0(Math.abs(cs.net))}<br>
+          <span style="font-size:10px;color:var(--dim)">${pc(cs.net / live)} на капитал</span></td></tr>
+    </table>
 
-    <div style="font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:1px;margin:16px 0 8px">
-      BTC-эквивалент · метрика Capital Growth</div>
+    <div style="${th};padding-top:16px">BTC-эквивалент · метрика Capital Growth</div>
     <div class="metric" style="border:none;padding:5px 0">
       <span class="metric-label" style="color:var(--text);font-weight:600">Сверх простой покупки BTC</span>
       <span class="metric-value" style="color:${col(btcGain)}">${btcGain >= 0 ? '+' : '−'}${fmt(Math.abs(btcGain), 4)} BTC</span></div>
     <div class="metric" style="border:none;padding:4px 0"><span class="metric-label">портфель в биткоинах</span>
-      <span class="metric-value" style="font-size:13px;color:var(--dim)">${fmt(btcNowQty, 4)} BTC</span></div>
-    <div class="metric" style="border:none;padding:4px 0"><span class="metric-label">если бы просто покупал BTC</span>
+      <span class="metric-value" style="font-size:13px;color:var(--dim)">${fmt(btcQty, 4)} BTC</span></div>
+    <div class="metric" style="border:none;padding:4px 0"><span class="metric-label">если бы 20.03 купил BTC и доливал в BTC</span>
       <span class="metric-value" style="font-size:13px;color:var(--dim)">${fmt(btcIf, 4)} BTC</span></div>
 
     <details style="margin-top:14px">
       <summary style="cursor:pointer;font-size:11px;color:var(--accent)">Как это считается и чему верить</summary>
       <div style="font-size:10px;color:var(--dim);margin-top:8px;line-height:1.6">
-        <b style="color:var(--text)">Одна база измерения на всю карточку.</b> Всё считается из трёх вещей: вводы и выводы
-        из capitalIn (сверены с блокчейном), стоимость портфеля прямо сейчас из state.zones.netWorth (то же число,
-        что в карточке «Вложено своих») и котировки Binance. Модельная кривая valueHistory здесь <b>не участвует</b> —
-        она приблизительная, и смешивать её с живым расчётом нельзя.<br><br>
-        <b style="color:var(--text)">«Те же деньги, те же дни»</b> — каждый ввод переводится в актив по цене того дня,
-        выводы вычитаются, остаток оценивается по сегодняшней цене. Бенчмарки идут без комиссий, без налогов и без
-        газа — то есть в идеальных для них условиях. Если ты их обгоняешь, обгоняешь с запасом.<br><br>
-        <b style="color:var(--text)">Бенчмарк по риску — твой же состав.</b> Доли ETH / BTC / стейблов берутся
-        живьём из текущего портфеля: залог в Aave, кошельки, половина каждого GM-пула (вторая половина там USDC),
-        крипто-часть CLMM, PT как долларовый инструмент, долг Aave вычитается из стейбл-части. Эти доли прогоняются
-        через тот же график вводов. Смысл: что было бы, если бы ты держал ровно те же активы, но <b style="color:var(--text)">без
-        Aave, без плеча, без GM, без Pendle и без LP</b> — просто купил и не трогал. Разница и есть цена всей механики.
-        Строки 100% ETH и 80/20 оставлены справочно, они не соответствуют твоему риску.<br><br>
-        <b style="color:var(--text)">XIRR</b> — внутренняя норма доходности с учётом дат всех вводов. Твоя фактическая
-        годовая доходность как инвестора. Бенчмарки прогнаны через тот же график вводов.<br><br>
-        <b style="color:var(--text)">Что уже сидит в цифре портфеля.</b> Всё считается от живого netWorth, поэтому
-        внутрь автоматически попали: газ и комиссии свопов и мостов (они уменьшили реальные активы), проценты по займу
-        Aave (долг рос), проценты на залог, комиссии LP, доход GM и Pendle. Крипта, которая появилась не из твоих
-        пополнений, а из работы портфеля, — тоже здесь: это ровно разница между netWorth и заведёнными деньгами.<br><br>
-        <b style="color:var(--text)">Чего в цифре нет.</b> Налогов — ни с твоей стороны, ни у бенчмарков. И денег,
-        потерянных <b style="color:var(--text)">вне</b> портфеля: грид-бот и копитрейдинг на Bybit, спред при покупке.
-        В capitalIn попало только то, что реально дошло до кошелька. То есть карточка про портфель, а не про весь
-        твой путь в крипте — по всем деньгам картина хуже.<br><br>
-        <b style="color:var(--text)">Бенчмарки не платят ничего:</b> ни газа, ни комиссий, ни спреда, ни налога.
-        Поэтому ничья с бенчмарком по факту означает, что доходность механики покрыла её собственную стоимость.<br><br>
-        <b style="color:var(--yellow)">Погрешность.</b> Оценка GM-пулов и CLMM даёт около ±$8K на текущей стоимости.
-        Отрыв меньше $8K читай как ничью, а не как победу или поражение.<br><br>
-        <b style="color:var(--text)">Чего здесь нет.</b> TWR (доходность без влияния тайминга вводов) убран:
-        для него нужна дневная история стоимости на той же базе, а её пока нет — есть только приблизительная модель.
-        Как появится — верну.
+        <b style="color:var(--text)">Почему только с 20.03.2026.</b> До этой даты работала другая стратегия — LP на Unichain без плеча.
+        Смешивать её с CGS нельзя: получится средняя температура по больнице. За всё время с мая 2025 портфель отстаёт
+        от пассива примерно на 1.6 п.п., и весь этот проигрыш накоплен до марта.<br><br>
+        <b style="color:var(--text)">Бенчмарк.</b> Берётся твой собственный состав активов на сегодня и
+        «покупается» 20.03.2026 на ту же сумму, что была у тебя в тот день, плюс все последующие доливки в те же дни.
+        Дальше он не трогается: ни Aave, ни плеча, ни GM, ни Pendle, ни LP. Разница и есть цена всей механики.
+        Бенчмарк при этом не платит ни газа, ни комиссий, ни налога — то есть играет в идеальных для себя условиях.<br><br>
+        <b style="color:var(--text)">Доходность — NAV-индекс</b> (помесячная цепочка, стандарт GIPS): показывает,
+        что стало с одним твоим долларом, и не зависит от того, когда и сколько ты доливал. Долларовая разница здесь врёт,
+        потому что ты постоянно вносишь деньги.<br><br>
+        <b style="color:var(--text)">Просадка обязательна рядом с доходностью.</b> У тебя плечо. Доходность, купленная
+        ростом риска, — это не альфа. Если твоя просадка меньше или равна пассивной, отрыв заработан честно.<br><br>
+        <b style="color:var(--text)">Кэрри</b> считается по ставкам прямо сейчас, а не по истории: сколько каждая позиция
+        приносит в год минус проценты по займу. Это цифра для решения «держать плечо или сворачивать».
+        Она не равна альфе: альфа уже случилась, кэрри — про то, что будет дальше.<br><br>
+        <b style="color:var(--text)">Стартовая точка 20.03.2026</b> взята из модельной кривой за вычетом доказанной ошибки
+        ${usd0(Math.abs(err))}: в тот день ты в 10:45 погасил 19,763 USDC долга и в 11:24 занял их обратно, а модель
+        повторный заём в долг не записала. Ошибка совпадает с превышением модели над живым расчётом сегодня
+        с точностью до нескольких долларов.<br><br>
+        <b style="color:var(--yellow)">Погрешность.</b> Оценка GM и CLMM даёт около ±$8K на текущей стоимости, это ±3.5%,
+        и примерно ±1 п.п. на альфе. Отрыв меньше этого читай как ничью.
       </div>
     </details>`;
 }
