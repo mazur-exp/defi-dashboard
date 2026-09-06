@@ -45,6 +45,19 @@
 
   .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 16px; margin-bottom: 16px; }
   .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 20px; }
+  .curve-expand { background: transparent; border: 1px solid var(--border); color: var(--dim); border-radius: 6px;
+    width: 26px; height: 26px; font-size: 13px; line-height: 1; cursor: pointer; flex-shrink: 0; transition: all .15s; }
+  .curve-expand:hover { color: var(--accent); border-color: var(--accent); background: rgba(88,166,255,.08); }
+  .curve-modal { position: fixed; inset: 0; background: rgba(1,4,9,.82); z-index: 900; display: flex;
+    align-items: center; justify-content: center; padding: 24px; backdrop-filter: blur(3px); }
+  .curve-modal-box { background: var(--card); border: 1px solid var(--border); border-radius: 14px;
+    width: 100%; max-width: 1500px; max-height: 94vh; overflow-y: auto; padding: 20px 22px; box-shadow: 0 20px 60px rgba(0,0,0,.6); }
+  .curve-modal-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
+  .curve-modal-head .t { font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: var(--dim); }
+  .curve-close { background: transparent; border: 1px solid var(--border); color: var(--dim); border-radius: 6px;
+    width: 28px; height: 28px; font-size: 15px; line-height: 1; cursor: pointer; flex-shrink: 0; }
+  .curve-close:hover { color: var(--red); border-color: var(--red); }
+  @media (max-width: 700px) { .curve-modal { padding: 10px; } .curve-modal-box { padding: 14px; max-height: 96vh; } }
   .card-title { font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: var(--dim); margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
   .card-title .icon { font-size: 16px; }
 
@@ -332,7 +345,10 @@
 
   <!-- Кривая стоимости портфеля против заведённых денег -->
   <div class="card">
-    <div class="card-title"><span class="icon">📈</span> Стоимость портфеля и заведённые деньги</div>
+    <div class="card-title" style="justify-content:space-between">
+      <span style="display:flex;align-items:center;gap:8px"><span class="icon">📈</span> Стоимость портфеля и заведённые деньги</span>
+      <button class="curve-expand" onclick="openCurveModal()" title="Развернуть график" aria-label="Развернуть график на весь экран">⤢</button>
+    </div>
     <div id="portfolioCurve"><span class="loading-text">Загрузка...</span></div>
   </div>
 
@@ -1874,8 +1890,38 @@ function renderCapitalIn() {
     </details>`;
 }
 
+function openCurveModal() {
+  if (document.querySelector('.curve-modal')) return;
+  const m = document.createElement('div');
+  m.className = 'curve-modal';
+  m.innerHTML = `<div class="curve-modal-box">
+      <div class="curve-modal-head">
+        <span class="t">📈 Стоимость портфеля и заведённые деньги</span>
+        <button class="curve-close" onclick="closeCurveModal()" title="Закрыть (Esc)" aria-label="Закрыть">✕</button>
+      </div>
+      <div id="portfolioCurveBig"></div>
+    </div>`;
+  m.addEventListener('click', e => { if (e.target === m) closeCurveModal(); });
+  document.body.appendChild(m);
+  document.body.style.overflow = 'hidden';
+  document.addEventListener('keydown', curveEsc);
+  drawPortfolioCurve(document.getElementById('portfolioCurveBig'), true);
+}
+function closeCurveModal() {
+  const m = document.querySelector('.curve-modal');
+  if (m) m.remove();
+  document.body.style.overflow = '';
+  document.removeEventListener('keydown', curveEsc);
+}
+function curveEsc(e) { if (e.key === 'Escape') closeCurveModal(); }
+
 function renderPortfolioCurve() {
-  const el = document.getElementById('portfolioCurve');
+  drawPortfolioCurve(document.getElementById('portfolioCurve'), false);
+  const big = document.getElementById('portfolioCurveBig');
+  if (big) drawPortfolioCurve(big, true); // модалка открыта — обновляем и её
+}
+
+function drawPortfolioCurve(el, big) {
   if (!el) return;
   const VH = CONFIG.valueHistory;
   if (!VH || !VH.values || !VH.values.length) { el.innerHTML = '<span class="loading-text">нет данных</span>'; return; }
@@ -1898,7 +1944,7 @@ function renderPortfolioCurve() {
     (ci.withdrawals || []).reduce((s, x) => s + (x.date <= d ? (x.usd || 0) : 0), 0));
 
   const n = port.length;
-  const W = 1000, H = 320, ML = 58, MR = 14, MT = 16, MB = 34;
+  const W = 1000, H = big ? 500 : 320, ML = 58, MR = 14, MT = 16, MB = 34;
   const iw = W - ML - MR, ih = H - MT - MB;
   const maxV = Math.max(...port, ...dep) * 1.07;
   const X = i => ML + i / (n - 1) * iw, Y = v => MT + ih - v / maxV * ih;
