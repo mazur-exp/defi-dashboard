@@ -48,6 +48,12 @@
   .curve-expand { background: transparent; border: 1px solid var(--border); color: var(--dim); border-radius: 6px;
     width: 26px; height: 26px; font-size: 13px; line-height: 1; cursor: pointer; flex-shrink: 0; transition: all .15s; }
   .curve-expand:hover { color: var(--accent); border-color: var(--accent); background: rgba(88,166,255,.08); }
+  .upd-bar { position: fixed; left: 0; right: 0; top: 0; z-index: 1000; display: flex; align-items: center;
+    justify-content: center; gap: 12px; flex-wrap: wrap; padding: 10px 14px; background: #1f6feb;
+    color: #fff; font-size: 13px; box-shadow: 0 2px 12px rgba(0,0,0,.4); }
+  .upd-bar button { background: #fff; color: #1f6feb; border: 0; border-radius: 6px; padding: 6px 14px;
+    font-size: 13px; font-weight: 600; cursor: pointer; }
+  .upd-bar .x { background: transparent; color: #fff; font-weight: 400; opacity: .8; padding: 6px 8px; }
   .curve-modal { position: fixed; inset: 0; background: rgba(1,4,9,.82); z-index: 900; display: flex;
     align-items: center; justify-content: center; padding: 24px; backdrop-filter: blur(3px); }
   .curve-modal-box { background: var(--card); border: 1px solid var(--border); border-radius: 14px;
@@ -592,7 +598,7 @@ if (sessionStorage.getItem('defi_auth') === '1') {
 <script>
 // ======= CONFIGURATION =======
 const CONFIG = {
-  buildId: '2026-09-07.1',   // видно на карточке «Бенчмарк» — чтобы по скриншоту было ясно, какая сборка
+  buildId: '2026-09-07.2',   // видно на карточке «Бенчмарк» — чтобы по скриншоту было ясно, какая сборка
   wallet: '0x50E779Be63945354414162a05416E48DEDB8376E',
   btcWallet: 'bc1qn576x99g0devh8cnf0d45kradm5t06j4x2g9cp',
   rpc: 'https://arbitrum-one-rpc.publicnode.com',
@@ -3123,6 +3129,7 @@ function renderAll() {
 
 // ======= REFRESH LOGIC =======
 async function refreshAll() {
+  checkForUpdate();   // проверка новой сборки — на каждом обновлении данных
   // котировки бенчмарка — тоже обновляем, иначе разовый сбой сети вешает карточку навсегда
   if (!BENCH_PX || BENCH_PX.stale) loadBenchPrices(true).then(() => renderBenchmark()).catch(() => renderBenchmark());
   const info = document.getElementById('refreshInfo');
@@ -3416,8 +3423,49 @@ async function loadMVSData() {
   }
 }
 
+// ======= САМООБНОВЛЕНИЕ =======
+// На iOS у приложения с рабочего стола своё хранилище и свой service worker,
+// отдельные от Safari. Без этой проверки оно застревает на старой сборке, и
+// единственным способом обновиться остаётся удалить иконку и добавить заново —
+// ровно это и пришлось делать 07.09.2026. Маячок version.json запрашивается
+// мимо любых кешей и сравнивается с CONFIG.buildId.
+let UPD_SHOWN = false;
+async function checkForUpdate() {
+  try {
+    const r = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
+    if (!r.ok) return;
+    const j = await r.json();
+    if (j.build && CONFIG.buildId && j.build !== CONFIG.buildId && !UPD_SHOWN) showUpdateBar(j.build);
+  } catch (e) { /* нет сети — молчим */ }
+  // заодно просим браузер перепроверить сам service worker
+  try {
+    const regs = await navigator.serviceWorker.getRegistrations();
+    regs.forEach(reg => { try { const u = reg.update(); if (u && u.catch) u.catch(() => {}); } catch (e) {} });
+  } catch (e) {}
+}
+
+function showUpdateBar(build) {
+  if (document.querySelector('.upd-bar')) return;
+  UPD_SHOWN = true;
+  const bar = document.createElement('div');
+  bar.className = 'upd-bar';
+  bar.innerHTML = `<span>Вышла новая версия дашборда — ${build}. Твоя: ${CONFIG.buildId}.</span>
+    <button onclick="applyUpdate()">Обновить</button>
+    <button class="x" onclick="this.parentNode.remove()">Позже</button>`;
+  document.body.appendChild(bar);
+}
+
+async function applyUpdate() {
+  const b = document.querySelector('.upd-bar');
+  if (b) b.innerHTML = '<span>Обновляю...</span>';
+  try { const regs = await navigator.serviceWorker.getRegistrations(); for (const r of regs) await r.unregister(); } catch (e) {}
+  try { if (window.caches) { for (const k of await caches.keys()) await caches.delete(k); } } catch (e) {}
+  location.replace(location.pathname + '?v=' + Date.now());
+}
+
 // ======= INIT =======
 function startApp() {
+  checkForUpdate();
   loadBenchPrices().then(() => renderBenchmark()).catch(e => console.log('bench prices:', e.message));
   initProviders().then(() => {
     refreshAll();

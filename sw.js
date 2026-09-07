@@ -1,4 +1,4 @@
-const CACHE_NAME = 'defi-cgs-v4';
+const CACHE_NAME = 'defi-cgs-v5';
 const SHELL_FILES = [
   './',
   './index.html',
@@ -45,6 +45,11 @@ self.addEventListener('fetch', event => {
   const sameOrigin = url.origin === self.location.origin;
   const isShellCdn = SHELL_CROSS_ORIGIN.some(h => url.hostname === h);
   if (!sameOrigin && !isShellCdn) return;   // отдаём браузеру, SW не вмешивается
+
+  // 1b) version.json — только сеть, никогда не из кеша.
+  // Это маячок обновления: если его закешировать, приложение на рабочем столе
+  // никогда не узнает о новой сборке и застрянет на старой навсегда.
+  if (url.pathname.endsWith('version.json')) { event.respondWith(fetch(req, { cache: 'no-store' })); return; }
 
   // 2) HTML / навигация — network-first
   const isHtml = req.mode === 'navigate' ||
