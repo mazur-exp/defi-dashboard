@@ -592,7 +592,7 @@ if (sessionStorage.getItem('defi_auth') === '1') {
 <script>
 // ======= CONFIGURATION =======
 const CONFIG = {
-  buildId: '2026-09-06.6',   // видно на карточке «Бенчмарк» — чтобы по скриншоту было ясно, какая сборка
+  buildId: '2026-09-07.1',   // видно на карточке «Бенчмарк» — чтобы по скриншоту было ясно, какая сборка
   wallet: '0x50E779Be63945354414162a05416E48DEDB8376E',
   btcWallet: 'bc1qn576x99g0devh8cnf0d45kradm5t06j4x2g9cp',
   rpc: 'https://arbitrum-one-rpc.publicnode.com',
@@ -2119,13 +2119,20 @@ const PX_CACHE_KEY = 'cgsBenchPrices', PX_CACHE_VER = 2;
 // на резервном источнике на целые сутки, даже когда основной снова доступен.
 // Именно так телефон и компьютер на одном Wi-Fi показывали разную альфу.
 const PX_PRIMARY = 'Binance', PX_TTL_PRIMARY = 86400000, PX_TTL_FALLBACK = 3600000;
+// Бенчмарк считается только с CGS_START, значит и котировки нужны только с этой даты.
+// Три недели запаса — на случай, если px() придётся отойти назад по выходным/пропускам.
+// Раньше тянули с 01.05.2025: Binance 89 КБ, Kraken 721 свеча и 6.1 сек ответа
+// на быстром канале при лимите 10 сек на запрос. С телефона два таких запроса
+// не укладывались, обрывались по таймауту, и код скатывался на CoinGecko.
+// После урезания: Binance 34 КБ / 0.2 сек, Kraken 16 КБ / 0.9 сек.
+const PX_FROM = '2026-03-01';
 
 // Три независимых источника дневных котировок. Binance в некоторых сетях и странах
 // недоступен (в частности у мобильных операторов в Индонезии) — без запасных
 // источников карточка молча висела бы в загрузке. Kraken и CoinGecko работают
 // без ключа и отдают CORS. CryptoCompare больше не годится: histoday требует ключ.
 async function loadPxBinance() {
-  const start = Date.UTC(2025, 4, 1);
+  const start = Date.parse(PX_FROM);
   const grab = async sym => {
     const r = await fetch(`https://api.binance.com/api/v3/klines?symbol=${sym}&interval=1d&startTime=${start}&limit=1000`).then(x => x.json());
     if (!Array.isArray(r)) throw new Error('bad response');
@@ -2136,7 +2143,7 @@ async function loadPxBinance() {
 }
 async function loadPxKraken() {
   const grab = async pair => {
-    const j = await fetch(`https://api.kraken.com/0/public/OHLC?pair=${pair}&interval=1440`).then(r => r.json());
+    const j = await fetch(`https://api.kraken.com/0/public/OHLC?pair=${pair}&interval=1440&since=${Math.floor(Date.parse(PX_FROM) / 1000)}`).then(r => r.json());
     if (j.error && j.error.length) throw new Error(j.error[0]);
     const k = Object.keys(j.result || {}).filter(x => x !== 'last')[0];
     const o = {}; (j.result[k] || []).forEach(r => o[new Date(r[0] * 1000).toISOString().slice(0, 10)] = +r[4]);
@@ -2152,7 +2159,9 @@ async function loadPxCoinGecko() {
   // Проверено 06.09.2026: CoinGecko 21.03 = 2146.58 против Binance 20.03 = 2146.22.
   // Точки не в полночь (последняя, живая) оставляем на своей дате.
   const grab = async id => {
-    const j = await fetch(`https://api.coingecko.com/api/v3/coins/${id}/market_chart?vs_currency=usd&days=365`).then(r => r.json());
+    // days > 90 обязателен, иначе CoinGecko отдаёт часовую сетку вместо дневной
+    const days = Math.max(120, Math.ceil((Date.now() - Date.parse(PX_FROM)) / 86400000) + 10);
+    const j = await fetch(`https://api.coingecko.com/api/v3/coins/${id}/market_chart?vs_currency=usd&days=${days}`).then(r => r.json());
     const o = {};
     (j.prices || []).forEach(([t, pz]) => {
       const d = new Date(t);
@@ -2172,7 +2181,7 @@ async function loadBenchPrices(force) {
     try {
       const c = JSON.parse(localStorage.getItem(PX_CACHE_KEY) || 'null');
       const ttl = (c && c.src === PX_PRIMARY) ? PX_TTL_PRIMARY : PX_TTL_FALLBACK;
-      if (c && c.v === PX_CACHE_VER && c.eth && Object.keys(c.eth).length > 100 && (Date.now() - c.ts) < ttl) {
+      if (c && c.v === PX_CACHE_VER && c.eth && Object.keys(c.eth).length > 60 && (Date.now() - c.ts) < ttl) {
         BENCH_PX = c; BENCH_ERR = null; return c;
       }
       if (c && c.v !== PX_CACHE_VER) localStorage.removeItem(PX_CACHE_KEY);  // формат устарел — выбрасываем
@@ -2187,7 +2196,7 @@ async function loadBenchPrices(force) {
     for (const [name, fn] of sources) {
       try {
         const r = await fn();
-        if (r && r.eth && Object.keys(r.eth).length > 100 && Object.keys(r.btc || {}).length > 100) {
+        if (r && r.eth && Object.keys(r.eth).length > 60 && Object.keys(r.btc || {}).length > 60) {
           BENCH_PX = { v: PX_CACHE_VER, ts: Date.now(), src: name, eth: r.eth, btc: r.btc };
           BENCH_ERR = null;
           try { localStorage.setItem(PX_CACHE_KEY, JSON.stringify(BENCH_PX)); } catch (e) {}
