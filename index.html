@@ -592,7 +592,7 @@ if (sessionStorage.getItem('defi_auth') === '1') {
 <script>
 // ======= CONFIGURATION =======
 const CONFIG = {
-  buildId: '2026-09-06.4',   // видно на карточке «Бенчмарк» — чтобы по скриншоту было ясно, какая сборка
+  buildId: '2026-09-06.6',   // видно на карточке «Бенчмарк» — чтобы по скриншоту было ясно, какая сборка
   wallet: '0x50E779Be63945354414162a05416E48DEDB8376E',
   btcWallet: 'bc1qn576x99g0devh8cnf0d45kradm5t06j4x2g9cp',
   rpc: 'https://arbitrum-one-rpc.publicnode.com',
@@ -2109,6 +2109,16 @@ function drawPortfolioCurve(el, big) {
 // (повторный заём 19,763 USDC 20.03.2026, который модель не записала в долг).
 const CGS_START = '2026-03-20';
 let BENCH_PX = null, BENCH_ERR = null, BENCH_INFLIGHT = null;
+// Версия ФОРМАТА кешированных котировок. Поднимать при ЛЮБОМ изменении логики их разбора.
+// Иначе правка кода не доедет: телефон продолжит читать из localStorage данные,
+// разобранные старым кодом. Ровно так выравнивание дат CoinGecko не применилось
+// на телефоне 06.09.2026 — сборка была новая, а котировки в кеше старые.
+const PX_CACHE_KEY = 'cgsBenchPrices', PX_CACHE_VER = 2;
+// Кеш от ОСНОВНОГО источника живёт сутки, от резервного — час.
+// Иначе одна неудачная попытка достучаться до Binance запирает устройство
+// на резервном источнике на целые сутки, даже когда основной снова доступен.
+// Именно так телефон и компьютер на одном Wi-Fi показывали разную альфу.
+const PX_PRIMARY = 'Binance', PX_TTL_PRIMARY = 86400000, PX_TTL_FALLBACK = 3600000;
 
 // Три независимых источника дневных котировок. Binance в некоторых сетях и странах
 // недоступен (в частности у мобильных операторов в Индонезии) — без запасных
@@ -2160,10 +2170,12 @@ async function loadBenchPrices(force) {
   if (BENCH_PX && !BENCH_PX.stale && !force) return BENCH_PX;
   if (!force) {
     try {
-      const c = JSON.parse(localStorage.getItem('cgsBenchPrices') || 'null');
-      if (c && c.eth && Object.keys(c.eth).length > 100 && (Date.now() - c.ts) < 86400000) {
+      const c = JSON.parse(localStorage.getItem(PX_CACHE_KEY) || 'null');
+      const ttl = (c && c.src === PX_PRIMARY) ? PX_TTL_PRIMARY : PX_TTL_FALLBACK;
+      if (c && c.v === PX_CACHE_VER && c.eth && Object.keys(c.eth).length > 100 && (Date.now() - c.ts) < ttl) {
         BENCH_PX = c; BENCH_ERR = null; return c;
       }
+      if (c && c.v !== PX_CACHE_VER) localStorage.removeItem(PX_CACHE_KEY);  // формат устарел — выбрасываем
     } catch (e) {}
   }
   // Параллельные вызовы делят один запрос. Раньше здесь стоял флаг, и повторная
@@ -2176,9 +2188,9 @@ async function loadBenchPrices(force) {
       try {
         const r = await fn();
         if (r && r.eth && Object.keys(r.eth).length > 100 && Object.keys(r.btc || {}).length > 100) {
-          BENCH_PX = { ts: Date.now(), src: name, eth: r.eth, btc: r.btc };
+          BENCH_PX = { v: PX_CACHE_VER, ts: Date.now(), src: name, eth: r.eth, btc: r.btc };
           BENCH_ERR = null;
-          try { localStorage.setItem('cgsBenchPrices', JSON.stringify(BENCH_PX)); } catch (e) {}
+          try { localStorage.setItem(PX_CACHE_KEY, JSON.stringify(BENCH_PX)); } catch (e) {}
           return BENCH_PX;
         }
         errs.push(name + ': пустой ответ');
@@ -2187,8 +2199,8 @@ async function loadBenchPrices(force) {
     BENCH_ERR = errs.join(' · ');
     // просроченный кеш лучше, чем вечная загрузка
     try {
-      const c = JSON.parse(localStorage.getItem('cgsBenchPrices') || 'null');
-      if (c && c.eth) { BENCH_PX = Object.assign({}, c, { stale: true }); return BENCH_PX; }
+      const c = JSON.parse(localStorage.getItem(PX_CACHE_KEY) || 'null');
+      if (c && c.v === PX_CACHE_VER && c.eth) { BENCH_PX = Object.assign({}, c, { stale: true }); return BENCH_PX; }
     } catch (e) {}
     return null;
   })();
@@ -2435,7 +2447,7 @@ function renderBenchmark() {
         <b style="color:var(--yellow)">Погрешность.</b> Оценка GM и CLMM даёт около ±$8K на текущей стоимости, это ±3.5%,
         и примерно ±1 п.п. на альфе. Отрыв меньше этого читай как ничью.<br><br>
         <b style="color:var(--text)">Котировки:</b> ${BENCH_PX.src || 'Binance'}${BENCH_PX.stale ? ', <span style="color:var(--yellow)">данные из кеша, свежие не загрузились</span>' : ''}.
-        Источники по очереди: Binance → Kraken → CoinGecko, кеш на сутки. Binance и Kraken дают закрытия дня и сходятся
+        Источники по очереди: Binance → Kraken → CoinGecko. Кеш от Binance живёт сутки, от резервных — час, чтобы устройство не залипало на запасном источнике. Binance и Kraken дают закрытия дня и сходятся
         между собой в пределах 0.05% — альфа на них одинаковая. CoinGecko отдаёт цену на 00:00 UTC, то есть закрытие
         предыдущего дня; даты сдвигаются на сутки при разборе ответа, но остаточная разница около
         <b style="color:var(--text)">0.5 п.п. на альфе</b> сохраняется. Поэтому источник подписан на лицевой стороне:
