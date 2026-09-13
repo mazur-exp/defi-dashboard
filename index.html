@@ -598,7 +598,7 @@ if (sessionStorage.getItem('defi_auth') === '1') {
 <script>
 // ======= CONFIGURATION =======
 const CONFIG = {
-  buildId: '2026-09-13.4',   // видно на карточке «Бенчмарк» — чтобы по скриншоту было ясно, какая сборка
+  buildId: '2026-09-13.5',   // видно на карточке «Бенчмарк» — чтобы по скриншоту было ясно, какая сборка
   wallet: '0x50E779Be63945354414162a05416E48DEDB8376E',
   btcWallet: 'bc1qn576x99g0devh8cnf0d45kradm5t06j4x2g9cp',
   rpc: 'https://arbitrum-one-rpc.publicnode.com',
@@ -687,7 +687,8 @@ const CONFIG = {
   pendlePT_reUSDe: '0x2ae4f59e500b6ddeb88c480edf277eda54a00205', // PT-reUSDe-10DEC2026 (Roll over из 25JUN, tx 0x5f9793c2, 2026-06-27)
   pendlePT_reUSDe_decimals: 18,
   pendlePT_reUSDe_expiry: '2026-12-10',
-  pendlePT_reUSDe_costBasis: 54683.83, // Roll over $36,000.44 + докупка $9,983.39 (2026-06-27) + DCA июль $8,700 (2026-07-19, tx 0xd9ade62f). Итого 59,211.13 PT. Старый PT-25JUN погашен, realized +913.30 (см. realizedPnL).
+  // ВНИМАНИЕ: дублирует positions['pt-reusde-dec'].costBasis — при каждой докупке PT обновлять ОБА поля (13.09.2026 забыл — карточка показала DCA как прибыль +22%).
+  pendlePT_reUSDe_costBasis: 64765.49, // Roll over $36,000.44 + докупка $9,983.39 (2026-06-27) + DCA июль $8,700 (2026-07-19, tx 0xd9ade62f) + DCA сентябрь $10,081.66 (2026-09-13, tx 0x5535124e). Итого 69,675.32 PT своих. Старый PT-25JUN погашен, realized +913.30 (см. realizedPnL).
   // Pendle API for PT price
   pendleMarketId: '0x90b70c407f1077f8eb92bf423b44cd92329b737a',
 
