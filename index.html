@@ -598,7 +598,7 @@ if (sessionStorage.getItem('defi_auth') === '1') {
 <script>
 // ======= CONFIGURATION =======
 const CONFIG = {
-  buildId: '2026-09-13.1',   // видно на карточке «Бенчмарк» — чтобы по скриншоту было ясно, какая сборка
+  buildId: '2026-09-13.2',   // видно на карточке «Бенчмарк» — чтобы по скриншоту было ясно, какая сборка
   wallet: '0x50E779Be63945354414162a05416E48DEDB8376E',
   btcWallet: 'bc1qn576x99g0devh8cnf0d45kradm5t06j4x2g9cp',
   rpc: 'https://arbitrum-one-rpc.publicnode.com',
@@ -1988,9 +1988,17 @@ function portfolioSeries(dates, i0, live) {
 
 // Пишем живую стоимость в локальный журнал — по одной точке на день.
 // Со временем реальные снимки вытесняют модель в хвосте кривой.
+// ВАЖНО (13.09.2026): renderAll() дёргается после КАЖДОГО отдельного fetch, и раньше
+// снимок писался при каждом вызове. Если последний прогон дня на телефоне обрывался
+// (Pendle/Base RPC по таймауту), в журнал уезжал netWorth без PT или без CLMM,
+// и NAV следующего месяца считался от заниженной базы — альфа надувалась.
+// Теперь пишем только после ПОЛНОГО успешного цикла (флаг state.snapshotOK из refreshAll).
 function recordNetWorthSnapshot() {
   const live = state.zones && state.zones.netWorth;
   if (!(live > 0)) return;
+  if (!state.snapshotOK) return;
+  if (!state.aave || !(state.aave.collateral > 0) || !state.pendle || !(state.pendle.ptValue > 0)
+      || !state.uniswap || !(state.uniswap.positionValueUSD > 0) || !state.gm) return;
   try {
     const log = JSON.parse(localStorage.getItem('cgsNetWorthLog') || '{}');
     log[new Date().toISOString().slice(0, 10)] = Math.round(live);
@@ -3147,11 +3155,14 @@ async function refreshAll() {
   btn.disabled = true;
 
   // Helper: wrap fetch with timeout (default 15s) and render after each completes
+  // Снимок netWorth в журнал пишется только если ВСЕ fetch'и этого цикла прошли без ошибок/таймаутов.
+  state.snapshotOK = false;
+  let failed = 0;
   function withTimeout(fn, ms = 15000) {
     return Promise.race([
       fn().then(r => { renderAll(); return r; }),
       new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), ms))
-    ]).catch(e => console.warn(fn.name + ':', e.message));
+    ]).catch(e => { failed++; console.warn(fn.name + ':', e.message); });
   }
   try {
     // Prices first (needed by others for display), then rest in parallel
@@ -3166,6 +3177,8 @@ async function refreshAll() {
     ]);
     state.lastUpdate = new Date();
     state.error = null;
+    state.snapshotOK = failed === 0;
+    if (failed) console.warn('snapshot skipped: ' + failed + ' fetch(es) failed');
     renderAll();
     info.className = 'refresh-info';
     text.textContent = 'Обновлено: ' + state.lastUpdate.toLocaleTimeString('ru-RU');
