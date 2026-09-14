@@ -598,7 +598,7 @@ if (sessionStorage.getItem('defi_auth') === '1') {
 <script>
 // ======= CONFIGURATION =======
 const CONFIG = {
-  buildId: '2026-09-13.5',   // видно на карточке «Бенчмарк» — чтобы по скриншоту было ясно, какая сборка
+  buildId: '2026-09-14.1',   // видно на карточке «Бенчмарк» — чтобы по скриншоту было ясно, какая сборка
   wallet: '0x50E779Be63945354414162a05416E48DEDB8376E',
   btcWallet: 'bc1qn576x99g0devh8cnf0d45kradm5t06j4x2g9cp',
   rpc: 'https://arbitrum-one-rpc.publicnode.com',
@@ -1885,6 +1885,28 @@ function renderCapitalIn() {
   const cls = (pnl == null) ? '' : (pnl >= 0 ? 'safe' : '');
   const color = (pnl == null) ? 'var(--dim)' : (pnl >= 0 ? 'var(--green)' : 'var(--red)');
   const last = ci.deposits[ci.deposits.length - 1];
+
+  // Разбивка результата на два периода: до CGS (LP на Unichain, ETH куплен по $3.9–4.8K)
+  // и с 20.03.2026 (CGS). Стартовая точка CGS — та же, что у карточки «Бенчмарк»:
+  // portfolioSeries на дату CGS_START (модель минус доказанная ошибка). Поступления
+  // самого 20.03 уже сидят в этой точке, поэтому «после» считаем строго с 21.03.
+  // Иначе −2.7% за всё время и +22% у бенчмарка выглядят противоречием (вопрос 14.09.2026).
+  let pre = null, post = null, postBase = null;
+  try {
+    const VH = CONFIG.valueHistory;
+    if (now != null && VH && VH.values) {
+      const ax = curveAxis(), i0 = ax.dates.indexOf(CGS_START);
+      const v0 = i0 > 0 ? portfolioSeries(ax.dates, i0, now).port[i0] : null;
+      if (v0 > 0) {
+        const sumTo = (arr, f) => (arr || []).filter(f).reduce((s, d) => s + (d.usd || 0), 0);
+        const inBefore = sumTo(ci.deposits, d => d.date <= CGS_START) - sumTo(ci.withdrawals, d => d.date <= CGS_START);
+        const inAfter  = sumTo(ci.deposits, d => d.date >  CGS_START) - sumTo(ci.withdrawals, d => d.date >  CGS_START);
+        pre = v0 - inBefore; post = now - v0 - inAfter; postBase = v0 + inAfter;
+      }
+    }
+  } catch (e) {}
+  const sgn = v => (v >= 0 ? '+' : '−') + fmtUSD(Math.abs(v));
+  const colOf = v => v >= 0 ? 'var(--green)' : 'var(--red)';
   const explorer = (d) => d.chain === 'Bitcoin' ? `https://mempool.space/tx/${d.tx}`
                         : d.chain === 'Arbitrum' ? `https://arbiscan.io/tx/${d.tx}`
                         : `https://etherscan.io/tx/${d.tx}`;
@@ -1912,6 +1934,11 @@ function renderCapitalIn() {
       <span class="metric-value">${now != null ? fmtUSD(now) : '—'}</span></div>
     <div class="metric"><span class="metric-label">Результат</span>
       <span class="metric-value ${cls}" style="color:${color}">${pnl != null ? (pnl >= 0 ? '+' : '−') + fmtUSD(Math.abs(pnl)) + ' · ' + (pnl >= 0 ? '+' : '−') + fmt(Math.abs(pct), 1) + '%' : '—'}</span></div>
+    ${post != null ? `
+    <div class="metric" style="padding-left:10px;"><span class="metric-label">↳ до 20.03.2026 · старая стратегия</span>
+      <span class="metric-value" style="font-size:12px;color:${colOf(pre)}">${sgn(pre)}</span></div>
+    <div class="metric" style="padding-left:10px;"><span class="metric-label">↳ с 20.03.2026 · CGS</span>
+      <span class="metric-value" style="color:${colOf(post)}">${sgn(post)} · ${(post >= 0 ? '+' : '−') + fmt(Math.abs(post / postBase * 100), 1)}%</span></div>` : ''}
     <div class="metric"><span class="metric-label">Последнее поступление</span>
       <span class="metric-value" style="font-size:12px;">${last.date.slice(8,10)}.${last.date.slice(5,7)}.${last.date.slice(0,4)} · ${fmtUSD(last.usd)}</span></div>
     <details style="margin-top:10px;">
@@ -2269,6 +2296,46 @@ function retryBenchPrices() {
   const el = document.getElementById('benchmarkCard');
   if (el) el.innerHTML = '<span class="loading-text">Загружаю котировки...</span>';
   loadBenchPrices(true).then(() => renderBenchmark()).catch(() => renderBenchmark());
+  loadSpxPrices(true).then(() => renderBenchmark()).catch(() => {});
+}
+
+// S&P 500 — справочная строка в бенчмарке (добавлено 14.09.2026 по просьбе Алекса).
+// Yahoo, Stooq и Pyth Benchmarks не отдают CORS из браузера. Работает CoinGecko через
+// токен SPYx (Backed xStocks, id `sp500-xstock`) — он 1:1 повторяет SPY, торгуется
+// круглосуточно, поэтому на выходных цена ≈ закрытие пятницы. Проверено 14.09.2026:
+// SPYx 20.03 = $655.56 при S&P 6,506; 11.09 = $769.4 при S&P 7,657 — расхождение <1%.
+// Живёт отдельно от BENCH_PX: если CoinGecko упал, основной бенчмарк не страдает,
+// а строка S&P просто показывает «—».
+let SPX_PX = null;
+const SPX_CACHE_KEY = 'cgsSpxPrices', SPX_CACHE_VER = 1, SPX_TTL = 86400000;
+async function loadSpxPrices(force) {
+  if (SPX_PX && !SPX_PX.stale && !force) return SPX_PX;
+  if (!force) {
+    try {
+      const c = JSON.parse(localStorage.getItem(SPX_CACHE_KEY) || 'null');
+      if (c && c.v === SPX_CACHE_VER && c.px && Object.keys(c.px).length > 60 && (Date.now() - c.ts) < SPX_TTL) { SPX_PX = c; return c; }
+    } catch (e) {}
+  }
+  try {
+    // тот же сдвиг полуночных точек на сутки, что и в loadPxCoinGecko
+    const days = Math.max(120, Math.ceil((Date.now() - Date.parse(PX_FROM)) / 86400000) + 10);
+    const j = await fetch(`https://api.coingecko.com/api/v3/coins/sp500-xstock/market_chart?vs_currency=usd&days=${days}`).then(r => r.json());
+    const px = {};
+    (j.prices || []).forEach(([t, p]) => {
+      const d = new Date(t), midnight = d.getUTCHours() === 0 && d.getUTCMinutes() === 0;
+      px[new Date(t - (midnight ? 86400000 : 0)).toISOString().slice(0, 10)] = p;
+    });
+    if (Object.keys(px).length > 60) {
+      SPX_PX = { v: SPX_CACHE_VER, ts: Date.now(), src: 'CoinGecko · SPYx', px };
+      try { localStorage.setItem(SPX_CACHE_KEY, JSON.stringify(SPX_PX)); } catch (e) {}
+      return SPX_PX;
+    }
+  } catch (e) {}
+  try {
+    const c = JSON.parse(localStorage.getItem(SPX_CACHE_KEY) || 'null');
+    if (c && c.v === SPX_CACHE_VER && c.px) { SPX_PX = Object.assign({}, c, { stale: true }); return SPX_PX; }
+  } catch (e) {}
+  return null;
 }
 
 function benchCashFlows() {
@@ -2395,6 +2462,17 @@ function renderBenchmark() {
   const rP = lastOf(nP), rB = lastOf(nB), rBtc = lastOf(nBtc);
   const alpha = rP - rB;
 
+  // S&P 500 (SPYx): те же деньги в те же дни — 20.03 и каждая доливка — куплены в SPY.
+  // Считается той же NAV-цепочкой, что портфель и пассив, чтобы цифры были сравнимы.
+  let rSpx = null, ddSpx = null;
+  const S = SPX_PX && SPX_PX.px;
+  if (S && px(CGS_START, S)) {
+    let qs = v0 / px(CGS_START, S), lastP = null;
+    const bSpx = dates.map((d, i) => { if (i < i0) return 0; const p = px(d, S) || lastP; lastP = p;
+      const c = flow[d] || 0; if (c && p) qs += c / p; return p ? qs * p : 0; });
+    const nS = nav(bSpx); rSpx = lastOf(nS); ddSpx = dd(nS);
+  }
+
   // BTC-эквивалент за тот же период
   let btcIf = v0 / px(CGS_START, B);
   cf.filter(([d]) => d > CGS_START).forEach(([d, a]) => { const p = px(d, B); if (p) btcIf += a / p; });
@@ -2417,7 +2495,7 @@ function renderBenchmark() {
         Альфа с 20.03.2026 · против своего же состава пассивно</div>
       <div style="font-size:32px;font-weight:700;letter-spacing:-.5px;color:${col(alpha)};margin-top:4px">${pp(alpha)}</div>
       <div style="font-size:11px;color:var(--dim);margin-top:2px">
-        портфель ${pc(rP)} · пассив ${pc(rB)}</div>
+        портфель ${pc(rP)} · пассив ${pc(rB)}${rSpx != null ? ` · S&amp;P 500 ${pc(rSpx)}` : ''}</div>
       <div style="font-size:11px;color:var(--dim);margin-top:5px">
         бенчмарк = ${fmt(mix.wE * 100, 0)}% ETH · ${fmt(mix.wB * 100, 0)}% BTC · ${fmt(mix.wS * 100, 0)}% стейблы${mix.fallback ? ' (плановые)' : ''}, куплено и не тронуто</div>
       <div style="font-size:10px;color:var(--dim);margin-top:6px;opacity:.75">
@@ -2438,6 +2516,9 @@ function renderBenchmark() {
       <tr><td style="${td};color:var(--dim)">100% BTC · справочно</td>
         <td style="${td}"></td>
         <td style="${td};text-align:right;color:var(--dim)">${pc(rBtc)}</td></tr>
+      <tr><td style="${td};color:var(--dim)">S&amp;P 500 · справочно<br><span style="font-size:10px">${rSpx != null ? 'те же деньги в те же дни в SPY · просадка ' + pc(ddSpx) : 'котировки SPYx не загрузились'}</span></td>
+        <td style="${td}"></td>
+        <td style="${td};text-align:right;color:var(--dim)">${rSpx != null ? pc(rSpx) : '—'}</td></tr>
     </table>
 
     <div style="${th};padding-top:16px">По месяцам · нарастающим итогом</div>
@@ -2508,7 +2589,10 @@ function renderBenchmark() {
         между собой в пределах 0.05% — альфа на них одинаковая. CoinGecko отдаёт цену на 00:00 UTC, то есть закрытие
         предыдущего дня; даты сдвигаются на сутки при разборе ответа, но остаточная разница около
         <b style="color:var(--text)">0.5 п.п. на альфе</b> сохраняется. Поэтому источник подписан на лицевой стороне:
-        если два скриншота расходятся — сначала сравни эту строку.
+        если два скриншота расходятся — сначала сравни эту строку.<br><br>
+        <b style="color:var(--text)">S&amp;P 500</b> — по токену SPYx (Backed xStocks, CoinGecko): он повторяет SPY,
+        расхождение с индексом в пределах 1%. Торгуется круглосуточно, поэтому на выходных стоит цена пятницы.
+        Считается так же, как пассив: те же деньги 20.03.2026 и в дни доливок, куплено и не тронуто. Без дивидендов.${SPX_PX && SPX_PX.stale ? ' <span style="color:var(--yellow)">Сейчас из кеша.</span>' : ''}
       </div>
     </details>`;
 }
@@ -3174,6 +3258,7 @@ async function refreshAll() {
   checkForUpdate();   // проверка новой сборки — на каждом обновлении данных
   // котировки бенчмарка — тоже обновляем, иначе разовый сбой сети вешает карточку навсегда
   if (!BENCH_PX || BENCH_PX.stale) loadBenchPrices(true).then(() => renderBenchmark()).catch(() => renderBenchmark());
+  if (!SPX_PX || SPX_PX.stale) loadSpxPrices(true).then(() => renderBenchmark()).catch(() => {});
   const info = document.getElementById('refreshInfo');
   const text = document.getElementById('refreshText');
   const btn = document.getElementById('refreshBtn');
@@ -3514,6 +3599,7 @@ async function applyUpdate() {
 function startApp() {
   checkForUpdate();
   loadBenchPrices().then(() => renderBenchmark()).catch(e => console.log('bench prices:', e.message));
+  loadSpxPrices().then(() => renderBenchmark()).catch(e => console.log('spx prices:', e.message));
   initProviders().then(() => {
     refreshAll();
     setInterval(refreshAll, CONFIG.refreshInterval);
