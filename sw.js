@@ -1,4 +1,4 @@
-const CACHE_NAME = 'defi-cgs-v6';
+const CACHE_NAME = 'defi-cgs-v7';
 const SHELL_FILES = [
   './',
   './index.html',

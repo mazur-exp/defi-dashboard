@@ -598,7 +598,7 @@ if (sessionStorage.getItem('defi_auth') === '1') {
 <script>
 // ======= CONFIGURATION =======
 const CONFIG = {
-  buildId: '2026-09-21.1',   // видно на карточке «Бенчмарк» — чтобы по скриншоту было ясно, какая сборка
+  buildId: '2026-09-21.2',   // видно на карточке «Бенчмарк» — чтобы по скриншоту было ясно, какая сборка
   wallet: '0x50E779Be63945354414162a05416E48DEDB8376E',
   btcWallet: 'bc1qn576x99g0devh8cnf0d45kradm5t06j4x2g9cp',
   rpc: 'https://arbitrum-one-rpc.publicnode.com',
@@ -1087,11 +1087,30 @@ async function fetchGMTokens() {
     );
 
     // Fetch live oracle prices + DeFi Llama (for APR / fee tracking)
-    const [pricesResp, llamaResp] = await Promise.all([
-      fetch('https://arbitrum-api.gmxinfra.io/prices/tickers'),
+    // 21.09.2026: arbitrum-api.gmxinfra.io лёг целиком (host unreachable, не CORS) → цены GM были н/д.
+    // Оба хоста — официальные эндпоинты GMX, у app.gmx.io та же пара с автопереключением. Пробуем по очереди.
+    const GMX_PRICE_HOSTS = [
+      'https://arbitrum-api.gmxinfra.io/prices/tickers',
+      'https://arbitrum-api.gmxinfra2.io/prices/tickers',
+    ];
+    const fetchGmxTickers = async () => {
+      let lastErr = null;
+      for (const url of GMX_PRICE_HOSTS) {
+        try {
+          const r = await fetch(url);
+          if (!r.ok) { lastErr = new Error(url + ' → HTTP ' + r.status); continue; }
+          const j = await r.json();
+          if (Array.isArray(j) && j.length) return j;
+          lastErr = new Error(url + ' → пустой ответ');
+        } catch (e) { lastErr = e; }
+      }
+      throw new Error('GMX price API недоступен на всех хостах: ' + (lastErr && lastErr.message));
+    };
+
+    const [prices, llamaResp] = await Promise.all([
+      fetchGmxTickers(),
       fetch('https://yields.llama.fi/pools'),
     ]);
-    const prices = await pricesResp.json();
     const bySym = (s) => prices.find(t => t.tokenSymbol === s);
     const pBTC = bySym('BTC');
     const pWBTC = bySym('WBTC.b') || pBTC;
