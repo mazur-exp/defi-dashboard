@@ -604,7 +604,7 @@ if (sessionStorage.getItem('defi_auth') === '1') {
 <script>
 // ======= CONFIGURATION =======
 const CONFIG = {
-  buildId: '2026-11-05.4',   // видно на карточке «Бенчмарк» — чтобы по скриншоту было ясно, какая сборка
+  buildId: '2026-11-05.5',   // видно на карточке «Бенчмарк» — чтобы по скриншоту было ясно, какая сборка
   wallet: '0x50E779Be63945354414162a05416E48DEDB8376E',
   btcWallet: 'bc1qn576x99g0devh8cnf0d45kradm5t06j4x2g9cp',
   rpc: 'https://arbitrum-one-rpc.publicnode.com',
@@ -2308,15 +2308,22 @@ function portfolioSeries(dates, i0, live) {
   const B = (typeof BENCH_PX !== 'undefined' && BENCH_PX) ? BENCH_PX.btc : null;
   const mix = (typeof portfolioMix === 'function') ? portfolioMix() : null;
   const px = (d, m) => { let k = d; for (let j = 0; j < 12 && !m[k]; j++) k = new Date(Date.parse(k) - 86400000).toISOString().slice(0, 10); return m[k]; };
+  // Доливки/выводы после якоря тоже входят в оценку (иначе DCA внутри разрыва теряется,
+  // а NAV-цепочка его всё равно вычитает — месяц уходит в минус на размер DCA).
+  const cf = (typeof benchCashFlows === 'function') ? benchCashFlows() : [];
+  const idx = (d0, d1) => { if (!(E && B && mix)) return 1; const e0 = px(d0, E), b0 = px(d0, B), e1 = px(d1, E), b1 = px(d1, B);
+    return (e0 && b0 && e1 && b1) ? (mix.wE * e1 / e0 + mix.wB * b1 / b0 + mix.wS) : 1; };
   let snapN = 0, lastKnown = null, lastDate = null;
   for (let i = 0; i < dates.length; i++) {
     if (i < L) out[i] = i < i0 ? VH.values[i] : VH.values[i] - CAL;
     if (snap[dates[i]] > 0) { out[i] = snap[dates[i]]; if (i >= i0) snapN++; }
     if (out[i] == null) {
       out[i] = lastKnown; est[i] = true;
-      if (lastKnown != null && lastDate && E && B && mix) {
-        const e0 = px(lastDate, E), b0 = px(lastDate, B), e1 = px(dates[i], E), b1 = px(dates[i], B);
-        if (e0 && b0 && e1 && b1) out[i] = lastKnown * (mix.wE * e1 / e0 + mix.wB * b1 / b0 + mix.wS);
+      if (lastKnown != null && lastDate) {
+        const d = dates[i];
+        let v = lastKnown * idx(lastDate, d);
+        cf.forEach(([cd, a]) => { if (cd > lastDate && cd <= d) v += a * idx(cd, d); });
+        out[i] = v;
       }
     } else { lastKnown = out[i]; lastDate = dates[i]; }
     out[i] = Math.round(out[i] || 0);
