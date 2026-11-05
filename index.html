@@ -406,6 +406,12 @@
     <div id="uniswapClmm"><span class="loading-text">Загрузка...</span></div>
   </div>
 
+  <!-- Aero CL (Slipstream) на Arc — вторая половина CLMM, тест -->
+  <div class="card">
+    <div class="card-title"><span class="icon">✈️</span> <a href="https://app.aero.xyz/deposit/5042-0xAd5eea00214715cce97cdc4D0D13E9Ee2B57EacE" target="_blank" style="color:var(--dim);text-decoration:none;text-transform:uppercase;letter-spacing:1px;">Aero CL50 — WETH/USDC (Arc) ↗</a></div>
+    <div id="aeroClmm"><span class="loading-text">Загрузка...</span></div>
+  </div>
+
   <!-- Pendle PT Position -->
   <div class="card">
     <div class="card-title"><span class="icon">🟣</span> <a href="https://app.pendle.finance/trade/markets/0x90b70c407f1077f8eb92bf423b44cd92329b737a/swap?view=pt&amp;chain=ethereum" target="_blank" style="color:var(--dim);text-decoration:none;text-transform:uppercase;letter-spacing:1px;">Pendle — PT-reUSDe ↗</a></div>
@@ -598,7 +604,7 @@ if (sessionStorage.getItem('defi_auth') === '1') {
 <script>
 // ======= CONFIGURATION =======
 const CONFIG = {
-  buildId: '2026-11-05.1',   // видно на карточке «Бенчмарк» — чтобы по скриншоту было ясно, какая сборка
+  buildId: '2026-11-05.2',   // видно на карточке «Бенчмарк» — чтобы по скриншоту было ясно, какая сборка
   wallet: '0x50E779Be63945354414162a05416E48DEDB8376E',
   btcWallet: 'bc1qn576x99g0devh8cnf0d45kradm5t06j4x2g9cp',
   rpc: 'https://arbitrum-one-rpc.publicnode.com',
@@ -607,6 +613,9 @@ const CONFIG = {
   rpcEthFallback: 'https://eth.llamarpc.com',
   rpcBase: 'https://base-rpc.publicnode.com',
   rpcBaseFallback: 'https://mainnet.base.org',
+  // Arc (chain id 5042, gas-токен USDC). Публичный rpc.mainnet.arc.io режет eth_getLogs и даёт rate limit, Blockdaemon стабильнее.
+  rpcArc: 'https://rpc.blockdaemon.mainnet.arc.io',
+  rpcArcFallback: 'https://rpc.mainnet.arc.io',
   refreshInterval: 30000, // 30 sec
   // Contract addresses (Arbitrum)
   aavePool: '0x794a61358D6845594F94dc1DB02A252b5b4814aD',
@@ -683,6 +692,32 @@ const CONFIG = {
   uniswapClmmRangeHigh: 3203.50,
   uniswapClmmEntryETH: 2.817, // остаток после снятия 50% (05.11.2026); при открытии 5.634
   uniswapClmmEntryUSDC: 5003.5, // остаток после снятия 50% (05.11.2026); при открытии 10,007
+  clmmExitAlertPct: 3, // алерт «пора анстейкать / готовить второй диапазон» за 3% до нижней границы (решение 05.11.2026)
+  // ======= AERO CL (Slipstream) на ARC — тест, вторая половина CLMM =======
+  // Вторая половина Uniswap-позиции (снята 05.11.2026) переехала мостами Base → Arc и легла в Aero WETH/USDC
+  //   0.04% CL50 (tickSpacing 50). NFT застейкан в gauge в той же транзакции, поэтому ownerOf(NFT) = gauge,
+  //   а не кошелёк: баланс NFT ищем через gauge.stakedValues(wallet). Застейканная позиция получает эмиссию AERO,
+  //   комиссии свопов не получает (unstakedFee пула 50%). Адреса сверены по RPC Arc 05.11.2026.
+  aeroNPMArc: '0x4857db576ee0e45f10525ec59527bfd10beec60b',   // pool.nft()
+  aeroPoolArc: '0xAd5eea00214715cce97cdc4D0D13E9Ee2B57EacE',  // WETH/USDC CL50
+  aeroGaugeArc: '0xd74d3b50d21365243fb4d9b9acf29b804ca0c3f3', // pool.gauge(); earned(address,uint256[]) → AERO
+  WETH_ARC: '0x128cc466b61f542da60c70e3aa11c10e19b84edb',
+  USDC_ARC: '0x3600000000000000000000000000000000000000',     // native USDC как ERC20 (6 знаков), это же gas-токен Arc
+  aeroPositionTokenId: 18771,
+  aeroClmmStaked: true,
+  aeroClmmCostBasis: 11886.72, // 1.889296 WETH × $2,419.39 (цена пула на блоке депозита 29664255) + 7,315.77 USDC
+  aeroClmmEntryDate: '2026-11-05',
+  aeroClmmFeesSince: '2026-11-05T11:55:45Z', // депозит + стейк, Arc block 29664255, tx 0x9aeaf14b
+  aeroClmmEntryTxHash: '0x9aeaf14b850e3501d382e5f09a9175ba67bd0da2d6d89b27e698ce2ee7104827',
+  aeroClmmPair: 'WETH/USDC',
+  aeroClmmTickSpacing: 50,
+  aeroClmmFeePct: 0.04,
+  aeroClmmRangeLow: 1498.23,  // tick −203200
+  aeroClmmRangeHigh: 3219.56, // tick −195550
+  aeroClmmEntryWETH: 1.889296,
+  aeroClmmEntryUSDC: 7315.771065,
+  aeroClmmEntryETHPrice: 2419.39,
+  aeroCoingeckoId: 'aerodrome-finance', // цена AERO для оценки эмиссии
   // Pendle PT-reUSDe (Ethereum mainnet)
   pendlePT_reUSDe: '0x2ae4f59e500b6ddeb88c480edf277eda54a00205', // PT-reUSDe-10DEC2026 (Roll over из 25JUN, tx 0x5f9793c2, 2026-06-27)
   pendlePT_reUSDe_decimals: 18,
@@ -736,6 +771,8 @@ const CONFIG = {
     { id: 'pt-borrowed-reserve', zone: 'yield', asset: 'PT-reUSDe', label: 'PT-reUSDe (резерв на заёмные)', costBasis: 22379, qty: 23326.17, entryDate: '2026-09-01', protocol: 'Pendle', chain: 'Ethereum', txHash: '0xe9f39504014c96f4edaefb163265b3c506f66ba79a54c4dfc9cb6ee2dc1629b2', note: 'Резерв 30% Yield Zone на заёмные USDC. Cross-chain zap Arbitrum→Ethereum. Effective Fixed APY 17.79%. ЗОНА YIELD, не Stability — см. CONFIG.ptBorrowed.' },
     // Прошлая GM ETH/USD закрыта 2026-05-19 → мигрировала в Uniswap v3 CLMM на Base
     { id: 'uniswap-clmm-eth-usdc-base', zone: 'yield', asset: 'Uniswap-v3-ETH/USDC', label: 'Uniswap v3 CLMM #5150479', costBasis: 10963, entryDate: '2026-05-19', protocol: 'Uniswap v3', chain: 'Base', tokenId: 5150479, feeBips: 3000, rangeLow: 1504.23, rangeHigh: 3203.50, entryETH: 2.817, entryUSDC: 5003.5, note: 'Миграция из GM ETH/USD: GMX exit → Mayan bridge Arb→Base → swap USDC→ETH → Uniswap v3 0.3% диапазон $1504-$3203 (вход $21,926: 5.634 WETH + 10,007 USDC). 05.11.2026: снято 50% ликвидности (1.8208 WETH + 7,262.14 USDC ≈ $11,683, tx 0xdbc80c57) → тест Aero WETH/USDC CL50. Cost basis остатка $10,963.' },
+    // Вторая половина CLMM: Aero (Slipstream) WETH/USDC 0.04% CL50 на Arc, застейкана в gauge — тест 3 недели против Uniswap Base
+    { id: 'aero-clmm-weth-usdc-arc', zone: 'yield', asset: 'Aero-CL-WETH/USDC', label: 'Aero CL50 WETH/USDC #18771 (Arc)', costBasis: 11886.72, entryDate: '2026-11-05', protocol: 'Aero CL (Slipstream)', chain: 'Arc', tokenId: 18771, tickSpacing: 50, feePct: 0.04, rangeLow: 1498.23, rangeHigh: 3219.56, entryETH: 1.889296, entryUSDC: 7315.771065, staked: true, txHash: '0x9aeaf14b850e3501d382e5f09a9175ba67bd0da2d6d89b27e698ce2ee7104827', note: 'Половина Uniswap CLMM ($11,683 + комиссии $427 = $12,110 на Base) → мосты Base→Arc (WETH через Relay, USDC через CCTP) → депозит 1.889296 WETH + 7,315.77 USDC = $11,886.72 @ ETH $2,419.39 (11:55:45 UTC, Arc block 29664255). NFT #18771 застейкан в gauge в той же tx: доход = эмиссия AERO (CoinGecko цена), комиссий свопов нет. Диапазон $1,498.23-$3,219.56 (ticks −203200/−195550). Остаток на кошельке Arc: 0.004335 WETH + 160.19 USDC (заёмные, Yield). Правила: AERO собирать раз в неделю → BTC в залог; за 3% до нижней границы (ETH ≤ $1,543) анстейк + второй диапазон из резерва (после 10.12); −30% по ETH закрывает оба CLMM.' },
     // Stability Zone — Own stables
     { id: 'pt-reusde-dec', zone: 'stability', asset: 'PT-reUSDe', label: 'PT-reUSDe-10DEC2026', costBasis: 64765.49, qty: 69675.32, entryDate: '2026-06-27', protocol: 'Pendle', chain: 'Ethereum', txHash: '0x5f9793c2af049bf7f57c32efd9d151cbe8cf7adddcc6441ec55ba6376dd55d4b', txHash2: '0xfbd82bffc416b115bfe700147edca59a07c2a4907596ceb3d003d6c878441607', txHash3: '0xd9ade62f97624b6c7c204ba22e548861b616f8106678b5e20cb0d4a4e803fa16', note: 'Roll over PT-25JUN→10DEC (38,514.4 PT, $36,000.44, tx 0x5f9793c2) + докупка idle-стейблов (+11,307.3 PT, $9,983.39, tx 0xfbd82bff) + DCA июль (+9,389.43 PT, $8,700 USDT0 Arb cross-chain zap @ $0.9266, tx 0xd9ade62f, 2026-07-19). + DCA сентябрь (+10,464.19 PT, $10,081.66 USDT0 Arb cross-chain zap @ $0.9635, tx 0x5535124e → 0xa12497e8, 2026-09-13). Итого 69,675.32 PT своих. Погашение 10.12.2026 ≈ $69,675.' },
   ],
@@ -807,7 +844,11 @@ const CONFIG = {
     { date: '2026-11-01', type: 'buy', asset: 'GM-ETH/USD', amount: 2415.1377321642, price: 1.8391, usd: 4441.59, zone: 'yield', chain: 'Arbitrum', txHash: '0xe458af6e9273e1fb6e912e07d665f023a4789d86eb6bdc9a3b373e97a7516a85', txHashOrder: '0x26b415444e2c9923f75db11cf89f08306e6b710e04901ebbdd78b3bad907f522', note: 'USDC из продажи GM BTC → GM ETH/USD (ордер 17:35:15, исполнен 17:35:19 UTC): 4,441.59 USDC → 2,415.1377 GM. В ETH-пул, а не обратно в BTC: концентрация Yield в более доходном пуле. GM ETH всего 9,062.0355 (cost $16,928.59), GM BTC 3,739.66 (cost $7,948). GM-зона после цикла ≈ $25.6K + $4.76K BTC ушло в Growth. Entry триггеров НЕ меняется: −15% = $2,109.96, −30% = $1,737.62.' },
     // ===== ТЕСТ AERO: сбор комиссий CLMM + снятие 50% ликвидности с Uniswap → Aero WETH/USDC CL50 — 2026-11-05 =====
     { date: '2026-11-05', type: 'collect', asset: 'Uniswap-v3-ETH/USDC', amount: null, price: 2428.04, usd: 426.52, zone: 'yield', chain: 'Base', txHash: '0x84efe313cf7acf9f0099f1c74eb30ab4148c905d3142ae4dfec89844eb018e0d', note: 'Сбор комиссий CLMM #5150479 за 53.0 дн (APR 12.6%): 0.0875956 WETH + 213.8348 USDC ≈ $426.52 @ ETH $2,428.04 (03:30:35 UTC, Base block 53530044). Собрано как WETH, оставлено на Base для депозита в Aero.' },
-    { date: '2026-11-05', type: 'withdraw', asset: 'Uniswap-v3-ETH/USDC', amount: null, price: 2428.04, usd: 11683.21, zone: 'yield', chain: 'Base', txHash: '0xdbc80c578b6c4e6aea18c142b82f04039f5ead496baefde6298f5c663a544c7c', note: 'Remove liquidity 50% из CLMM #5150479 (03:31:07 UTC, block 53530060): снято liquidity 692,657,876,147,059 — ровно половина, столько же осталось → 1.82084673 WETH + 7,262.138684 USDC ≈ $11,683.21 @ ETH $2,428.04. Cost basis снятой половины $10,963 → realized +$720.21. Назначение: тест Aero WETH/USDC 0.12% CL50 (app.aero.xyz), режим Fee Rewards (без стейка), диапазон $1,750-$3,250. На Uniswap остаётся половина, cost $10,963, диапазон прежний. До депозита в Aero 1.9084 WETH + 7,475.97 USDC лежат на кошельке Base.' },
+    { date: '2026-11-05', type: 'withdraw', asset: 'Uniswap-v3-ETH/USDC', amount: null, price: 2428.04, usd: 11683.21, zone: 'yield', chain: 'Base', txHash: '0xdbc80c578b6c4e6aea18c142b82f04039f5ead496baefde6298f5c663a544c7c', note: 'Remove liquidity 50% из CLMM #5150479 (03:31:07 UTC, block 53530060): снято liquidity 692,657,876,147,059 — ровно половина, столько же осталось → 1.82084673 WETH + 7,262.138684 USDC ≈ $11,683.21 @ ETH $2,428.04. Cost basis снятой половины $10,963 → realized +$720.21. Назначение: тест Aero WETH/USDC CL50 в сети Arc (см. записи ниже; первоначальный план «Base 0.12%, без стейка, $1,750-3,250» заменён на Arc 0.04% CL50 со стейком, диапазон $1,498-3,220). На Uniswap остаётся половина, cost $10,963, диапазон прежний. До мостов 1.9084 WETH + 7,475.97 USDC лежали на кошельке Base.' },
+    // ===== МОСТЫ Base → Arc и депозит в Aero CL50 (вторая половина CLMM) — 2026-11-05 =====
+    { date: '2026-11-05', type: 'bridge', asset: 'WETH', amount: 1.908442321617706, price: 2419.79, usd: 4618.03, zone: 'yield', chain: 'Base→Arc', txHash: '0x8fbfe64926495af54356e208c39313073dc89b81e7ef41c6a97d2d2526f7a14f', txHashDest: '0xf21beee407638c2dd9dbceac2839b6df38086d47146a365096c487bc867372ab', note: 'Relay (через W3A Swap 2.0): 1.908442 WETH Base (10:26:45 UTC, block 53542529) → 1.893631 WETH Arc (10:26:46 UTC, block 29653718). Стоимость моста 0.014811 WETH ≈ $35.84 (0.78%). ETH $2,419.79 по пулу Aero на блоке прихода.' },
+    { date: '2026-11-05', type: 'bridge', asset: 'USDC', amount: 7475.973522, price: 1, usd: 7475.97, zone: 'yield', chain: 'Base→Arc', txHash: '0x53bdc4faa0f4f03a288cfa6f8d77b28ba03e2bef1662cfaf042cdc69b5e35cfa', txHashDest: '0x8988a44efcb048673e6f39c14740e9d7104a82b136de2bbc5bc49563de5fb315', note: 'Circle CCTP (через W3A Swap 2.0): 7,475.973522 USDC Base (10:34:51 UTC, block 53542772) → 7,475.923802 USDC Arc (10:56:24 UTC, block 29657226), 21.5 мин. Стоимость 0.0497 USDC. На Arc USDC нативный (gas-токен), 18 знаков в getBalance / 6 знаков в ERC20 0x3600…0000.' },
+    { date: '2026-11-05', type: 'deposit', asset: 'Aero-CL-WETH/USDC', amount: null, price: 2419.39, usd: 11886.72, zone: 'yield', chain: 'Arc', txHash: '0x9aeaf14b850e3501d382e5f09a9175ba67bd0da2d6d89b27e698ce2ee7104827', note: 'Aero (Slipstream) WETH/USDC 0.04% CL50, пул 0xAd5eea00…57EacE (11:55:45 UTC, Arc block 29664255, gas 0.022 USDC). Внесено 1.889296168 WETH + 7,315.771065 USDC = $11,886.72 @ ETH $2,419.39 (цена пула, tick −198408). Диапазон $1,498.23-$3,219.56 (ticks −203200/−195550), liquidity 698,045,001,825,800. NFT #18771 сразу застейкан в gauge 0xd74d3b50 (ownerOf = gauge). Сдача 0.004335 WETH вернулась на кошелёк. Из $12,109.73 (половина Uniswap + комиссии): в пул $11,886.72, остаток на кошельке Arc $170.68 (0.004335 WETH + 160.19 USDC), мосты $35.89, движение цены ETH $2,428→$2,419 на 1.908 WETH ≈ $16. Доход позиции = эмиссия AERO (комиссий свопов у застейканной нет); AERO собирать раз в неделю → BTC в залог Aave.' },
   ],
 
   // ======= CGS MODEL PARAMETERS =======
@@ -834,6 +875,20 @@ const CONFIG = {
     clmmBlocked: false, // по курсу: CLMM блокируется ТОЛЬКО при просадке >30% от точки сборки
     clmmBlockThreshold: 1737.62, // CLMM stop при ETH < этой цены (пересчитано 2026-09-01)
     yieldZoneSplit: { gm: 40, clmm: 30, stableReserve: 30 }, // базовый сплит Yield в Normal
+    // ===== РЕШЕНИЯ 05.11.2026 (разбор Discord W3A + AMA, см. Cryptoinsider/CGS-plan-2026-11.md) =====
+    decisions: {
+      date: '2026-11-05',
+      goalAsset: 'BTC', // цель накопления. ETH в залоге остаётся, конвертация ETH→BTC только на росте, не на просадке
+      targetDrift: { growth: 65, stability: 35 }, // 70/30 остаётся целью, движение к 65/35 только через DCA в Stability, без продаж крипты
+      trigger15: '70% от ТЕКУЩЕГО остатка GM (не от исходного объёма), Single за актив → BTC в залог, без ожидания 48ч. Остаток GM ждёт −30%.',
+      trigger30: 'Остаток GM закрыть полностью + 30% своей Stability → GM BTC/USDC. Оба CLMM (Uniswap Base и Aero Arc) закрыть независимо от сети.',
+      newYieldFlows: 'Существующие GM ETH/USD и CLMM ETH/USDC дорабатывают до триггеров. Все НОВЫЕ потоки Yield → BTC-инструменты: GM BTC/USDC, CLMM BTC/USDC (только во флете выше −30%). Комиссии CLMM → BTC в залог.',
+      clmmExit: 'Алерт за 3% до нижней границы. Второй диапазон (−15%/+5% от цены, 0.3%) открывать сразу из ликвидного резерва Yield; первую позицию (уже в ETH) держать 48ч в рабочие дни, затем ETH в залог. До 10.12 резерва нет → старое правило: 48ч, ETH в залог.',
+      newLoan: 'Только при трёх условиях одновременно: пропорции Growth/Stability восстановлены, LTV < 40-45%, Fear&Greed < 70. Направление: CLMM BTC/USDC (флет) + GM BTC/USDC.',
+      entryReset: 'entryETH обновляется только когда пропорции восстановлены И LTV вернулся к целевому. Новый CLMM и добор займа её не двигают.',
+      stabilityLiquidity: 'В фиксе (Pendle PT, лупинг) не больше 1/3 своих стейблов, 2/3 ликвидно. Заёмные стейблы Yield только в ликвидных инструментах.',
+      calendar: '15.11 DCA $10K → Aave Arbitrum USDC (пожарный слой, Stability). 10-11.12 погашение PT ~$93K: свои $69.7K → $27K фикс (PT-USDTAT/PT-sUSDS) + $42.7K ликвидно (GLV USDG/Morpho USDG); заёмные $23.3K → ликвидно. 15.12 DCA → Stability до 34-35%, потом DCA в BTC.',
+    },
   },
 
   // ======= DCA TRACKING =======
@@ -924,6 +979,7 @@ const CONFIG = {
     { date: '2026-11-01', asset: 'GM-BTC/USD', pnl: 1361, note: 'Триггер −7%: продано 3,690 GM (49.67% пула) за $9,204.05 vs cost $7,843 (149 дн удержания, fees включены). 0.06106 WBTC → залог Aave, USDC → GM ETH/USD.' },
     { date: '2026-11-05', asset: 'CLMM fees (Uniswap #5150479)', pnl: 426.52, note: 'Собранные комиссии за 53.0 дн (APR 12.6%): 0.0876 WETH + 213.83 USDC @ ETH $2,428. Остались на Base → в депозит Aero.' },
     { date: '2026-11-05', asset: 'Uniswap CLMM #5150479 (снято 50%)', pnl: 720.21, note: 'Снята половина ликвидности: получено $11,683.21 (1.8208 WETH + 7,262.14 USDC @ ETH $2,428.04) vs cost basis половины $10,963. Капитал переезжает в Aero WETH/USDC CL50 (тест, 3 недели).' },
+    { date: '2026-11-05', asset: 'Мосты Base→Arc (Relay WETH + CCTP USDC)', pnl: -35.89, note: 'Relay: 1.908442 → 1.893631 WETH, издержки 0.014811 WETH ≈ $35.84 (0.78%). CCTP: 7,475.9735 → 7,475.9238 USDC, $0.05. Цена входа в Aero-тест.' },
   ],
   // ======= ЛОГ GM-ЦИКЛОВ (слои накопления BTC по методичке) =======
   gmCycles: [
@@ -943,7 +999,7 @@ window.fetch = function(url, opts = {}) {
 };
 
 // ======= PROVIDERS (with fallback) =======
-let provider, providerETH, providerBase;
+let provider, providerETH, providerBase, providerArc;
 async function initProviders() {
   // Test RPC
   async function testRpc(url) {
@@ -959,12 +1015,15 @@ async function initProviders() {
   if (!providerETH) providerETH = new ethers.providers.JsonRpcProvider(CONFIG.rpcEthMainnet);
   providerBase = await testRpc(CONFIG.rpcBase) || await testRpc(CONFIG.rpcBaseFallback);
   if (!providerBase) providerBase = new ethers.providers.JsonRpcProvider(CONFIG.rpcBase);
-  console.log('RPC Arb:', provider.connection.url, '| ETH:', providerETH.connection.url, '| Base:', providerBase.connection.url);
+  providerArc = await testRpc(CONFIG.rpcArc) || await testRpc(CONFIG.rpcArcFallback);
+  if (!providerArc) providerArc = new ethers.providers.JsonRpcProvider(CONFIG.rpcArc);
+  console.log('RPC Arb:', provider.connection.url, '| ETH:', providerETH.connection.url, '| Base:', providerBase.connection.url, '| Arc:', providerArc.connection.url);
 }
 // Init with defaults, will be replaced after test
 provider = new ethers.providers.JsonRpcProvider(CONFIG.rpc);
 providerETH = new ethers.providers.JsonRpcProvider(CONFIG.rpcEthMainnet);
 providerBase = new ethers.providers.JsonRpcProvider(CONFIG.rpcBase);
+providerArc = new ethers.providers.JsonRpcProvider(CONFIG.rpcArc);
 
 // ======= ABI FRAGMENTS =======
 const ERC20_ABI = ['function balanceOf(address) view returns (uint256)', 'function decimals() view returns (uint8)', 'function symbol() view returns (string)'];
@@ -975,7 +1034,7 @@ const AAVE_RESERVE_DATA_ABI = ['function getReserveData(address asset) view retu
 const GMX_READER_ABI = ['function getMarketTokenPrice(address dataStore, tuple(address marketToken, address indexToken, address longToken, address shortToken) market, tuple(uint256 min, uint256 max) indexTokenPrice, tuple(uint256 min, uint256 max) longTokenPrice, tuple(uint256 min, uint256 max) shortTokenPrice, bytes32 pnlFactorType, bool maximize) view returns (int256, tuple(int256 poolValue, int256 longPnl, int256 shortPnl, int256 netPnl, uint256 longTokenAmount, uint256 shortTokenAmount, uint256 longTokenUsd, uint256 shortTokenUsd, uint256 totalBorrowingFees, uint256 borrowingFeePoolFactor, uint256 impactPoolAmount))'];
 
 // ======= STATE =======
-let state = { prices: {}, priceChanges: {}, aave: {}, aaveReserves: {}, gm: {}, gmPoolInfo: {}, wallet: {}, walletETHMain: {}, walletBase: {}, btcBalance: 0, pendle: { ptBalance: 0, ptPrice: null, ptValue: 0 }, uniswap: {}, lastUpdate: null, error: null };
+let state = { prices: {}, priceChanges: {}, aave: {}, aaveReserves: {}, gm: {}, gmPoolInfo: {}, wallet: {}, walletETHMain: {}, walletBase: {}, walletArc: {}, btcBalance: 0, pendle: { ptBalance: 0, ptPrice: null, ptValue: 0 }, uniswap: {}, aero: {}, lastUpdate: null, error: null };
 
 // ======= HELPERS =======
 const fmt = (n, d=2) => n != null ? Number(n).toLocaleString('en-US', {minimumFractionDigits:d, maximumFractionDigits:d}) : '—';
@@ -1267,7 +1326,21 @@ async function fetchWalletBalances() {
     }),
   ];
 
-  await Promise.all([...arbPromises, ...ethMainPromises, ...basePromises, btcPromise]);
+  // === ARC (остатки после депозита в Aero: заёмные, зона Yield) ===
+  // USDC на Arc нативный: читаем через ERC20-обёртку 0x3600…0000 (6 знаков), это та же сумма, что getBalance/1e18.
+  state.walletArc = {};
+  const arcPromises = [
+    { key: 'USDC', addr: CONFIG.USDC_ARC, decimals: 6 },
+    { key: 'WETH', addr: CONFIG.WETH_ARC, decimals: 18 },
+  ].map(async (t) => {
+    try {
+      const c = new ethers.Contract(t.addr, ERC20_ABI, providerArc);
+      const bal = await c.balanceOf(CONFIG.wallet);
+      state.walletArc[t.key] = { amount: Number(bal) / Math.pow(10, t.decimals), chain: 'Arc' };
+    } catch(e) { state.walletArc[t.key] = { amount: 0, chain: 'Arc' }; }
+  });
+
+  await Promise.all([...arbPromises, ...ethMainPromises, ...basePromises, ...arcPromises, btcPromise]);
 }
 
 // ======= UNISWAP V3 CLMM POSITION FETCHER =======
@@ -1430,6 +1503,90 @@ async function fetchUniswapV3Position() {
   } catch(e) {
     console.warn('Uniswap V3 position fetch error:', e.message);
     state.uniswap = { error: e.message };
+  }
+}
+
+// ======= AERO CL (Slipstream) POSITION FETCHER — Arc =======
+// NFT #18771 застейкан в gauge: ownerOf(NFT) = gauge, кошелёк виден только через gauge.stakedValues(wallet).
+// Математика ликвидности та же, что у Uniswap v3 (Slipstream = форк v3 с tickSpacing вместо fee).
+// Доход застейканной позиции = эмиссия AERO: gauge.earned(wallet, [tokenId]). Комиссий свопов у неё нет.
+let AERO_PX = { usd: null, ts: 0 };
+async function fetchAeroPrice() {
+  if (AERO_PX.usd && Date.now() - AERO_PX.ts < 10 * 60 * 1000) return AERO_PX.usd;
+  try {
+    const r = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=' + CONFIG.aeroCoingeckoId + '&vs_currencies=usd');
+    if (r.ok) { const d = await r.json(); const px = d[CONFIG.aeroCoingeckoId]?.usd; if (px) AERO_PX = { usd: px, ts: Date.now() }; }
+  } catch(e) { console.warn('AERO price:', e.message); }
+  return AERO_PX.usd;
+}
+async function fetchAeroPosition() {
+  try {
+    const tokenId = CONFIG.aeroPositionTokenId;
+    if (!tokenId) return;
+    const NPM_ABI = ['function positions(uint256 tokenId) view returns (uint96 nonce, address operator, address token0, address token1, int24 tickSpacing, int24 tickLower, int24 tickUpper, uint128 liquidity, uint256 feeGrowthInside0LastX128, uint256 feeGrowthInside1LastX128, uint128 tokensOwed0, uint128 tokensOwed1)', 'function ownerOf(uint256 tokenId) view returns (address)'];
+    const POOL_ABI = ['function slot0() view returns (uint160 sqrtPriceX96, int24 tick, uint16 observationIndex, uint16 observationCardinality, uint16 observationCardinalityNext, bool unlocked)'];
+    const GAUGE_ABI = ['function stakedContains(address depositor, uint256 tokenId) view returns (bool)', 'function stakedValues(address depositor) view returns (uint256[])', 'function earned(address account, uint256[] tokenIds) view returns (uint256)'];
+
+    const npm = new ethers.Contract(CONFIG.aeroNPMArc, NPM_ABI, providerArc);
+    const pool = new ethers.Contract(CONFIG.aeroPoolArc, POOL_ABI, providerArc);
+    const gauge = new ethers.Contract(CONFIG.aeroGaugeArc, GAUGE_ABI, providerArc);
+    const [pos, slot0, staked, owner] = await Promise.all([
+      npm.positions(tokenId), pool.slot0(),
+      gauge.stakedContains(CONFIG.wallet, tokenId).catch(() => null),
+      npm.ownerOf(tokenId).catch(() => null),
+    ]);
+    const token0 = pos.token0.toLowerCase();
+    const wethIsToken0 = token0 === CONFIG.WETH_ARC.toLowerCase();
+    const dec0 = wethIsToken0 ? 18 : 6, dec1 = wethIsToken0 ? 6 : 18;
+    const tickLower = pos.tickLower, tickUpper = pos.tickUpper, liquidity = pos.liquidity;
+    const sqrtPriceX96 = slot0.sqrtPriceX96, currentTick = slot0.tick;
+
+    const Q96 = ethers.BigNumber.from(2).pow(96);
+    const tickToSqrtPriceX96 = (tick) => ethers.BigNumber.from(Math.floor(Math.sqrt(Math.pow(1.0001, tick)) * 1e18)).mul(Q96).div(ethers.BigNumber.from(10).pow(18));
+    const sqrtA = tickToSqrtPriceX96(tickLower), sqrtB = tickToSqrtPriceX96(tickUpper);
+    let amount0, amount1;
+    if (currentTick < tickLower) {
+      amount0 = liquidity.mul(sqrtB.sub(sqrtA).mul(Q96)).div(sqrtB.mul(sqrtA).div(Q96)).div(Q96);
+      amount1 = ethers.BigNumber.from(0);
+    } else if (currentTick >= tickUpper) {
+      amount0 = ethers.BigNumber.from(0);
+      amount1 = liquidity.mul(sqrtB.sub(sqrtA)).div(Q96);
+    } else {
+      amount0 = liquidity.mul(sqrtB.sub(sqrtPriceX96).mul(Q96)).div(sqrtB.mul(sqrtPriceX96).div(Q96)).div(Q96);
+      amount1 = liquidity.mul(sqrtPriceX96.sub(sqrtA)).div(Q96);
+    }
+    const amt0 = Number(amount0.toString()) / Math.pow(10, dec0);
+    const amt1 = Number(amount1.toString()) / Math.pow(10, dec1);
+    const wethAmount = wethIsToken0 ? amt0 : amt1;
+    const usdcAmount = wethIsToken0 ? amt1 : amt0;
+    const sqrtP = Number(sqrtPriceX96.toString()) / Math.pow(2, 96);
+    let priceUSDCperETH = Math.pow(sqrtP, 2);
+    priceUSDCperETH = wethIsToken0 ? priceUSDCperETH * Math.pow(10, dec0 - dec1) : (1 / priceUSDCperETH) * Math.pow(10, dec1 - dec0);
+    const tickPrice = (t) => Math.pow(1.0001, t) * Math.pow(10, wethIsToken0 ? dec0 - dec1 : dec1 - dec0);
+
+    // Эмиссия AERO (накоплено, не собрано) + цена AERO
+    let aeroEarned = 0;
+    try { const e = await gauge.earned(CONFIG.wallet, [tokenId]); aeroEarned = Number(e.toString()) / 1e18; } catch(e) { console.warn('Aero earned:', e.message); }
+    const aeroPrice = await fetchAeroPrice();
+
+    const ethPx = state.prices.ETH || priceUSDCperETH;
+    const positionValueUSD = wethAmount * ethPx + usdcAmount;
+    const rewardsValueUSD = aeroPrice ? aeroEarned * aeroPrice : 0;
+    const since = new Date(CONFIG.aeroClmmFeesSince || CONFIG.aeroClmmEntryDate);
+    const daysActive = Math.max(0.01, (Date.now() - since.getTime()) / 86400000);
+    state.aero = {
+      tokenId, poolAddress: CONFIG.aeroPoolArc, gauge: CONFIG.aeroGaugeArc,
+      wethAmount, usdcAmount, currentTick, tickLower, tickUpper,
+      rangeLow: tickPrice(tickLower), rangeHigh: tickPrice(tickUpper),
+      priceUSDCperETH, inRange: currentTick >= tickLower && currentTick < tickUpper,
+      staked: staked === null ? (owner && owner.toLowerCase() === CONFIG.aeroGaugeArc.toLowerCase()) : !!staked,
+      liquidity: liquidity.toString(),
+      aeroEarned, aeroPrice, rewardsValueUSD, positionValueUSD, daysActive,
+      aprFromRewards: positionValueUSD > 0 ? (rewardsValueUSD / positionValueUSD) * (365 / daysActive) * 100 : null,
+    };
+  } catch(e) {
+    console.warn('Aero CL position fetch error:', e.message);
+    state.aero = { error: e.message };
   }
 }
 
@@ -1674,7 +1831,7 @@ function renderWallet() {
     if (amount == null || amount < 0.0001) return;
     const usd = price ? amount * price : null;
     if (usd) walletTotal += usd;
-    const chainColor = chain === 'Bitcoin' ? '#f7931a' : chain === 'Ethereum' ? '#627eea' : '#28a0f0';
+    const chainColor = chain === 'Bitcoin' ? '#f7931a' : chain === 'Ethereum' ? '#627eea' : chain === 'Arc' ? '#9b7bff' : '#28a0f0';
     html += `<div class="token-row">
       <div class="token-info"><span style="font-size:20px">${icon}</span>
         <div><div class="token-name">${name}</div><div class="token-chain" style="color:${chainColor}">${chain}</div></div>
@@ -1726,6 +1883,17 @@ function renderWallet() {
   for (const t of baseTokens) {
     const d = wb[t.key];
     if (d) addRow(t.icon, t.key, 'Base', d.amount, t.dec, t.price);
+  }
+
+  // Arc tokens (остатки после депозита в Aero — заёмные, считаются в Yield)
+  const wa = state.walletArc || {};
+  const arcTokens = [
+    { key: 'WETH', icon: '🔷', price: p.ETH, dec: 4 },
+    { key: 'USDC', icon: '💵', price: 1, dec: 2 },
+  ];
+  for (const t of arcTokens) {
+    const d = wa[t.key];
+    if (d) addRow(t.icon, t.key, 'Arc', d.amount, t.dec, t.price);
   }
 
   if (html && walletTotal > 0) {
@@ -1809,7 +1977,100 @@ function renderUniswapCLMM() {
       <span style="font-weight:600; color:${pnlColor}">${pnlSign}${fmtUSD(pnl)} (${pnlSign}${fmt(pnlPct,2)}%)</span>
     </div>
 
+    ${clmmExitAlertHTML(ethPrice, rangeLow, 'Uniswap #' + u.tokenId, 'снять ликвидность')}
     <div style="margin-top:8px; font-size:11px; color:var(--dim);">Base • Uniswap v3 • Fee ${u.feeBips/10000}% • Pool ${u.poolAddress?.slice(0,8)}…${u.poolAddress?.slice(-6)}</div>
+  `;
+  container.innerHTML = html;
+}
+
+// Алерт выхода CLMM (решение 05.11.2026): за 3% до нижней границы готовим второй диапазон и снимаем/анстейкаем.
+function clmmExitAlertHTML(ethPrice, rangeLow, label, verb) {
+  const pct = CONFIG.clmmExitAlertPct || 3;
+  const alertPrice = rangeLow * (1 + pct / 100);
+  const dist = ethPrice && rangeLow ? ((ethPrice - rangeLow) / rangeLow) * 100 : null;
+  if (dist == null) return '';
+  if (ethPrice < rangeLow) {
+    return `<div style="margin-top:10px; padding:8px; background:rgba(248,81,73,0.15); border-radius:8px; font-size:12px; color:var(--red);">🚨 ${label}: цена НИЖЕ диапазона, позиция в ETH. Держать 48ч в рабочие дни, затем ETH → в залог Aave. Второй диапазон из резерва (после 10.12).</div>`;
+  }
+  if (ethPrice <= alertPrice) {
+    return `<div style="margin-top:10px; padding:8px; background:rgba(248,81,73,0.12); border-radius:8px; font-size:12px; color:var(--red);">⚠️ ${label}: до нижней границы ${fmt(dist,1)}% (порог ${pct}%, ETH ≤ $${fmt(alertPrice,0)}). Пора ${verb} и готовить второй диапазон −15%/+5% от цены.</div>`;
+  }
+  return `<div style="margin-top:8px; font-size:11px; color:var(--dim);">Алерт выхода: ETH ≤ <strong>$${fmt(alertPrice,0)}</strong> (за ${pct}% до нижней границы $${fmt(rangeLow,0)}) → ${verb}. Сейчас запас <span style="color:var(--green)">${fmt(dist,1)}%</span>.</div>`;
+}
+
+function renderAeroCLMM() {
+  const container = document.getElementById('aeroClmm');
+  if (!container) return;
+  const a = state.aero;
+  if (!a || a.error || !a.tokenId) {
+    container.innerHTML = a?.error
+      ? `<span style="color:var(--red)">Ошибка: ${a.error}</span>`
+      : '<span style="color:var(--dim)">Загрузка позиции Aero (Arc)...</span>';
+    return;
+  }
+  const ethPrice = state.prices.ETH || a.priceUSDCperETH;
+  const positionUSD = a.wethAmount * ethPrice + a.usdcAmount;
+  const rewardsUSD = a.aeroPrice ? a.aeroEarned * a.aeroPrice : 0;
+  const totalUSD = positionUSD + rewardsUSD;
+  const costBasis = CONFIG.aeroClmmCostBasis;
+  const pnl = totalUSD - costBasis;
+  const pnlPct = (pnl / costBasis) * 100;
+  const rangeLow = CONFIG.aeroClmmRangeLow, rangeHigh = CONFIG.aeroClmmRangeHigh;
+  const rangeMid = Math.sqrt(rangeLow * rangeHigh);
+  const pricePosition = Math.max(0, Math.min(100, ((ethPrice - rangeLow) / (rangeHigh - rangeLow)) * 100));
+  const inRangeColor = a.inRange ? 'var(--green)' : 'var(--red)';
+  const inRangeText = a.inRange ? '✅ В диапазоне' : '⚠️ ВНЕ диапазона';
+  const pnlColor = pnl >= 0 ? 'var(--green)' : 'var(--red)';
+  const pnlSign = pnl >= 0 ? '+' : '−';
+  // Сравнение с Uniswap-половиной (тест 3 недели): APR эмиссии vs APR комиссий
+  const u = state.uniswap || {};
+  const uniApr = u.aprFromFees;
+  // Доли токенов: во флете ~ половина на половину, у границ перекос
+  const wethShare = positionUSD > 0 ? (a.wethAmount * ethPrice) / positionUSD * 100 : 0;
+
+  let html = `
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+      <div>
+        <span style="font-weight:600; font-size:14px;">Position #${a.tokenId}</span>
+        <span style="margin-left:8px; padding:2px 8px; border-radius:8px; background:rgba(${a.inRange ? '63,185,80' : '248,81,73'},0.15); color:${inRangeColor}; font-size:11px;">${inRangeText}</span>
+        <span style="margin-left:6px; padding:2px 8px; border-radius:8px; background:rgba(88,166,255,0.15); color:var(--blue); font-size:11px;">${a.staked ? '🔒 Застейкан в gauge' : '🔓 НЕ застейкан'}</span>
+      </div>
+      <a href="https://explorer.arc.io/tx/${CONFIG.aeroClmmEntryTxHash}" target="_blank" style="font-size:11px; color:var(--dim);">Arc Explorer ↗</a>
+    </div>
+
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:12px;">
+      <div class="metric"><span class="metric-label">WETH в позиции</span><span class="metric-value">${fmt(a.wethAmount, 4)} ETH <span style="font-size:10px;color:var(--dim)">(${fmt(wethShare,0)}%)</span></span></div>
+      <div class="metric"><span class="metric-label">USDC в позиции</span><span class="metric-value">${fmt(a.usdcAmount, 2)} USDC</span></div>
+      <div class="metric"><span class="metric-label">Стоимость позиции</span><span class="metric-value">${fmtUSD(positionUSD)}</span></div>
+      <div class="metric"><span class="metric-label">Цена ETH в пуле Arc</span><span class="metric-value">${fmtUSD(a.priceUSDCperETH)}</span></div>
+    </div>
+
+    <div style="margin:12px 0;">
+      <div style="display:flex; justify-content:space-between; font-size:11px; color:var(--dim); margin-bottom:4px;">
+        <span>$${fmt(rangeLow,0)}</span>
+        <span>Середина $${fmt(rangeMid,0)}</span>
+        <span>$${fmt(rangeHigh,0)}</span>
+      </div>
+      <div style="position:relative; height:8px; background:rgba(255,255,255,0.05); border-radius:4px; overflow:hidden;">
+        <div style="position:absolute; top:0; left:0; height:100%; width:100%; background:linear-gradient(90deg, rgba(63,185,80,0.3) 0%, rgba(63,185,80,0.5) 50%, rgba(63,185,80,0.3) 100%);"></div>
+        <div style="position:absolute; top:-2px; left:${pricePosition}%; width:3px; height:12px; background:var(--blue); transform:translateX(-50%);"></div>
+      </div>
+      <div style="text-align:center; font-size:11px; color:var(--dim); margin-top:4px;">ETH цена: <strong style="color:var(--blue)">$${fmt(ethPrice,2)}</strong> (${fmt(pricePosition,0)}% от ширины диапазона) · ticks ${a.tickLower}/${a.tickUpper}, spacing ${CONFIG.aeroClmmTickSpacing}</div>
+    </div>
+
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:12px; padding-top:12px; border-top:1px solid var(--border);">
+      <div class="metric"><span class="metric-label">Накоплено AERO (эмиссия)</span><span class="metric-value" style="color:var(--green)">${fmt(a.aeroEarned, 4)} AERO</span></div>
+      <div class="metric"><span class="metric-label">└ в долларах${a.aeroPrice ? ` (AERO $${fmt(a.aeroPrice,3)})` : ' (цена AERO недоступна)'}</span><span class="metric-value" style="color:var(--green)">${a.aeroPrice ? fmtUSD(rewardsUSD) : '—'}</span></div>
+      <div class="metric"><span class="metric-label">APR эмиссии (${fmt(a.daysActive||0,1)} дн.)</span><span class="metric-value" style="color:var(--green)">${a.aprFromRewards != null && a.aeroPrice ? fmt(a.aprFromRewards,2)+'%' : '—'}</span></div>
+      <div class="metric"><span class="metric-label">Uniswap Base для сравнения</span><span class="metric-value" style="font-size:12px;">${uniApr != null ? 'APR ' + fmt(uniApr,2) + '%' : '—'}</span></div>
+    </div>
+
+    <div style="margin-top:12px; padding-top:12px; border-top:1px solid var(--border); display:flex; justify-content:space-between; align-items:center;">
+      <span style="color:var(--dim); font-size:12px;">P&L (вложено ${fmtUSD(costBasis)} @ ETH $${fmt(CONFIG.aeroClmmEntryETHPrice,0)})</span>
+      <span style="font-weight:600; color:${pnlColor}">${pnlSign}${fmtUSD(Math.abs(pnl))} (${pnlSign}${fmt(Math.abs(pnlPct),2)}%)</span>
+    </div>
+    ${clmmExitAlertHTML(ethPrice, rangeLow, 'Aero #' + a.tokenId, 'анстейкнуть и снять')}
+    <div style="margin-top:8px; font-size:11px; color:var(--dim);">Arc (chain 5042) • Aero CL (Slipstream) • Fee ${CONFIG.aeroClmmFeePct}% • Pool ${a.poolAddress.slice(0,8)}…${a.poolAddress.slice(-6)} • Gauge ${a.gauge.slice(0,8)}… • застейканная позиция получает AERO, не комиссии. AERO собирать раз в неделю → BTC в залог.</div>
   `;
   container.innerHTML = html;
 }
@@ -2387,13 +2648,13 @@ function portfolioMix() {
   const sup = k => (res[k] && res[k].supplied) || 0;
   const w = state.wallet || {}, wm = state.walletETHMain || {}, wb = state.walletBase || {};
   const amt = (o, k) => (o && o[k] && o[k].amount) || 0;
-  const u = state.uniswap || {}, g = state.gm || {};
+  const u = state.uniswap || {}, g = state.gm || {}, ae = state.aero || {}, wa = state.walletArc || {};
   const gmEth = (g.ethBal || 0) * (g.ethPrice || 0), gmBtc = (g.btcBal || 0) * (g.btcPrice || 0);
-  const eth = (sup('WETH') + amt(w, 'ETH') + amt(w, 'WETH') + amt(wm, 'ETH') + amt(wm, 'WETH') + amt(wb, 'ETH')
-    + (u.wethAmount || 0) + (u.wethFees || 0)) * pr.ETH + gmEth / 2;
+  const eth = (sup('WETH') + amt(w, 'ETH') + amt(w, 'WETH') + amt(wm, 'ETH') + amt(wm, 'WETH') + amt(wb, 'ETH') + amt(wa, 'WETH')
+    + (u.wethAmount || 0) + (u.wethFees || 0) + (ae.wethAmount || 0)) * pr.ETH + gmEth / 2;
   const btc = (sup('WBTC') + amt(w, 'WBTC') + (state.btcBalance || 0)) * pr.BTC + gmBtc / 2;
-  const stab = ((state.pendle || {}).ptValue || 0) + (u.usdcAmount || 0) + (u.usdcFees || 0) + gmEth / 2 + gmBtc / 2
-    + amt(w, 'USDC') + amt(w, 'USDC.e') + amt(w, 'USDT') + amt(wm, 'USDT') + amt(wm, 'USDC') + amt(wb, 'USDC')
+  const stab = ((state.pendle || {}).ptValue || 0) + (u.usdcAmount || 0) + (u.usdcFees || 0) + (ae.usdcAmount || 0) + (ae.rewardsValueUSD || 0) + gmEth / 2 + gmBtc / 2
+    + amt(w, 'USDC') + amt(w, 'USDC.e') + amt(w, 'USDT') + amt(wm, 'USDT') + amt(wm, 'USDC') + amt(wb, 'USDC') + amt(wa, 'USDC')
     - ((state.aave || {}).debt || 0);
   const sum = eth + btc + stab;
   if (!(eth > 0) || !(sum > 0)) return FB;
@@ -2408,6 +2669,9 @@ function carrySpread() {
   if (p.ptValue > 0) rows.push({ n: 'Pendle PT', v: p.ptValue, r: p.impliedApy || 0 });
   const clmm = (u.positionValueUSD || 0) + (u.feesValueUSD || 0);
   if (clmm > 0) rows.push({ n: 'CLMM Base', v: clmm, r: (u.aprFromFees || 0) / 100 });
+  const ae = state.aero || {};
+  const aeroV = (ae.positionValueUSD || 0) + (ae.rewardsValueUSD || 0);
+  if (aeroV > 0) rows.push({ n: 'Aero Arc', v: aeroV, r: (ae.aprFromRewards || 0) / 100 });
   const gmE = (g.ethBal || 0) * (g.ethPrice || 0), gmB = (g.btcBal || 0) * (g.btcPrice || 0);
   if (gmE > 0) rows.push({ n: 'GM ETH', v: gmE, r: g.ethFeeApr || 0 });
   if (gmB > 0) rows.push({ n: 'GM BTC', v: gmB, r: g.btcFeeApr || 0 });
@@ -2655,6 +2919,11 @@ function renderZones() {
   const gmEthVal = g.ethPrice && g.ethBal ? g.ethBal * g.ethPrice : 0;
   const uniClmmVal = state.uniswap?.positionValueUSD || 0;
   const uniClmmFees = state.uniswap?.feesValueUSD || 0;
+  // Aero CL50 на Arc (вторая половина CLMM, 05.11.2026) + остатки на кошельке Arc после депозита — всё заёмное, Yield
+  const aeroClmmVal = state.aero?.positionValueUSD || 0;
+  const aeroRewards = state.aero?.rewardsValueUSD || 0;
+  const arcIdle = ((state.walletArc || {})['WETH']?.amount || 0) * (p.ETH || 0) + ((state.walletArc || {})['USDC']?.amount || 0);
+  const clmmTotal = uniClmmVal + uniClmmFees + aeroClmmVal + aeroRewards + arcIdle;
 
   // ===== PT делится на свою и заёмную часть (см. CONFIG.ptBorrowed) =====
   // Заёмный PT — это резерв Yield Zone (30% сплита), а НЕ Stability.
@@ -2664,7 +2933,7 @@ function renderZones() {
   const ptBorrowedValue = Math.min(ptTotalValue, ptBorrowedQty * ptPriceNow);
   const ptOwnValue = ptTotalValue - ptBorrowedValue;
 
-  const yieldValue = gmBtcVal + gmEthVal + uniClmmVal + uniClmmFees + ptBorrowedValue;
+  const yieldValue = gmBtcVal + gmEthVal + clmmTotal + ptBorrowedValue;
 
   // Stability: ТОЛЬКО свои стейблы + СВОЯ часть PT
   const arbStables = (w['USDC']?.amount || 0) + (w['USDC.e']?.amount || 0) + (w['USDT']?.amount || 0);
@@ -2695,7 +2964,8 @@ function renderZones() {
   state.zones = { growth: growthValue, growthOwn, borrowedInGrowth, yield: yieldValue,
                   stability: stabilityValue, own: ownCapital, total: totalPortfolio,
                   netWorth: ownCapital, debt,
-                  gm: gmBtcVal + gmEthVal, clmm: uniClmmVal + uniClmmFees,
+                  gm: gmBtcVal + gmEthVal, clmm: clmmTotal,
+                  clmmUni: uniClmmVal + uniClmmFees, clmmAero: aeroClmmVal + aeroRewards, arcIdle,
                   ptOwn: ptOwnValue, ptBorrowed: ptBorrowedValue };
 
   const gPct = ownCapital > 0 ? (growthOwn / ownCapital * 100) : 0;
@@ -2729,8 +2999,12 @@ function renderZones() {
       <span><strong>${fmtUSD(yieldValue)}</strong></span>
     </div>
     <div class="zone-detail-row" style="margin-top:-4px;">
-      <span class="label" style="font-size:11px;color:var(--dim);padding-left:18px;">└ GM ${fmt(yieldValue>0?(gmBtcVal+gmEthVal)/yieldValue*100:0,0)}% · CLMM ${fmt(yieldValue>0?(uniClmmVal+uniClmmFees)/yieldValue*100:0,0)}% · резерв ${fmt(yieldValue>0?ptBorrowedValue/yieldValue*100:0,0)}% <span style="opacity:.7">(цель 40/30/30)</span></span>
-      <span class="target" style="font-size:11px;">${fmtUSD(gmBtcVal + gmEthVal)} · ${fmtUSD(uniClmmVal + uniClmmFees)} · ${fmtUSD(ptBorrowedValue)}</span>
+      <span class="label" style="font-size:11px;color:var(--dim);padding-left:18px;">└ GM ${fmt(yieldValue>0?(gmBtcVal+gmEthVal)/yieldValue*100:0,0)}% · CLMM ${fmt(yieldValue>0?clmmTotal/yieldValue*100:0,0)}% · резерв ${fmt(yieldValue>0?ptBorrowedValue/yieldValue*100:0,0)}% <span style="opacity:.7">(цель 40/30/30)</span></span>
+      <span class="target" style="font-size:11px;">${fmtUSD(gmBtcVal + gmEthVal)} · ${fmtUSD(clmmTotal)} · ${fmtUSD(ptBorrowedValue)}</span>
+    </div>
+    <div class="zone-detail-row" style="margin-top:-4px;">
+      <span class="label" style="font-size:11px;color:var(--dim);padding-left:30px;">└ CLMM: Uniswap Base ${fmtUSD(uniClmmVal + uniClmmFees)} · Aero Arc ${fmtUSD(aeroClmmVal + aeroRewards)}${arcIdle > 1 ? ` · на кошельке Arc ${fmtUSD(arcIdle)}` : ''}</span>
+      <span class="target" style="font-size:11px;">GM BTC ${fmtUSD(gmBtcVal)} · GM ETH ${fmtUSD(gmEthVal)}</span>
     </div>
     <div class="zone-detail-row">
       <span class="label">🟢 Stability Zone (свои)</span>
@@ -2782,8 +3056,8 @@ function renderTriggers() {
   // Точка отсчёта: цена ETH на момент покупки первого GM-пула (CONFIG.entryETH = $2,137.45)
   const fallTriggers = [
     { pct: -7, action: 'Продать 30% GM. BTC → в залог. USDC → обратно в GM.' },
-    { pct: -15, action: 'Продать оставшиеся 70% GM. BTC → в залог. USDC → обратно в GM. CLMM: если вне диапазона — ждать 48ч.' },
-    { pct: -30, action: 'Каскад GM (всё). + 30% Stability → GM BTC/USDC. CLMM работу ОСТАНАВЛИВАЕМ. Recovery Mode активен.' },
+    { pct: -15, action: 'Продать 70% от ТЕКУЩЕГО остатка GM (не от исходного объёма), Single за актив → BTC в залог, без ожидания 48ч. Остаток GM ждёт −30%. CLMM: алерт за 3% до нижней границы (решение 05.11.2026).' },
+    { pct: -30, action: 'Остаток GM закрыть полностью + 30% своей Stability → GM BTC/USDC. Оба CLMM (Uniswap Base + Aero Arc) закрыть. Recovery Mode активен.' },
     { pct: -50, action: 'Каскад GM + 40% Stability → GM BTC/USDC (от объёма Stability, не от остатка).' },
     { pct: -70, action: 'Каскад GM + оставшиеся 30% Stability → GM BTC/USDC. DCA only.' },
   ];
@@ -2924,10 +3198,11 @@ function renderYieldTracker() {
 
   // Total portfolio yield: GM fees + Pendle profit + Uniswap CLMM fees + GM ETH realized
   const uniFees = state.uniswap?.feesValueUSD || 0;
+  const aeroRewardsUSD = state.aero?.rewardsValueUSD || 0;
   const gmETHRealized = CONFIG.gmETHRealizedPnL || 0;
-  const totalYield = totalGMFees + pendleProfit + ptBorrowedProfit + uniFees + gmETHRealized;
+  const totalYield = totalGMFees + pendleProfit + ptBorrowedProfit + uniFees + aeroRewardsUSD + gmETHRealized;
   // Базы разведены: заёмный капитал в работе vs свои деньги в Stability
-  const borrowedAtWork = CONFIG.gmBTCEntryCost + CONFIG.gmETHEntryCost + CONFIG.uniswapClmmCostBasis + ptBorrowedCostY;
+  const borrowedAtWork = CONFIG.gmBTCEntryCost + CONFIG.gmETHEntryCost + CONFIG.uniswapClmmCostBasis + (CONFIG.aeroClmmCostBasis || 0) + ptBorrowedCostY;
   const ownInStability = CONFIG.pendlePT_reUSDe_costBasis;
   const totalInvested = borrowedAtWork + ownInStability;
   const annualizedROI = totalInvested > 0 && daysHeld > 0 ? (totalYield / totalInvested) * (365 / daysHeld) * 100 : 0;
@@ -2964,6 +3239,17 @@ function renderYieldTracker() {
       <div class="yield-value pnl-up">+${fmtUSD(uniFees)}</div>
       <div class="yield-sub">Position #${u.tokenId} · ${u.inRange ? '✅ В диапазоне' : '⚠️ ВНЕ диапазона'} · APR: <span style="color:var(--green)">${uniAPR != null ? fmt(uniAPR,2)+'%' : '—'}</span></div>
       <div class="yield-sub">Вложено: ${fmtUSD(CONFIG.uniswapClmmCostBasis)} → сейчас ${fmtUSD(u.positionValueUSD + uniFees)} (с комиссиями)</div>
+    </div>`;
+  }
+
+  // Aero CL50 (Arc) block — вторая половина CLMM, доход эмиссией AERO
+  const ae = state.aero;
+  if (ae && ae.tokenId && !ae.error) {
+    html += `<div class="yield-block">
+      <div class="yield-label">✈️ Aero CL50 WETH/USDC (Arc) — эмиссия AERO за ${fmt(ae.daysActive||0,1)} дн.</div>
+      <div class="yield-value pnl-up">+${fmtUSD(aeroRewardsUSD)} <span style="font-size:12px;color:var(--dim)">(${fmt(ae.aeroEarned||0,4)} AERO${ae.aeroPrice ? ' @ $' + fmt(ae.aeroPrice,3) : ''})</span></div>
+      <div class="yield-sub">Position #${ae.tokenId} · ${ae.inRange ? '✅ В диапазоне' : '⚠️ ВНЕ диапазона'} · ${ae.staked ? 'застейкан' : 'НЕ застейкан'} · APR эмиссии: <span style="color:var(--green)">${ae.aprFromRewards != null && ae.aeroPrice ? fmt(ae.aprFromRewards,2)+'%' : '—'}</span></div>
+      <div class="yield-sub">Вложено: ${fmtUSD(CONFIG.aeroClmmCostBasis)} (05.11.2026) → сейчас ${fmtUSD((ae.positionValueUSD||0) + aeroRewardsUSD)} (с AERO). Тест против Uniswap Base, итог через 2-3 недели.</div>
     </div>`;
   }
 
@@ -3085,6 +3371,24 @@ function renderCGSModel() {
   html += `<div class="cgs-param"><span class="cgs-param-label">Recovery enter (−30%)</span><span class="cgs-param-value">ETH < $${fmt(m.recoveryEnterPrice, 0)}</span></div>`;
   html += `<div class="cgs-param"><span class="cgs-param-label">Weighted avg (P&L)</span><span class="cgs-param-value">$${fmt(CONFIG.weightedAvgETH, 0)} — точка безубыточности Growth</span></div>`;
 
+  // Решения 05.11.2026 (Discord W3A + AMA): цель BTC, дрейф к 65/35, правило −15% от остатка, выход CLMM, условия нового займа
+  const dec = m.decisions;
+  if (dec) {
+    html += `<div class="cgs-param"><span class="cgs-param-label">Цель накопления</span><span class="cgs-param-value">${dec.goalAsset} (ETH в залоге остаётся, ETH→BTC только на росте)</span></div>`;
+    html += `<div class="cgs-param"><span class="cgs-param-label">Дрейф пропорции</span><span class="cgs-param-value">к ${dec.targetDrift.growth}/${dec.targetDrift.stability} через DCA в Stability, без продаж</span></div>`;
+    html += `<details style="margin-top:8px; font-size:11px; color:var(--dim);"><summary style="cursor:pointer; color:var(--text);">Правила от ${dec.date} (разбор W3A Discord + AMA) ▾</summary>
+      <div style="margin-top:6px; line-height:1.5;">
+        <div><strong>−15%:</strong> ${dec.trigger15}</div>
+        <div><strong>−30%:</strong> ${dec.trigger30}</div>
+        <div><strong>Новые потоки Yield:</strong> ${dec.newYieldFlows}</div>
+        <div><strong>Выход CLMM:</strong> ${dec.clmmExit}</div>
+        <div><strong>Новый займ:</strong> ${dec.newLoan}</div>
+        <div><strong>Точка отсчёта:</strong> ${dec.entryReset}</div>
+        <div><strong>Ликвидность Stability:</strong> ${dec.stabilityLiquidity}</div>
+        <div><strong>Календарь:</strong> ${dec.calendar}</div>
+      </div></details>`;
+  }
+
   if (!clmmActive) {
     html += `<div style="margin-top:10px; padding:8px; background:rgba(248,81,73,0.1); border-radius:8px; font-size:12px; color:var(--red);">
       🚫 CLMM остановлен: просадка >30% от точки сборки (ETH < $${fmt(m.clmmBlockThreshold,0)})
@@ -3150,10 +3454,19 @@ function renderTxHistory() {
   </tr></thead><tbody>`;
 
   // Show in reverse chronological order
+  // Эксплорер по сети записи: chain вида 'Base' / 'Arc' / 'Ethereum' / 'Arbitrum' / 'Base→Arc' (источник→назначение)
+  const explorerFor = (chainName, hash, tx) => {
+    const c = (chainName || '').toLowerCase();
+    if (c.startsWith('base')) return `https://basescan.org/tx/${hash}`;
+    if (c.startsWith('arc')) return `https://explorer.arc.io/tx/${hash}`;
+    if (c.startsWith('bitcoin')) return `https://mempool.space/tx/${hash}`;
+    if (c.startsWith('ethereum') || (!c && (tx.zone === 'stability' || tx.asset === 'PT-reUSDe'))) return `https://etherscan.io/tx/${hash}`;
+    return `https://arbiscan.io/tx/${hash}`;
+  };
   [...history].reverse().forEach(tx => {
-    const explorer = tx.txHash ? (tx.zone === 'stability' || tx.asset === 'PT-reUSDe'
-      ? `https://etherscan.io/tx/${tx.txHash}`
-      : `https://arbiscan.io/tx/${tx.txHash}`) : null;
+    const parts = (tx.chain || '').split('→');
+    const explorer = tx.txHash ? explorerFor(parts[0], tx.txHash, tx) : null;
+    const explorerDest = tx.txHashDest && parts[1] ? explorerFor(parts[1], tx.txHashDest, tx) : null;
     const typeClass = tx.type === 'buy' ? 'buy' : tx.type === 'deposit' ? 'deposit' : tx.type === 'borrow' ? 'borrow' : 'sell';
     const typeLabel = tx.type === 'buy' ? 'Buy' : tx.type === 'deposit' ? 'Deposit' : tx.type === 'borrow' ? 'Borrow' : tx.type;
 
@@ -3165,7 +3478,7 @@ function renderTxHistory() {
       <td>${tx.price != null ? fmtUSD(tx.price) : '—'}</td>
       <td>${fmtUSD(tx.usd)}</td>
       <td><span class="zone-badge ${tx.zone}">${tx.zone}</span></td>
-      <td style="font-size:11px; color:var(--dim);">${tx.note || ''}${explorer ? ` <a href="${explorer}" target="_blank" class="tx-link">tx ↗</a>` : ''}</td>
+      <td style="font-size:11px; color:var(--dim);">${tx.note || ''}${explorer ? ` <a href="${explorer}" target="_blank" class="tx-link">tx ↗</a>` : ''}${explorerDest ? ` <a href="${explorerDest}" target="_blank" class="tx-link">tx dest ↗</a>` : ''}</td>
     </tr>`;
   });
 
@@ -3183,7 +3496,8 @@ function renderTxHistory() {
   // Yield = GM + CLMM (обе live с чейна). НЕ забывать CLMM — это тоже Yield Zone.
   const gmLive = ((state.gm.btcBal && state.gm.btcPrice) ? state.gm.btcBal * state.gm.btcPrice : 0)
                + ((state.gm.ethBal && state.gm.ethPrice) ? state.gm.ethBal * state.gm.ethPrice : 0);
-  const clmmLive = (state.uniswap?.positionValueUSD || 0) + (state.uniswap?.feesValueUSD || 0);
+  const clmmLive = (state.uniswap?.positionValueUSD || 0) + (state.uniswap?.feesValueUSD || 0)
+                 + (state.aero?.positionValueUSD || 0) + (state.aero?.rewardsValueUSD || 0) + (state.zones?.arcIdle || 0);
   const gmNetCost = history.filter(tx => (tx.asset || '').startsWith('GM-'))
     .reduce((s, tx) => s + (tx.type === 'sell' ? -(tx.usd || 0) : (tx.usd || 0)), 0);
   const yieldDeployed = (gmLive + clmmLive) > 0 ? (gmLive + clmmLive) : gmNetCost; // live: GM + CLMM
@@ -3273,6 +3587,7 @@ function renderAll() {
   renderAaveBreakdown();
   renderGM();
   renderUniswapCLMM();
+  renderAeroCLMM();
   renderPendle();
   renderWallet();
   renderZones();
@@ -3318,6 +3633,7 @@ async function refreshAll() {
       withTimeout(fetchWalletBalances),
       withTimeout(fetchPendlePT),
       withTimeout(fetchUniswapV3Position),
+      withTimeout(fetchAeroPosition),
     ]);
     state.lastUpdate = new Date();
     state.error = null;
