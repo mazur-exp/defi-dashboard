@@ -598,7 +598,7 @@ if (sessionStorage.getItem('defi_auth') === '1') {
 <script>
 // ======= CONFIGURATION =======
 const CONFIG = {
-  buildId: '2026-11-01.1',   // видно на карточке «Бенчмарк» — чтобы по скриншоту было ясно, какая сборка
+  buildId: '2026-11-05.1',   // видно на карточке «Бенчмарк» — чтобы по скриншоту было ясно, какая сборка
   wallet: '0x50E779Be63945354414162a05416E48DEDB8376E',
   btcWallet: 'bc1qn576x99g0devh8cnf0d45kradm5t06j4x2g9cp',
   rpc: 'https://arbitrum-one-rpc.publicnode.com',
@@ -673,16 +673,16 @@ const CONFIG = {
   USDC_BASE: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
   // Текущая позиция CLMM Алекса
   uniswapPositionTokenId: 5150479, // NFT Position ID
-  uniswapClmmCostBasis: 21926, // USD при открытии (5.634 WETH + 10,007 USDC)
+  uniswapClmmCostBasis: 10963, // остаток после снятия 50% ликвидности 05.11.2026 (tx 0xdbc80c57). При открытии $21,926 (5.634 WETH + 10,007 USDC)
   uniswapClmmEntryDate: '2026-05-19',
-  uniswapClmmFeesSince: '2026-09-13T03:00:45Z', // последний сбор комиссий (tx 0x0cb5f751, Base block 51239549, сверено по RPC) — APR и дни считаем от этой даты
+  uniswapClmmFeesSince: '2026-11-05T03:30:35Z', // последний сбор комиссий (tx 0x84efe313, Base block 53530044, сверено по RPC; до этого 0x0cb5f751 13.09) — APR и дни считаем от этой даты
   uniswapClmmEntryTxHash: null, // TODO: добавить когда Алекс пришлёт
   uniswapClmmPair: 'ETH/USDC',
   uniswapClmmFeeBips: 3000, // 0.3% = 3000 (Uniswap fee tier в bips × 100)
   uniswapClmmRangeLow: 1504.23,
   uniswapClmmRangeHigh: 3203.50,
-  uniswapClmmEntryETH: 5.634, // ETH в позицию при открытии
-  uniswapClmmEntryUSDC: 10007, // USDC в позицию при открытии
+  uniswapClmmEntryETH: 2.817, // остаток после снятия 50% (05.11.2026); при открытии 5.634
+  uniswapClmmEntryUSDC: 5003.5, // остаток после снятия 50% (05.11.2026); при открытии 10,007
   // Pendle PT-reUSDe (Ethereum mainnet)
   pendlePT_reUSDe: '0x2ae4f59e500b6ddeb88c480edf277eda54a00205', // PT-reUSDe-10DEC2026 (Roll over из 25JUN, tx 0x5f9793c2, 2026-06-27)
   pendlePT_reUSDe_decimals: 18,
@@ -735,7 +735,7 @@ const CONFIG = {
     { id: 'gm-eth', zone: 'yield', asset: 'GM-ETH/USD', label: 'GM ETH/USD', costBasis: 16928.59, qty: 9062.0355, entryDate: '2026-09-01', protocol: 'GMX v2', chain: 'Arbitrum', txHash: '0x7ddace69edb0680a19aa14af27f5094b22a7fa8f46cfcf4d2924c316eb60e18b', txHash2: '0xe458af6e9273e1fb6e912e07d665f023a4789d86eb6bdc9a3b373e97a7516a85', note: 'Переоткрыта при доборе LTV до 50%: 12,487 USDC → 6,646.8978 GM (Single mode, price impact +0.004%, fee 0.05%). + 2026-11-01 докупка по триггеру −7%: 4,441.59 USDC (из продажи GM BTC) → 2,415.1377 GM (tx 0xe458af6e). Итого 9,062.0355 GM, cost $16,928.59. Yield концентрируется в ETH-пуле.' },
     { id: 'pt-borrowed-reserve', zone: 'yield', asset: 'PT-reUSDe', label: 'PT-reUSDe (резерв на заёмные)', costBasis: 22379, qty: 23326.17, entryDate: '2026-09-01', protocol: 'Pendle', chain: 'Ethereum', txHash: '0xe9f39504014c96f4edaefb163265b3c506f66ba79a54c4dfc9cb6ee2dc1629b2', note: 'Резерв 30% Yield Zone на заёмные USDC. Cross-chain zap Arbitrum→Ethereum. Effective Fixed APY 17.79%. ЗОНА YIELD, не Stability — см. CONFIG.ptBorrowed.' },
     // Прошлая GM ETH/USD закрыта 2026-05-19 → мигрировала в Uniswap v3 CLMM на Base
-    { id: 'uniswap-clmm-eth-usdc-base', zone: 'yield', asset: 'Uniswap-v3-ETH/USDC', label: 'Uniswap v3 CLMM #5150479', costBasis: 21926, entryDate: '2026-05-19', protocol: 'Uniswap v3', chain: 'Base', tokenId: 5150479, feeBips: 3000, rangeLow: 1504.23, rangeHigh: 3203.50, entryETH: 5.634, entryUSDC: 10007, note: 'Миграция из GM ETH/USD: GMX exit → Mayan bridge Arb→Base → swap USDC→ETH → Uniswap v3 0.3% диапазон $1504-$3203' },
+    { id: 'uniswap-clmm-eth-usdc-base', zone: 'yield', asset: 'Uniswap-v3-ETH/USDC', label: 'Uniswap v3 CLMM #5150479', costBasis: 10963, entryDate: '2026-05-19', protocol: 'Uniswap v3', chain: 'Base', tokenId: 5150479, feeBips: 3000, rangeLow: 1504.23, rangeHigh: 3203.50, entryETH: 2.817, entryUSDC: 5003.5, note: 'Миграция из GM ETH/USD: GMX exit → Mayan bridge Arb→Base → swap USDC→ETH → Uniswap v3 0.3% диапазон $1504-$3203 (вход $21,926: 5.634 WETH + 10,007 USDC). 05.11.2026: снято 50% ликвидности (1.8208 WETH + 7,262.14 USDC ≈ $11,683, tx 0xdbc80c57) → тест Aero WETH/USDC CL50. Cost basis остатка $10,963.' },
     // Stability Zone — Own stables
     { id: 'pt-reusde-dec', zone: 'stability', asset: 'PT-reUSDe', label: 'PT-reUSDe-10DEC2026', costBasis: 64765.49, qty: 69675.32, entryDate: '2026-06-27', protocol: 'Pendle', chain: 'Ethereum', txHash: '0x5f9793c2af049bf7f57c32efd9d151cbe8cf7adddcc6441ec55ba6376dd55d4b', txHash2: '0xfbd82bffc416b115bfe700147edca59a07c2a4907596ceb3d003d6c878441607', txHash3: '0xd9ade62f97624b6c7c204ba22e548861b616f8106678b5e20cb0d4a4e803fa16', note: 'Roll over PT-25JUN→10DEC (38,514.4 PT, $36,000.44, tx 0x5f9793c2) + докупка idle-стейблов (+11,307.3 PT, $9,983.39, tx 0xfbd82bff) + DCA июль (+9,389.43 PT, $8,700 USDT0 Arb cross-chain zap @ $0.9266, tx 0xd9ade62f, 2026-07-19). + DCA сентябрь (+10,464.19 PT, $10,081.66 USDT0 Arb cross-chain zap @ $0.9635, tx 0x5535124e → 0xa12497e8, 2026-09-13). Итого 69,675.32 PT своих. Погашение 10.12.2026 ≈ $69,675.' },
   ],
@@ -805,6 +805,9 @@ const CONFIG = {
     { date: '2026-11-01', type: 'sell', asset: 'GM-BTC/USD', amount: 3690, price: 2.4943, usd: 9204.05, zone: 'yield', chain: 'Arbitrum', txHash: '0x9189abc1201adc1ab26892d38a46df3b5c0db59a57cff4acae0aa2d0d777e0e1', txHashOrder: '0x89d3db2515cb4d3066950b938342579d54ddd5f924c54a53af894019a829bc58', note: 'Триггер −7% (ETH $2,267 = −8.7% от entry $2,482.31; пробит 30.10, третий день). Продано 3,690 GM BTC/USD = 49.67% пула = 30.4% всей GM-зоны ($30,241), Pair mode (ордер 17:29:06, исполнен 17:29:11 UTC). Получено 0.06106155 WBTC ($4,763.74 @ $78,015) + 4,441.594522 USDC = $9,204.05. Cost basis проданной части $7,843 (15,791 × 49.67%) → realized +$1,361. Взято из BTC-пула, а не пропорционально: он менее доходный и отдаёт WBTC без свапа. Остаток GM BTC 3,739.66.' },
     { date: '2026-11-01', type: 'deposit', asset: 'BTC', amount: 0.06106155, price: 78015, usd: 4763.74, zone: 'growth', chain: 'Arbitrum', txHash: '0x9b8710df6bd0574016bb77a4cbe2a5e6e36aba270fee7783a3247b728c527832', note: 'Supply 0.06106155 WBTC из GM-цикла → залог Aave (17:34:27 UTC). WBTC в Aave 0.4909205 → 0.5519821. Залог $170,731 → $175,560, HF 1.561 → 1.605, LTV 53.5% → 52.0%, ликвидация ETH (BTC на месте) ~$1,216 → ~$1,136. Не DCA — BTC извлечён из Yield по методичке CGS.' },
     { date: '2026-11-01', type: 'buy', asset: 'GM-ETH/USD', amount: 2415.1377321642, price: 1.8391, usd: 4441.59, zone: 'yield', chain: 'Arbitrum', txHash: '0xe458af6e9273e1fb6e912e07d665f023a4789d86eb6bdc9a3b373e97a7516a85', txHashOrder: '0x26b415444e2c9923f75db11cf89f08306e6b710e04901ebbdd78b3bad907f522', note: 'USDC из продажи GM BTC → GM ETH/USD (ордер 17:35:15, исполнен 17:35:19 UTC): 4,441.59 USDC → 2,415.1377 GM. В ETH-пул, а не обратно в BTC: концентрация Yield в более доходном пуле. GM ETH всего 9,062.0355 (cost $16,928.59), GM BTC 3,739.66 (cost $7,948). GM-зона после цикла ≈ $25.6K + $4.76K BTC ушло в Growth. Entry триггеров НЕ меняется: −15% = $2,109.96, −30% = $1,737.62.' },
+    // ===== ТЕСТ AERO: сбор комиссий CLMM + снятие 50% ликвидности с Uniswap → Aero WETH/USDC CL50 — 2026-11-05 =====
+    { date: '2026-11-05', type: 'collect', asset: 'Uniswap-v3-ETH/USDC', amount: null, price: 2428.04, usd: 426.52, zone: 'yield', chain: 'Base', txHash: '0x84efe313cf7acf9f0099f1c74eb30ab4148c905d3142ae4dfec89844eb018e0d', note: 'Сбор комиссий CLMM #5150479 за 53.0 дн (APR 12.6%): 0.0875956 WETH + 213.8348 USDC ≈ $426.52 @ ETH $2,428.04 (03:30:35 UTC, Base block 53530044). Собрано как WETH, оставлено на Base для депозита в Aero.' },
+    { date: '2026-11-05', type: 'withdraw', asset: 'Uniswap-v3-ETH/USDC', amount: null, price: 2428.04, usd: 11683.21, zone: 'yield', chain: 'Base', txHash: '0xdbc80c578b6c4e6aea18c142b82f04039f5ead496baefde6298f5c663a544c7c', note: 'Remove liquidity 50% из CLMM #5150479 (03:31:07 UTC, block 53530060): снято liquidity 692,657,876,147,059 — ровно половина, столько же осталось → 1.82084673 WETH + 7,262.138684 USDC ≈ $11,683.21 @ ETH $2,428.04. Cost basis снятой половины $10,963 → realized +$720.21. Назначение: тест Aero WETH/USDC 0.12% CL50 (app.aero.xyz), режим Fee Rewards (без стейка), диапазон $1,750-$3,250. На Uniswap остаётся половина, cost $10,963, диапазон прежний. До депозита в Aero 1.9084 WETH + 7,475.97 USDC лежат на кошельке Base.' },
   ],
 
   // ======= CGS MODEL PARAMETERS =======
@@ -919,6 +922,8 @@ const CONFIG = {
     { date: '2026-06-27', asset: 'PT-reUSDe-25JUN', pnl: 913.30, note: 'Погашение PT-reUSDe-25JUN2026 при Roll over ($36,040.54 vs cost $35,127.24). Капитал ролловернут в PT-reUSDe-10DEC2026.' },
     { date: '2026-07-19', asset: 'CLMM fees (Uniswap #5150479)', pnl: 659.81, note: 'Собранные комиссии за 61.7 дн (APR ~19.2%). Реинвестированы в ETH на Base @ ~$1,867 (позиция eth-clmm-fees-0719).' },
     { date: '2026-11-01', asset: 'GM-BTC/USD', pnl: 1361, note: 'Триггер −7%: продано 3,690 GM (49.67% пула) за $9,204.05 vs cost $7,843 (149 дн удержания, fees включены). 0.06106 WBTC → залог Aave, USDC → GM ETH/USD.' },
+    { date: '2026-11-05', asset: 'CLMM fees (Uniswap #5150479)', pnl: 426.52, note: 'Собранные комиссии за 53.0 дн (APR 12.6%): 0.0876 WETH + 213.83 USDC @ ETH $2,428. Остались на Base → в депозит Aero.' },
+    { date: '2026-11-05', asset: 'Uniswap CLMM #5150479 (снято 50%)', pnl: 720.21, note: 'Снята половина ликвидности: получено $11,683.21 (1.8208 WETH + 7,262.14 USDC @ ETH $2,428.04) vs cost basis половины $10,963. Капитал переезжает в Aero WETH/USDC CL50 (тест, 3 недели).' },
   ],
   // ======= ЛОГ GM-ЦИКЛОВ (слои накопления BTC по методичке) =======
   gmCycles: [
