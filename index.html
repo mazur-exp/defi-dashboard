@@ -604,7 +604,7 @@ if (sessionStorage.getItem('defi_auth') === '1') {
 <script>
 // ======= CONFIGURATION =======
 const CONFIG = {
-  buildId: '2026-11-05.3',   // видно на карточке «Бенчмарк» — чтобы по скриншоту было ясно, какая сборка
+  buildId: '2026-11-05.4',   // видно на карточке «Бенчмарк» — чтобы по скриншоту было ясно, какая сборка
   wallet: '0x50E779Be63945354414162a05416E48DEDB8376E',
   btcWallet: 'bc1qn576x99g0devh8cnf0d45kradm5t06j4x2g9cp',
   rpc: 'https://arbitrum-one-rpc.publicnode.com',
@@ -2338,6 +2338,11 @@ function recordNetWorthSnapshot() {
   if (!state.snapshotOK) return;
   if (!state.aave || !(state.aave.collateral > 0) || !state.pendle || !(state.pendle.ptValue > 0)
       || !state.uniswap || !(state.uniswap.positionValueUSD > 0) || !state.gm) return;
+  // 05.11.2026: снимок 21.09 лёг на ~$8K (−3%) ниже цепочки модель → live, хотя «полный цикл» прошёл:
+  // fetch не падал, но какой-то блок вернул нули молча. Теперь требуем ненулевые балансы GM обоих
+  // пулов и позицию Aero (если она настроена), иначе снимок не пишем.
+  if (!(state.gm.btcBal > 0) || !(state.gm.ethBal > 0) || !(state.gm.btcPrice > 0) || !(state.gm.ethPrice > 0)) return;
+  if (CONFIG.aeroPositionTokenId && !(state.aero && state.aero.positionValueUSD > 0)) return;
   try {
     const log = JSON.parse(localStorage.getItem('cgsNetWorthLog') || '{}');
     log[new Date().toISOString().slice(0, 10)] = Math.round(live);
