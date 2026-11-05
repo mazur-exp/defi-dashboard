@@ -604,7 +604,7 @@ if (sessionStorage.getItem('defi_auth') === '1') {
 <script>
 // ======= CONFIGURATION =======
 const CONFIG = {
-  buildId: '2026-11-05.2',   // видно на карточке «Бенчмарк» — чтобы по скриншоту было ясно, какая сборка
+  buildId: '2026-11-05.3',   // видно на карточке «Бенчмарк» — чтобы по скриншоту было ясно, какая сборка
   wallet: '0x50E779Be63945354414162a05416E48DEDB8376E',
   btcWallet: 'bc1qn576x99g0devh8cnf0d45kradm5t06j4x2g9cp',
   rpc: 'https://arbitrum-one-rpc.publicnode.com',
@@ -2294,21 +2294,35 @@ function curveAxis() {
 //   модель до 20.03.2026 — как есть (проверена, сходится с фактом в пределах 0.5%)
 //   модель после 20.03.2026 — минус доказанная константа calibrateMinus
 //   записанные живые снимки — поверх модели, как есть
-//   хвост за пределами модели — последний известный уровень
+//   хвост за пределами модели — последний живой снимок, ПРОИНДЕКСИРОВАННЫЙ движением цен
+//     по текущему составу портфеля (portfolioMix: доли ETH/BTC/стейблов). Раньше хвост тянулся
+//     плоско: в октябре 2026 снимков на конец месяца не было, портфель «стоял» на $249K при ETH −16%,
+//     и таблица бенчмарка рисовала фальшивый отрыв +12..+20 п.п. за месяц. Без котировок — плоско, как раньше.
 //   последняя точка — живой netWorth
+//   est[i] = true, если точка не факт (ни модель, ни снимок, ни live), а оценка
 function portfolioSeries(dates, i0, live) {
   const VH = CONFIG.valueHistory, CAL = VH.calibrateMinus || 0, L = VH.values.length;
   const snap = (typeof netWorthLog === 'function') ? netWorthLog() : {};
-  const out = new Array(dates.length).fill(null);
-  let snapN = 0, lastKnown = null;
+  const out = new Array(dates.length).fill(null), est = new Array(dates.length).fill(false);
+  const E = (typeof BENCH_PX !== 'undefined' && BENCH_PX) ? BENCH_PX.eth : null;
+  const B = (typeof BENCH_PX !== 'undefined' && BENCH_PX) ? BENCH_PX.btc : null;
+  const mix = (typeof portfolioMix === 'function') ? portfolioMix() : null;
+  const px = (d, m) => { let k = d; for (let j = 0; j < 12 && !m[k]; j++) k = new Date(Date.parse(k) - 86400000).toISOString().slice(0, 10); return m[k]; };
+  let snapN = 0, lastKnown = null, lastDate = null;
   for (let i = 0; i < dates.length; i++) {
     if (i < L) out[i] = i < i0 ? VH.values[i] : VH.values[i] - CAL;
     if (snap[dates[i]] > 0) { out[i] = snap[dates[i]]; if (i >= i0) snapN++; }
-    if (out[i] == null) out[i] = lastKnown; else lastKnown = out[i];
+    if (out[i] == null) {
+      out[i] = lastKnown; est[i] = true;
+      if (lastKnown != null && lastDate && E && B && mix) {
+        const e0 = px(lastDate, E), b0 = px(lastDate, B), e1 = px(dates[i], E), b1 = px(dates[i], B);
+        if (e0 && b0 && e1 && b1) out[i] = lastKnown * (mix.wE * e1 / e0 + mix.wB * b1 / b0 + mix.wS);
+      }
+    } else { lastKnown = out[i]; lastDate = dates[i]; }
     out[i] = Math.round(out[i] || 0);
   }
-  if (live != null) out[out.length - 1] = Math.round(live);
-  return { port: out, snapN, cal: CAL };
+  if (live != null) { out[out.length - 1] = Math.round(live); est[out.length - 1] = false; }
+  return { port: out, est, snapN, cal: CAL };
 }
 
 // Пишем живую стоимость в локальный журнал — по одной точке на день.
@@ -2822,12 +2836,13 @@ function renderBenchmark() {
         <td style="${td};border-top:none;text-align:right;font-size:10px;color:var(--dim)">ПОРТФЕЛЬ</td>
         <td style="${td};border-top:none;text-align:right;font-size:10px;color:var(--dim)">ПАССИВ</td>
         <td style="${td};border-top:none;text-align:right;font-size:10px;color:var(--dim)">ОТРЫВ</td></tr>
-      ${nP.map(([m, v], k) => { const b = nB[k][1], g = v - b; return `<tr>
-        <td style="${td}">${MON[m.slice(5)]} ${m.slice(2, 4)}</td>
-        <td style="${td};text-align:right">${pc(v - 1)}</td>
+      ${nP.map(([m, v], k) => { const b = nB[k][1], g = v - b, isEst = !!(ps.est && ps.est[mEnd[m]]); return `<tr>
+        <td style="${td}">${MON[m.slice(5)]} ${m.slice(2, 4)}${isEst ? ' <span title="На конец месяца нет живого снимка: стоимость портфеля проиндексирована по ценам ETH/BTC от последнего снимка" style="color:var(--yellow);font-size:10px">~оценка</span>' : ''}</td>
+        <td style="${td};text-align:right${isEst ? ';color:var(--dim)' : ''}">${pc(v - 1)}</td>
         <td style="${td};text-align:right;color:var(--dim)">${pc(b - 1)}</td>
-        <td style="${td};text-align:right;font-weight:600;color:${col(g)}">${pp(g)}</td></tr>`; }).join('')}
+        <td style="${td};text-align:right;font-weight:600;color:${isEst ? 'var(--dim)' : col(g)}">${pp(g)}</td></tr>`; }).join('')}
     </table>
+    ${nP.some(([m]) => ps.est && ps.est[mEnd[m]]) ? `<div style="font-size:10px;color:var(--dim);margin-top:6px;line-height:1.4">~оценка: на конец этого месяца дашборд не открывался, живого снимка нет. Стоимость портфеля взята от последнего снимка и проиндексирована движением ETH/BTC по текущему составу, поэтому отрыв за такой месяц около нуля по построению. Итоговая альфа от этого не зависит (в цепочке NAV промежуточные точки сокращаются, если в месяце не было доливок). Чтобы месяц стал фактом, открой дашборд в последний день месяца.</div>` : ''}
 
     <div style="${th};padding-top:16px">Кэрри · что механика приносит по текущим ставкам</div>
     <table style="width:100%;border-collapse:collapse">
