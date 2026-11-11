@@ -604,7 +604,7 @@ if (sessionStorage.getItem('defi_auth') === '1') {
 <script>
 // ======= CONFIGURATION =======
 const CONFIG = {
-  buildId: '2026-11-11.2',   // видно на карточке «Бенчмарк» — чтобы по скриншоту было ясно, какая сборка
+  buildId: '2026-11-11.3',   // видно на карточке «Бенчмарк» — чтобы по скриншоту было ясно, какая сборка
   wallet: '0x50E779Be63945354414162a05416E48DEDB8376E',
   btcWallet: 'bc1qn576x99g0devh8cnf0d45kradm5t06j4x2g9cp',
   rpc: 'https://arbitrum-one-rpc.publicnode.com',
@@ -3144,7 +3144,12 @@ function renderPositionsPnL() {
   const p = state.prices;
   if (!p.ETH && !p.BTC) { container.innerHTML = '<span class="loading-text">Ожидание цен...</span>'; return; }
 
-  const growthPositions = CONFIG.positions.filter(pos => pos.zone === 'growth');
+  // Новые лоты сверху (по дате входа), внутри одной даты — в обратном порядке записи
+  const growthPositions = CONFIG.positions.filter(pos => pos.zone === 'growth')
+    .map((pos, i) => [pos, i]).sort((x, y) => (y[0].entryDate > x[0].entryDate ? 1 : y[0].entryDate < x[0].entryDate ? -1 : y[1] - x[1])).map(x => x[0]);
+  // Источник лота: свои деньги / заёмные (перенос из GM-цикла) / заработано (комиссии CLMM)
+  const lotOrigin = pos => /gmcycle/.test(pos.id) ? 'заёмные (GM-цикл)' : /clmm-fees/.test(pos.id) ? 'комиссии CLMM' : 'свои';
+  const originColor = o => o === 'свои' ? 'var(--green)' : o.startsWith('заёмные') ? 'var(--yellow)' : 'var(--blue)';
   let html = `<div class="table-scroll"><table class="pnl-table"><thead><tr>
     <th>Позиция</th><th>Кол-во</th><th>Вход $</th><th>Сейчас $</th><th>Стоимость</th><th>P&L $</th><th>P&L %</th><th>Дата входа</th>
   </tr></thead><tbody>`;
@@ -3161,7 +3166,7 @@ function renderPositionsPnL() {
     const cls = pnl >= 0 ? 'pnl-up' : 'pnl-down';
     const sign = pnl >= 0 ? '+' : '';
     html += `<tr>
-      <td><strong>${pos.label}</strong><div style="font-size:10px;color:var(--dim)">${pos.protocol} • ${pos.chain}</div></td>
+      <td><strong>${pos.label}</strong><div style="font-size:10px;color:var(--dim)">${pos.protocol} • ${pos.chain} • <span style="color:${originColor(lotOrigin(pos))}">${lotOrigin(pos)}</span></div></td>
       <td>${fmt(pos.qty, pos.asset === 'BTC' ? 4 : 4)}</td>
       <td>${fmtUSD(pos.entryPrice)}</td>
       <td>${fmtUSD(currentPrice)}</td>
@@ -3190,13 +3195,14 @@ function renderPositionsPnL() {
   const avgEntry = totalETH > 0 ? totalETHEntry / totalETH : 0;
   html += `<div style="margin-top:10px; font-size:11px; color:var(--dim);">Средневзвешенная цена входа ETH: <strong style="color:var(--text)">$${fmt(avgEntry,0)}</strong> | Всего ETH: <strong style="color:var(--text)">${fmt(totalETH,4)}</strong></div>`;
   // Предупреждение: база этой таблицы ≠ «Вложено своих». Не сравнивать напрямую.
-  const gmCycleLot = (CONFIG.positions.find(p => p.id === 'wbtc-gmcycle') || {});
-  const feesLot = (CONFIG.positions.find(p => p.id === 'eth-clmm-fees-0719') || {});
-  const borrowedLotCost = (gmCycleLot.qty || 0) * (gmCycleLot.entryPrice || 0);
-  const feesLotCost = (feesLot.qty || 0) * (feesLot.entryPrice || 0);
+  const lotCost = pos => (pos.qty || 0) * (pos.entryPrice || 0);
+  const borrowedLots = growthPositions.filter(p => /gmcycle/.test(p.id));
+  const feesLots = growthPositions.filter(p => /clmm-fees/.test(p.id));
+  const borrowedLotCost = borrowedLots.reduce((a, p) => a + lotCost(p), 0);
+  const feesLotCost = feesLots.reduce((a, p) => a + lotCost(p), 0);
   html += `<div style="margin-top:10px;padding:10px 12px;background:rgba(210,153,34,.08);border:1px solid var(--yellow);border-radius:8px;font-size:11px;color:var(--dim);line-height:1.6;">
     <strong style="color:var(--text)">Эта таблица считает P&L от суммы цен лотов (${fmtUSD(totalEntry)}), а НЕ от заведённых денег.</strong><br>
-    Сюда входит то, что своими деньгами не покупалось: WBTC из GM-цикла ${fmtUSD(borrowedLotCost)} (куплен на заёмные USDC) и ETH из комиссий CLMM ${fmtUSD(feesLotCost)} (заработано внутри). Плюс лоты ETH из пулов Unichain записаны по цене каждой покупки, а капитал там прокручивался по кругу.<br>
+    Сюда входит то, что своими деньгами не покупалось: <span style="color:var(--yellow)">заёмные (GM-цикл)</span> ${fmtUSD(borrowedLotCost)} в ${borrowedLots.length} лотах (BTC/ETH, снятые из GM по триггерам и положенные в залог; куплены на заёмные USDC, долг по ним остаётся) и <span style="color:var(--blue)">комиссии CLMM</span> ${fmtUSD(feesLotCost)} в ${feesLots.length} лотах (заработано внутри Yield). Плюс лоты ETH из пулов Unichain записаны по цене каждой покупки, а капитал там прокручивался по кругу.<br>
     Реальный результат к вложенным деньгам — в карточке «Вложено своих денег» на вкладке Портфель. Эти два числа не сравнивать.
   </div>`;
 
