@@ -604,7 +604,7 @@ if (sessionStorage.getItem('defi_auth') === '1') {
 <script>
 // ======= CONFIGURATION =======
 const CONFIG = {
-  buildId: '2026-11-11.3',   // видно на карточке «Бенчмарк» — чтобы по скриншоту было ясно, какая сборка
+  buildId: '2026-11-11.4',   // видно на карточке «Бенчмарк» — чтобы по скриншоту было ясно, какая сборка
   wallet: '0x50E779Be63945354414162a05416E48DEDB8376E',
   btcWallet: 'bc1qn576x99g0devh8cnf0d45kradm5t06j4x2g9cp',
   rpc: 'https://arbitrum-one-rpc.publicnode.com',
@@ -3150,7 +3150,45 @@ function renderPositionsPnL() {
   // Источник лота: свои деньги / заёмные (перенос из GM-цикла) / заработано (комиссии CLMM)
   const lotOrigin = pos => /gmcycle/.test(pos.id) ? 'заёмные (GM-цикл)' : /clmm-fees/.test(pos.id) ? 'комиссии CLMM' : 'свои';
   const originColor = o => o === 'свои' ? 'var(--green)' : o.startsWith('заёмные') ? 'var(--yellow)' : 'var(--blue)';
-  let html = `<div class="table-scroll"><table class="pnl-table"><thead><tr>
+
+  // ===== Сводка накопления: сколько ETH и BTC в Growth, средняя цена входа по всем лотам, откуда лоты =====
+  const res = state.aaveReserves || {};
+  const sumQty = (asset, pred) => growthPositions.filter(x => x.asset === asset && (!pred || pred(x))).reduce((a, x) => a + (x.qty || 0), 0);
+  const sumCost = (asset, pred) => growthPositions.filter(x => x.asset === asset && (!pred || pred(x))).reduce((a, x) => a + (x.qty || 0) * (x.entryPrice || 0), 0);
+  const isBorrowed = x => /gmcycle/.test(x.id), isFees = x => /clmm-fees/.test(x.id), isOwn = x => !isBorrowed(x) && !isFees(x);
+  const assetTile = (asset, icon, price, live, dq) => {
+    const qty = sumQty(asset), cost = sumCost(asset), avg = qty > 0 ? cost / qty : 0, cur = qty * price, pnl = cur - cost;
+    const own = sumQty(asset, isOwn), bor = sumQty(asset, isBorrowed), fee = sumQty(asset, isFees);
+    const ownAvg = own > 0 ? sumCost(asset, isOwn) / own : 0, borAvg = bor > 0 ? sumCost(asset, isBorrowed) / bor : 0;
+    const diff = live != null ? qty - live : null;
+    const c = pnl >= 0 ? 'var(--green)' : 'var(--red)', sg = pnl >= 0 ? '+' : '−';
+    const dist = avg > 0 ? (price - avg) / avg * 100 : 0;
+    return `<div style="flex:1; min-width:260px; padding:12px; background:rgba(255,255,255,0.03); border:1px solid var(--border); border-radius:10px;">
+      <div style="display:flex; justify-content:space-between; align-items:baseline;">
+        <span style="font-size:13px; font-weight:600;">${icon} ${asset} в Growth</span>
+        <span style="font-size:20px; font-weight:700;">${fmt(qty, dq)} ${asset}</span>
+      </div>
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:4px 12px; margin-top:8px; font-size:12px;">
+        <span style="color:var(--dim)">Средняя цена входа</span><span style="text-align:right; font-weight:600;">$${fmt(avg, 0)}</span>
+        <span style="color:var(--dim)">Цена сейчас</span><span style="text-align:right;">$${fmt(price, 0)} <span style="color:${dist >= 0 ? 'var(--green)' : 'var(--red)'}; font-size:11px;">(${dist >= 0 ? '+' : ''}${fmt(dist, 1)}% к средней)</span></span>
+        <span style="color:var(--dim)">Вложено по лотам</span><span style="text-align:right;">${fmtUSD(cost)}</span>
+        <span style="color:var(--dim)">Стоимость сейчас</span><span style="text-align:right;">${fmtUSD(cur)}</span>
+        <span style="color:var(--dim)">P&L по лотам</span><span style="text-align:right; color:${c}; font-weight:600;">${sg}${fmtUSD(Math.abs(pnl))} (${sg}${fmt(Math.abs(cost > 0 ? pnl / cost * 100 : 0), 1)}%)</span>
+      </div>
+      <div style="margin-top:8px; padding-top:8px; border-top:1px solid var(--border); font-size:11px; color:var(--dim); line-height:1.6;">
+        <span style="color:var(--green)">свои</span> ${fmt(own, dq)} (ср. $${fmt(ownAvg, 0)}) · <span style="color:var(--yellow)">заёмные из GM-циклов</span> ${fmt(bor, dq)}${bor > 0 ? ` (ср. $${fmt(borAvg, 0)})` : ''} · <span style="color:var(--blue)">комиссии CLMM</span> ${fmt(fee, dq)}<br>
+        В залоге Aave сейчас: <strong style="color:var(--text)">${live != null ? fmt(live, dq) : '—'} ${asset}</strong>${diff != null ? ` · лоты ${diff >= 0 ? 'больше' : 'меньше'} залога на ${fmt(Math.abs(diff), dq)} <span style="opacity:.7">(${Math.abs(diff) / (live || 1) * 100 < 1 ? 'в пределах погрешности реконструкции' : 'проверить лоты'})</span>` : ''}
+      </div>
+    </div>`;
+  };
+  const liveETH = res.WETH ? res.WETH.supplied : null, liveBTC = res.WBTC ? res.WBTC.supplied : null;
+  const btcSnapshot = (liveBTC != null ? liveBTC : 0) + (state.btcBalance || 0);
+  let html = `<div style="display:flex; gap:12px; flex-wrap:wrap; margin-bottom:14px;">
+    ${assetTile('ETH', '🔷', p.ETH || 0, liveETH, 4)}
+    ${assetTile('BTC', '🟠', p.BTC || 0, liveBTC, 4)}
+  </div>
+  <div style="font-size:11px; color:var(--dim); margin-bottom:10px;">Средняя цена входа = сумма (количество × цена входа) по всем лотам / сумма количества. Заёмные лоты (снятые из GM по триггерам) входят в среднюю: это цена, по которой актив реально заходил в залог. Средняя только по своим лотам показана отдельно. Через GM-циклы накоплено ${fmt((CONFIG.gmCycles || []).reduce((a, c) => a + (c.btcExtracted || 0), 0), 4)} BTC${(CONFIG.gmCycles || []).some(c => c.ethExtracted) ? ` и ${fmt((CONFIG.gmCycles || []).reduce((a, c) => a + (c.ethExtracted || 0), 0), 4)} ETH` : ''}.</div>
+  <div class="table-scroll"><table class="pnl-table"><thead><tr>
     <th>Позиция</th><th>Кол-во</th><th>Вход $</th><th>Сейчас $</th><th>Стоимость</th><th>P&L $</th><th>P&L %</th><th>Дата входа</th>
   </tr></thead><tbody>`;
 
@@ -3189,11 +3227,6 @@ function renderPositionsPnL() {
     <td></td>
   </tr></tbody></table></div>`;
 
-  // Weighted average entry
-  const totalETH = growthPositions.filter(p => p.asset === 'ETH').reduce((s, p) => s + p.qty, 0);
-  const totalETHEntry = growthPositions.filter(p => p.asset === 'ETH').reduce((s, p) => s + p.qty * p.entryPrice, 0);
-  const avgEntry = totalETH > 0 ? totalETHEntry / totalETH : 0;
-  html += `<div style="margin-top:10px; font-size:11px; color:var(--dim);">Средневзвешенная цена входа ETH: <strong style="color:var(--text)">$${fmt(avgEntry,0)}</strong> | Всего ETH: <strong style="color:var(--text)">${fmt(totalETH,4)}</strong></div>`;
   // Предупреждение: база этой таблицы ≠ «Вложено своих». Не сравнивать напрямую.
   const lotCost = pos => (pos.qty || 0) * (pos.entryPrice || 0);
   const borrowedLots = growthPositions.filter(p => /gmcycle/.test(p.id));
