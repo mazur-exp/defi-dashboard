@@ -604,7 +604,7 @@ if (sessionStorage.getItem('defi_auth') === '1') {
 <script>
 // ======= CONFIGURATION =======
 const CONFIG = {
-  buildId: '2026-11-11.4',   // видно на карточке «Бенчмарк» — чтобы по скриншоту было ясно, какая сборка
+  buildId: '2026-11-11.5',   // видно на карточке «Бенчмарк» — чтобы по скриншоту было ясно, какая сборка
   wallet: '0x50E779Be63945354414162a05416E48DEDB8376E',
   btcWallet: 'bc1qn576x99g0devh8cnf0d45kradm5t06j4x2g9cp',
   rpc: 'https://arbitrum-one-rpc.publicnode.com',
@@ -671,7 +671,7 @@ const CONFIG = {
   ],
   // Точка БЕЗУБЫТОЧНОСТИ Growth Zone (для P&L, НЕ для триггеров):
   //   средневзвешенная по всем покупкам ETH в Growth (LP1+LP2+ETH-sep)
-  weightedAvgETH: 3500, // (213471 + 0.17952×$2514 CLMM fees 2026-09-13 + 5.41129651×$2060.8 GM-цикл 2026-11-11) / (58.7092 + 0.17952 + 5.41129651) ETH = blended ETH entry
+  weightedAvgETH: 3500.38, // = 225,074.75 / 64.3000 ETH (сверено с плиткой P&L Growth 11.11.2026); (213471 + 0.17952×$2514 CLMM fees 2026-09-13 + 5.41129651×$2060.8 GM-цикл 2026-11-11) / (58.7092 + 0.17952 + 5.41129651) ETH = blended ETH entry
   weightedAvgETHCostBasis: 225074, // USD cost basis для P&L Growth Zone ETH (вкл. DCA 06.06 $9,990 + CLMM fees 07.19 $660 + CLMM fees 13.09 $451 + 5.4113 WETH из GM-цикла −15% 11.11 $11,152)
   // ======= UNISWAP V3 CLMM на BASE =======
   // NonfungiblePositionManager на Base (canonical Uniswap v3)
