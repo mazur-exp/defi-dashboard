@@ -604,7 +604,7 @@ if (sessionStorage.getItem('defi_auth') === '1') {
 <script>
 // ======= CONFIGURATION =======
 const CONFIG = {
-  buildId: '2026-11-11.5',   // видно на карточке «Бенчмарк» — чтобы по скриншоту было ясно, какая сборка
+  buildId: '2026-11-13.1',   // видно на карточке «Бенчмарк» — чтобы по скриншоту было ясно, какая сборка
   wallet: '0x50E779Be63945354414162a05416E48DEDB8376E',
   btcWallet: 'bc1qn576x99g0devh8cnf0d45kradm5t06j4x2g9cp',
   rpc: 'https://arbitrum-one-rpc.publicnode.com',
@@ -615,7 +615,7 @@ const CONFIG = {
   rpcBaseFallback: 'https://mainnet.base.org',
   // Arc (chain id 5042, gas-токен USDC). Публичный rpc.mainnet.arc.io режет eth_getLogs и даёт rate limit, Blockdaemon стабильнее.
   rpcArc: 'https://rpc.blockdaemon.mainnet.arc.io',
-  rpcArcFallback: 'https://rpc.mainnet.arc.io',
+  rpcArcFallback: 'https://arc.drpc.org', // 13.11.2026: из браузера Blockdaemon и rpc.mainnet.arc.io отдали «Failed to fetch» (CORS/лимит), drpc отвечал; для eth_call его лимитов хватает
   refreshInterval: 30000, // 30 sec
   // Contract addresses (Arbitrum)
   aavePool: '0x794a61358D6845594F94dc1DB02A252b5b4814aD',
@@ -2690,7 +2690,7 @@ function portfolioMix() {
     + (u.wethAmount || 0) + (u.wethFees || 0) + (ae.wethAmount || 0)) * pr.ETH + gmEth / 2;
   const btc = (sup('WBTC') + amt(w, 'WBTC') + (state.btcBalance || 0)) * pr.BTC + gmBtc / 2;
   const stab = ((state.pendle || {}).ptValue || 0) + (u.usdcAmount || 0) + (u.usdcFees || 0) + (ae.usdcAmount || 0) + (ae.rewardsValueUSD || 0) + gmEth / 2 + gmBtc / 2
-    + amt(w, 'USDC') + amt(w, 'USDC.e') + amt(w, 'USDT') + amt(wm, 'USDT') + amt(wm, 'USDC') + amt(wb, 'USDC') + amt(wa, 'USDC')
+    + sup('USDC') + sup('USDCe') + sup('USDT') + amt(w, 'USDC') + amt(w, 'USDC.e') + amt(w, 'USDT') + amt(wm, 'USDT') + amt(wm, 'USDC') + amt(wb, 'USDC') + amt(wa, 'USDC')
     - ((state.aave || {}).debt || 0);
   const sum = eth + btc + stab;
   if (!(eth > 0) || !(sum > 0)) return FB;
@@ -2949,7 +2949,12 @@ function renderZones() {
   const ethMainWBTCWallet = (state.walletETHMain['WBTC']?.amount || 0) * (p.BTC || 0);
   // Wallet ETH on Base (Growth = ВСЯ крипта на ВСЕХ сетях; добавлено 2026-07-19 — CLMM fees реинвестированы в ETH на Base)
   const baseETHWallet = ((state.walletBase || {})['ETH']?.amount || 0) * (p.ETH || 0);
-  const growthValue = (a.collateral || 0) + btcNativeUSD + arbETHWallet + arbWETHWallet + arbWBTCWallet + ethMainETHWallet + ethMainWBTCWallet + baseETHWallet;
+  // Стейблы, лежащие в Aave как supply (пожарный слой Stability, DCA 11.2026): они входят в a.collateral,
+  // если включены как залог, поэтому из Growth их вычитаем и считаем в Stability.
+  const resv = state.aaveReserves || {};
+  const aaveStables = ((resv.USDC && resv.USDC.supplied) || 0) + ((resv.USDCe && resv.USDCe.supplied) || 0) + ((resv.USDT && resv.USDT.supplied) || 0);
+  const aaveStablesInCollateral = (['USDC', 'USDCe', 'USDT']).reduce((acc, k) => acc + ((resv[k] && resv[k].collateralEnabled && resv[k].supplied) || 0), 0);
+  const growthValue = (a.collateral || 0) - aaveStablesInCollateral + btcNativeUSD + arbETHWallet + arbWETHWallet + arbWBTCWallet + ethMainETHWallet + ethMainWBTCWallet + baseETHWallet;
 
   // Yield: GM pools + Uniswap v3 CLMM на Base (всё на заёмные стейблы)
   const gmBtcVal = g.btcPrice && g.btcBal ? g.btcBal * g.btcPrice : 0;
@@ -2976,7 +2981,7 @@ function renderZones() {
   const arbStables = (w['USDC']?.amount || 0) + (w['USDC.e']?.amount || 0) + (w['USDT']?.amount || 0);
   const ethMainStables = (state.walletETHMain['USDT']?.amount || 0) + (state.walletETHMain['USDC']?.amount || 0);
   const baseStables = ((state.walletBase || {})['USDC']?.amount || 0);
-  const stabilityValue = arbStables + ethMainStables + baseStables + ptOwnValue;
+  const stabilityValue = arbStables + ethMainStables + baseStables + aaveStables + ptOwnValue;
 
   const totalPortfolio = growthValue + yieldValue + stabilityValue;
   const debt = a.debt || 0;
@@ -3047,7 +3052,11 @@ function renderZones() {
       <span class="label">🟢 Stability Zone (свои)</span>
       <span><strong>${fmtUSD(stabilityValue)}</strong> <span class="target">(факт ${fmt(sPct,0)}% / цель ${CONFIG.targetStability}%)</span></span>
     </div>
-    ${ptBorrowedValue > 1 ? `<div class="zone-detail-row" style="margin-top:-4px;">
+    ${ptBorrowedValue > 1 ? `<div class="zone-detail-row">
+      <span class="label" style="font-size:11px;color:var(--dim);padding-left:18px;">└ пожарный слой в Aave Arbitrum (supply стейблов): ${fmtUSD(aaveStables)}${aaveStablesInCollateral > 0 ? ' · как залог (поднимает HF)' : (aaveStables > 0 ? ' · НЕ залог' : '')}</span>
+      <span class="target" style="font-size:11px;">ликвидно, вынимается за секунды</span>
+    </div>
+    <div class="zone-detail-row" style="margin-top:-4px;">
       <span class="label" style="font-size:11px;color:var(--dim);padding-left:18px;">└ PT всего ${fmtUSD(ptTotalValue)}: свои ${fmtUSD(ptOwnValue)} + заёмные ${fmtUSD(ptBorrowedValue)} (учтены в Yield)</span>
       <span></span>
     </div>` : ''}
