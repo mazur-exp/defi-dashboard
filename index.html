@@ -604,7 +604,7 @@ if (sessionStorage.getItem('defi_auth') === '1') {
 <script>
 // ======= CONFIGURATION =======
 const CONFIG = {
-  buildId: '2026-11-13.2',   // видно на карточке «Бенчмарк» — чтобы по скриншоту было ясно, какая сборка
+  buildId: '2026-11-14.2',   // видно на карточке «Бенчмарк» — чтобы по скриншоту было ясно, какая сборка
   wallet: '0x50E779Be63945354414162a05416E48DEDB8376E',
   btcWallet: 'bc1qn576x99g0devh8cnf0d45kradm5t06j4x2g9cp',
   rpc: 'https://arbitrum-one-rpc.publicnode.com',
@@ -890,10 +890,10 @@ const CONFIG = {
     // ===== РЕШЕНИЯ 05.11.2026 (разбор Discord W3A + AMA, см. Cryptoinsider/CGS-plan-2026-11.md) =====
     decisions: {
       date: '2026-11-05',
-      goalAsset: 'BTC', // цель накопления. ETH в залоге остаётся, конвертация ETH→BTC только на росте, не на просадке
+      goalAsset: 'BTC', // решение 14.11.2026: основной актив BTC, ETH → BTC тремя траншами раз в месяц, 10% остаётся в ETH
       targetDrift: { growth: 65, stability: 35 }, // 70/30 остаётся целью, движение к 65/35 только через DCA в Stability, без продаж крипты
-      trigger15: '70% от ТЕКУЩЕГО остатка GM (не от исходного объёма), Single за актив → BTC в залог, без ожидания 48ч. Остаток GM ждёт −30%.',
-      trigger30: 'Остаток GM закрыть полностью + 30% своей Stability → GM BTC/USDC. Оба CLMM (Uniswap Base и Aero Arc) закрыть независимо от сети.',
+      trigger15: 'Объём: 70% остатка GM × доля актива в пуле (около 35% остатка), Single → актив в залог, без ожидания 48ч. Долларовая часть остаётся в GM. 11.11 было продано 70% целиком: отклонение от курса, исправлено в правиле 14.11.',
+      trigger30: 'Часы по активу пула. По ETH (−30% = $1,737.62): GM ETH - остаток × доля ETH, Single → в залог; оба CLMM (Uniswap Base и Aero Arc) закрыть; Stability НЕ трогаем. По BTC (−30% = $55,373 от $79,104.69): GM BTC - остаток × доля BTC → в залог; 30% всей своей Stability → GM BTC/USDC.',
       newYieldFlows: 'Существующие GM ETH/USD и CLMM ETH/USDC дорабатывают до триггеров. Все НОВЫЕ потоки Yield → BTC-инструменты: GM BTC/USDC, CLMM BTC/USDC (только во флете выше −30%). Комиссии CLMM → BTC в залог.',
       clmmExit: 'Алерт за 3% до нижней границы. Второй диапазон (−15%/+5% от цены, 0.3%) открывать сразу из ликвидного резерва Yield; первую позицию (уже в ETH) держать 48ч в рабочие дни, затем ETH в залог. До 10.12 резерва нет → старое правило: 48ч, ETH в залог.',
       newLoan: 'Только при трёх условиях одновременно: пропорции Growth/Stability восстановлены, LTV < 40-45%, Fear&Greed < 70. Направление: CLMM BTC/USDC (флет) + GM BTC/USDC.',
@@ -3106,14 +3106,23 @@ function renderTriggers() {
   const entry = CONFIG.entryETH;
   const currentDrop = ((ethPrice - entry) / entry) * 100;
 
-  // Fall triggers — по букве курса Web3 Academy CGS (Урок 4)
-  // Точка отсчёта: цена ETH на момент покупки первого GM-пула (CONFIG.entryETH = $2,137.45)
-  const fallTriggers = [
-    { pct: -7, action: 'Продать 30% GM. BTC → в залог. USDC → обратно в GM.' },
-    { pct: -15, action: 'Продать 70% от ТЕКУЩЕГО остатка GM (не от исходного объёма), Single за актив → BTC в залог, без ожидания 48ч. Остаток GM ждёт −30%. CLMM: алерт за 3% до нижней границы (решение 05.11.2026).' },
-    { pct: -30, action: 'Остаток GM закрыть полностью + 30% своей Stability → GM BTC/USDC. Оба CLMM (Uniswap Base + Aero Arc) закрыть. Recovery Mode активен.' },
-    { pct: -50, action: 'Каскад GM + 40% Stability → GM BTC/USDC (от объёма Stability, не от остатка).' },
-    { pct: -70, action: 'Каскад GM + оставшиеся 30% Stability → GM BTC/USDC. DCA only.' },
+  // Fall triggers - по букве курса Web3 Academy CGS (Урок 4, Урок 12) + формула Vadim для Single.
+  // ДВОЕ ЧАСОВ (решение 9 от 14.11.2026): каждый пул считается по цене СВОЕГО актива от своей точки входа.
+  // Часы ETH (CONFIG.entryETH): GM ETH/USD и оба CLMM ETH/USDC. Часы BTC (CONFIG.entryBTC): GM BTC/USD, будущие BTC-пулы и Stability.
+  // Объём продажи GM на любом уровне = процент уровня × ФАКТИЧЕСКАЯ доля актива в пуле GMX на момент продажи; долларовая часть остаётся в GM.
+  const ethFall = [
+    { pct: -7, action: 'GM ETH: продать 30% GM × доля ETH в пуле, Single → ETH в залог.' },
+    { pct: -15, action: 'GM ETH: продать 70% остатка × доля ETH в пуле, Single → ETH в залог. CLMM: алерт за 3% до нижней границы.' },
+    { pct: -30, action: 'GM ETH: продать остаток × доля ETH в пуле → ETH в залог. Оба CLMM ETH/USDC (Uniswap Base и Aero Arc) закрыть. Stability НЕ трогаем: она идёт по часам BTC. Recovery Mode активен.' },
+    { pct: -50, action: 'GM ETH: продать остаток × доля ETH в пуле → ETH в залог.' },
+    { pct: -70, action: 'GM ETH: продать остаток × доля ETH в пуле → ETH в залог.' },
+  ];
+  const btcFall = [
+    { pct: -7, action: 'GM BTC: продать 30% GM × доля BTC в пуле, Single → BTC в залог.' },
+    { pct: -15, action: 'GM BTC: продать 70% остатка × доля BTC в пуле, Single → BTC в залог.' },
+    { pct: -30, action: 'GM BTC: продать остаток × доля BTC в пуле → BTC в залог. 30% всей своей Stability → GM BTC/USDC.' },
+    { pct: -50, action: 'GM BTC: продать остаток × доля BTC в пуле → BTC в залог. Ещё 40% всей Stability → GM BTC/USDC.' },
+    { pct: -70, action: 'GM BTC: продать остаток × доля BTC в пуле → BTC в залог. Оставшиеся 30% всей Stability → GM BTC/USDC. DCA only.' },
   ];
 
   // Rise triggers — мягкие ориентиры (в курсе строго: «при подтверждении 48-72ч добор LTV до 50%»)
@@ -3126,17 +3135,26 @@ function renderTriggers() {
   ];
 
   let fallHTML = '';
-  fallTriggers.forEach(t => {
-    const triggerPrice = entry * (1 + t.pct/100);
-    const status = currentDrop <= t.pct ? 'passed' : (currentDrop <= t.pct + 8 && currentDrop > t.pct) ? 'active' : 'pending';
-    fallHTML += `<div class="trigger-item ${status}">
+  const fallBlock = (title, list, entryPx, px) => {
+    if (!px || !entryPx) return `<div style="font-size:12px; color:var(--dim); margin:8px 0;">${title}: нет цены</div>`;
+    const drop = ((px - entryPx) / entryPx) * 100;
+    let h = `<div style="font-size:12px; font-weight:600; margin:10px 0 4px;">${title}: точка $${fmt(entryPx,0)}, сейчас $${fmt(px,0)} (${drop >= 0 ? '+' : ''}${fmt(drop,1)}%)</div>`;
+    list.forEach(t => {
+      const triggerPrice = entryPx * (1 + t.pct/100);
+      const status = drop <= t.pct ? 'passed' : (drop <= t.pct + 8 && drop > t.pct) ? 'active' : 'pending';
+      h += `<div class="trigger-item ${status}">
       <div>
         <span class="trigger-price">${t.pct}% ($${fmt(triggerPrice,0)})</span>
         <div style="font-size:11px; color:var(--dim); margin-top:2px;">${t.action}</div>
       </div>
       <span style="font-size:16px;">${status === 'passed' ? '✅' : status === 'active' ? '⚠️' : '⏳'}</span>
     </div>`;
-  });
+    });
+    return h;
+  };
+  fallHTML += fallBlock('Часы ETH (GM ETH, CLMM ETH/USDC)', ethFall, CONFIG.entryETH, ethPrice);
+  fallHTML += fallBlock('Часы BTC (GM BTC, Stability)', btcFall, CONFIG.entryBTC, state.prices.BTC);
+  fallHTML += `<div style="font-size:11px; color:var(--dim); margin-top:8px;">Доля актива - фактическая в пуле GMX на момент продажи (обычно 47-52%). Долларовая часть GM остаётся в пуле. ✅ значит, что цена прошла уровень, а не что действие исполнено. 01.11 и 11.11 оба пула исполнялись по часам ETH, на −15% продано 70% остатка целиком: это отклонение от курса, разбор в CGS-plan-2026-11.md. Поэтому по GM BTC уровни −7% и −15% уже отработаны: при касании $67,239 НИЧЕГО не продаём, следующий уровень для GM BTC −30% ($55,373). По GM ETH следующий уровень −30% ($1,737.62).</div>`;
   document.getElementById('fallTriggers').innerHTML = fallHTML;
 
   let riseHTML = '';
@@ -3461,13 +3479,14 @@ function renderCGSModel() {
   html += `<div class="cgs-param"><span class="cgs-param-label">Критический LTV</span><span class="cgs-param-value" style="color:var(--yellow)">${m.criticalLTV}% — начинаем снижать</span></div>`;
   html += `<div class="cgs-param"><span class="cgs-param-label">Экстренный HF</span><span class="cgs-param-value" style="color:var(--red)">< ${m.emergencyHF} — продаём Yield</span></div>`;
   html += `<div class="cgs-param"><span class="cgs-param-label">Точка сборки (entryETH)</span><span class="cgs-param-value">$${fmt(CONFIG.entryETH, 0)} (${CONFIG.assemblyDate})</span></div>`;
+  html += `<div class="cgs-param"><span class="cgs-param-label">Точка BTC (entryBTC)</span><span class="cgs-param-value">$${fmt(CONFIG.entryBTC, 0)} (часы GM BTC и Stability)</span></div>`;
   html += `<div class="cgs-param"><span class="cgs-param-label">Recovery enter (−30%)</span><span class="cgs-param-value">ETH < $${fmt(m.recoveryEnterPrice, 0)}</span></div>`;
   html += `<div class="cgs-param"><span class="cgs-param-label">Weighted avg (P&L)</span><span class="cgs-param-value">$${fmt(CONFIG.weightedAvgETH, 0)} — точка безубыточности Growth</span></div>`;
 
   // Решения 05.11.2026 (Discord W3A + AMA): цель BTC, дрейф к 65/35, правило −15% от остатка, выход CLMM, условия нового займа
   const dec = m.decisions;
   if (dec) {
-    html += `<div class="cgs-param"><span class="cgs-param-label">Цель накопления</span><span class="cgs-param-value">${dec.goalAsset} (ETH в залоге остаётся, ETH→BTC только на росте)</span></div>`;
+    html += `<div class="cgs-param"><span class="cgs-param-label">Цель накопления</span><span class="cgs-param-value">${dec.goalAsset} (ETH → BTC тремя траншами раз в месяц, 10% остаётся в ETH)</span></div>`;
     html += `<div class="cgs-param"><span class="cgs-param-label">Дрейф пропорции</span><span class="cgs-param-value">к ${dec.targetDrift.growth}/${dec.targetDrift.stability} через DCA в Stability, без продаж</span></div>`;
     html += `<details style="margin-top:8px; font-size:11px; color:var(--dim);"><summary style="cursor:pointer; color:var(--text);">Правила от ${dec.date} (разбор W3A Discord + AMA) ▾</summary>
       <div style="margin-top:6px; line-height:1.5;">
@@ -3499,6 +3518,7 @@ function renderCGSModel() {
     html += `<div style="margin-top:10px; padding:8px; background:rgba(88,166,255,0.1); border-radius:8px; font-size:12px;">
       <div>ETH сейчас: <strong>$${fmt(ethPrice,0)}</strong></div>
       <div>vs точка сборки $${fmt(CONFIG.entryETH,0)}: <strong style="color:${dropFromEntry >= -7 ? 'var(--green)' : dropFromEntry >= -30 ? 'var(--yellow)' : 'var(--red)'}">${dropFromEntry >= 0 ? '+' : ''}${fmt(dropFromEntry,1)}%</strong> ${dropFromEntry < -30 ? '(Recovery)' : '(Normal)'}</div>
+      ${state.prices.BTC ? `<div>BTC сейчас: <strong>$${fmt(state.prices.BTC,0)}</strong>, vs точка BTC $${fmt(CONFIG.entryBTC,0)}: <strong>${fmt(((state.prices.BTC - CONFIG.entryBTC) / CONFIG.entryBTC) * 100,1)}%</strong> (часы GM BTC и Stability)</div>` : ''}
       <div>vs weighted avg $${fmt(CONFIG.weightedAvgETH,0)}: <span style="color:var(--dim)">${dropFromWavg >= 0 ? '+' : ''}${fmt(dropFromWavg,1)}% (P&L unrealized)</span></div>
       <div>HF: <strong style="color:${hf >= 1.5 ? 'var(--green)' : hf >= m.emergencyHF ? 'var(--yellow)' : 'var(--red)'}">${fmt(hf, 2)}</strong></div>
     </div>`;
