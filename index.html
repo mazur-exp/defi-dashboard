@@ -604,7 +604,7 @@ if (sessionStorage.getItem('defi_auth') === '1') {
 <script>
 // ======= CONFIGURATION =======
 const CONFIG = {
-  buildId: '2026-11-15.1',   // видно на карточке «Бенчмарк» — чтобы по скриншоту было ясно, какая сборка
+  buildId: '2026-11-15.2',   // видно на карточке «Бенчмарк» — чтобы по скриншоту было ясно, какая сборка
   wallet: '0x50E779Be63945354414162a05416E48DEDB8376E',
   btcWallet: 'bc1qn576x99g0devh8cnf0d45kradm5t06j4x2g9cp',
   rpc: 'https://arbitrum-one-rpc.publicnode.com',
@@ -1004,6 +1004,11 @@ const CONFIG = {
     { date: '2026-11-15', asset: 'GM-ETH/USD', pnl: -315, note: 'Триггер −30% по часам ETH: продано 1,340 GM (остаток × доля ETH 49.3%) за $2,188.04 (1.230979 WETH, Single) vs cost $2,503.22. WETH → залог Aave.' },
   ],
   // ======= ЛОГ GM-ЦИКЛОВ (слои накопления BTC по методичке) =======
+  // ======= ИСПОЛНЕННЫЕ УРОВНИ ПАДЕНИЯ (по часам) — ✅ ставится только по этому списку =======
+  triggersExecuted: {
+    eth: { '-7': '01.11', '-15': '11.11', '-30': '15.11' }, // −7% 01.11 исполнен продажей GM BTC (по часам ETH, отклонение); −15% 11.11 GM ETH 70% остатка; −30% 15.11 GM ETH 1,340 GM
+    btc: { '-7': '01.11', '-15': '11.11' }, // GM BTC −7% и −15% отработаны 01.11 и 11.11 (продавались по часам ETH, повторно не отрабатываем)
+  },
   gmCycles: [
     { date: '2026-06-05', trigger: 'catch-up −7%/−15%', ethDropPct: -22.7, btcPrice: 60700, btcExtracted: 0.2634, gmRebuy: 15791, realized: -1941 },
     { date: '2026-11-01', trigger: '−7% (30% GM)', ethDropPct: -8.7, btcPrice: 78015, btcExtracted: 0.06106155, gmRebuy: 4441.59, realized: 1361 },
@@ -3141,26 +3146,29 @@ function renderTriggers() {
   ];
 
   let fallHTML = '';
-  const fallBlock = (title, list, entryPx, px) => {
+  const fallBlock = (title, list, entryPx, px, done = {}) => {
     if (!px || !entryPx) return `<div style="font-size:12px; color:var(--dim); margin:8px 0;">${title}: нет цены</div>`;
     const drop = ((px - entryPx) / entryPx) * 100;
     let h = `<div style="font-size:12px; font-weight:600; margin:10px 0 4px;">${title}: точка $${fmt(entryPx,0)}, сейчас $${fmt(px,0)} (${drop >= 0 ? '+' : ''}${fmt(drop,1)}%)</div>`;
     list.forEach(t => {
       const triggerPrice = entryPx * (1 + t.pct/100);
-      const status = drop <= t.pct ? 'passed' : (drop <= t.pct + 8 && drop > t.pct) ? 'active' : 'pending';
+      const doneDate = done[String(t.pct)];
+      const status = doneDate ? 'passed' : drop <= t.pct ? 'active' : (drop <= t.pct + 8) ? 'active' : 'pending';
+      const mark = doneDate ? '✅' : drop <= t.pct ? '❗' : status === 'active' ? '⚠️' : '⏳';
+      const tag = doneDate ? ` · исполнено ${doneDate}` : drop <= t.pct ? ' · цена прошла уровень, НЕ исполнено' : '';
       h += `<div class="trigger-item ${status}">
       <div>
-        <span class="trigger-price">${t.pct}% ($${fmt(triggerPrice,0)})</span>
+        <span class="trigger-price">${t.pct}% ($${fmt(triggerPrice,0)})${tag}</span>
         <div style="font-size:11px; color:var(--dim); margin-top:2px;">${t.action}</div>
       </div>
-      <span style="font-size:16px;">${status === 'passed' ? '✅' : status === 'active' ? '⚠️' : '⏳'}</span>
+      <span style="font-size:16px;">${mark}</span>
     </div>`;
     });
     return h;
   };
-  fallHTML += fallBlock('Часы ETH (GM ETH)', ethFall, CONFIG.entryETH, ethPrice);
-  fallHTML += fallBlock('Часы BTC (GM BTC, Stability)', btcFall, CONFIG.entryBTC, state.prices.BTC);
-  fallHTML += `<div style="font-size:11px; color:var(--dim); margin-top:8px;">Доля актива - фактическая в пуле GMX на момент продажи (обычно 47-52%). Долларовая часть GM остаётся в пуле. ✅ значит, что цена прошла уровень, а не что действие исполнено. 01.11 и 11.11 оба пула исполнялись по часам ETH, на −15% продано 70% остатка целиком: это отклонение от курса, разбор в CGS-plan-2026-11.md. Поэтому по GM BTC уровни −7% и −15% уже отработаны: при касании $67,239 НИЧЕГО не продаём, следующий уровень для GM BTC −30% ($55,373). По GM ETH следующий уровень −30% ($1,737.62).</div>`;
+  fallHTML += fallBlock('Часы ETH (GM ETH)', ethFall, CONFIG.entryETH, ethPrice, (CONFIG.triggersExecuted||{}).eth);
+  fallHTML += fallBlock('Часы BTC (GM BTC, Stability)', btcFall, CONFIG.entryBTC, state.prices.BTC, (CONFIG.triggersExecuted||{}).btc);
+  fallHTML += `<div style="font-size:11px; color:var(--dim); margin-top:8px;">Доля актива - фактическая в пуле GMX на момент продажи (обычно 47-52%). Долларовая часть GM остаётся в пуле. ✅ = уровень исполнен (дата из CONFIG.triggersExecuted). ❗ = цена прошла уровень, а действие не записано как исполненное. ⚠️ = до уровня меньше 8%. 01.11 и 11.11 оба пула исполнялись по часам ETH, на −15% продано 70% остатка целиком: это отклонение от курса, разбор в CGS-plan-2026-11.md. Поэтому по GM BTC уровни −7% и −15% уже отработаны: при касании $67,239 НИЧЕГО не продаём, следующий уровень для GM BTC −30% ($55,373). По GM ETH −30% исполнен 15.11 (1,340 GM → 1.231 WETH в залог), следующий уровень −50% ($1,241.16). CLMM закрываются по своим стопам: Aero $1,694, Uniswap $1,481.</div>`;
   document.getElementById('fallTriggers').innerHTML = fallHTML;
 
   let riseHTML = '';
